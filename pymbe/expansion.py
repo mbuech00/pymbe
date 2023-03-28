@@ -19,6 +19,7 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
+from numpy.polynomial.polynomial import Polynomial
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union
 
 from pymbe.output import (
@@ -202,7 +203,7 @@ class ExpCls(
         self.screen_func: str = mbe.screen_func
         self.screen: List[Dict[str, np.ndarray]] = []
         self.screen_orbs = np.array([], dtype=np.int64)
-        self.error: float = 0.0
+        self.mbe_tot_error: List[float] = []
 
         # restart
         self.rst: bool = mbe.rst
@@ -306,13 +307,15 @@ class ExpCls(
                 mbe_header(
                     self.order,
                     self.n_tuples["calc"][self.order - self.min_order],
+                    self.screen_type,
                     1.0 if self.order < self.screen_start else self.screen_perc,
+                    self.screen_thres,
                 )
             )
 
             # main mbe function
             if not self.restarted or (
-                self.order > self.start_order and len(self.exp_space) == self.order
+                self.order > self.start_order and len(self.mbe_tot_prop) < self.order
             ):
                 self._mbe(mpi)
                 self._mbe_restart()
@@ -343,6 +346,7 @@ class ExpCls(
                 self.order > self.start_order and len(self.exp_space) == self.order
             ):
                 self._screen(mpi)
+                self._screen_restart()
 
             # update screen_orbs
             if self.order > self.min_order:
@@ -359,7 +363,9 @@ class ExpCls(
                         self.screen_orbs,
                         self.exp_space,
                         self.screen_type,
-                        self.error,
+                        self.mbe_tot_error[-1]
+                        if self.screen_type == "adaptive"
+                        else 0.0,
                     )
                 )
 
@@ -445,6 +451,9 @@ class ExpCls(
                 )
 
             elif msg["task"] == "screen":
+
+                # receive order
+                self.order = msg["order"]
 
                 # main screening function
                 self._screen(mpi)
@@ -727,6 +736,12 @@ class ExpCls(
                 # read total properties
                 elif "mbe_tot_prop" in files[i]:
                     self.mbe_tot_prop.append(self._read_target_file(files[i]))
+
+                # read total error
+                elif "mbe_tot_error" in files[i]:
+                    self.mbe_tot_error.append(
+                        np.load(os.path.join(RST, files[i])).item()
+                    )
 
                 # read minimum increment
                 elif "mbe_min_inc" in files[i]:
@@ -1253,10 +1268,10 @@ class ExpCls(
                 mpi_reduce(mpi.global_comm, pair_corr[1], root=0, op=MPI.SUM),
             ]
 
-        # allreduce screen
+        # reduce screen
         if screen_mpi_func is not None:
             for screen_func, screen_array in screen.items():
-                self.screen[-1][screen_func] = mpi_allreduce(
+                self.screen[-1][screen_func] = mpi_reduce(
                     mpi.global_comm,
                     screen_array,
                     op=screen_mpi_func[screen_func],
@@ -1332,7 +1347,7 @@ class ExpCls(
             self._write_target_file(self.min_inc[-1], "mbe_min_inc", self.order)
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
-            write_file_mult(self.screen[-1], "screen", self.order)
+            write_file_mult(self.screen[-1], "mbe_screen", self.order)
             write_file(np.asarray(self.n_tuples["inc"][-1]), "mbe_idx", self.order)
             write_file(np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order)
             self._write_target_file(self.mbe_tot_prop[-1], "mbe_tot_prop", self.order)
@@ -1345,29 +1360,40 @@ class ExpCls(
         """
         # wake up slaves
         if mpi.global_master:
-            msg = {"task": "screen"}
+            msg = {"task": "screen", "order": self.order}
             mpi.global_comm.bcast(msg, root=0)
 
         # fixed screening procedure
         if self.screen_type == "fixed":
 
-            thres = 1.0 if self.order < self.screen_start else self.screen_perc
-            nkeep = int(thres * self.exp_space[-1].size)
-            if self.screen_func == "rnd":
-                rng = np.random.default_rng()
-                # update expansion space wrt screened orbitals
-                self.exp_space.append(
-                    rng.choice(self.exp_space[-1], size=nkeep, replace=False)
-                )
+            # start screening
+            if mpi.global_master:
+
+                thres = 1.0 if self.order < self.screen_start else self.screen_perc
+                nkeep = int(thres * self.exp_space[-1].size)
+                if self.screen_func == "rnd":
+                    rng = np.random.default_rng()
+                    # update expansion space wrt screened orbitals
+                    self.exp_space.append(
+                        rng.choice(self.exp_space[-1], size=nkeep, replace=False)
+                    )
+                else:
+                    orb_screen = np.abs(
+                        self.screen[-1][self.screen_func][self.exp_space[-1]]
+                    )
+                    orb_significance = np.argsort(orb_screen)[::-1]
+                    # update expansion space wrt screened orbitals
+                    self.exp_space.append(
+                        self.exp_space[-1][np.sort(orb_significance[:nkeep])]
+                    )
+
+                # bcast updated expansion space
+                mpi.global_comm.bcast(self.exp_space[-1], root=0)
+
             else:
-                orb_screen = np.abs(
-                    self.screen[-1][self.screen_func][self.exp_space[-1]]
-                )
-                orb_significance = np.argsort(orb_screen)[::-1]
-                # update expansion space wrt screened orbitals
-                self.exp_space.append(
-                    self.exp_space[-1][np.sort(orb_significance[:nkeep])]
-                )
+
+                # receive updated expansion space
+                self.exp_space.append(mpi.global_comm.bcast(None, root=0))
 
         # adaptive screening procedure
         elif self.screen_type == "adaptive":
@@ -1381,6 +1407,11 @@ class ExpCls(
 
             # start screening
             if mpi.global_master:
+
+                # initialize error for current order
+                self.mbe_tot_error.append(
+                    self.mbe_tot_error[-1] if self.order > self.min_order else 0.0
+                )
 
                 # initialize minimum orbital contribution
                 min_orb_contrib = 0.0
@@ -1428,13 +1459,11 @@ class ExpCls(
 
                     # check if expansion has ended
                     if self.order >= max_order:
-                        self.exp_space[-1] = np.array([], dtype=np.int64)
                         keep_screening = False
-                        mpi.global_comm.bcast(keep_screening, root=0)
-                        return
+                        break
 
                     # define error allowed per orbital
-                    error_thresh = self.screen_thres - self.error
+                    error_thresh = self.screen_thres - self.mbe_tot_error[-1]
 
                     # initialize array for error estimate
                     error_estimate = np.zeros(
@@ -1443,19 +1472,20 @@ class ExpCls(
                     )
 
                     # get number of tuples for remaining orders
-                    ntup_order_occ, ntup_order_virt = zip(
-                        *[
-                            orb_n_tuples(
-                                self.exp_space[-1][self.exp_space[-1] < self.nocc],
-                                self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                                self.ref_nelec,
-                                self.ref_nhole,
-                                self.vanish_exc,
-                                order,
-                            )
-                            for order in range(self.order + 1, max_order + 1)
-                        ]
-                    )
+                    ntup_order_occ = np.empty(max_order - self.order, dtype=np.int64)
+                    ntup_order_virt = np.empty(max_order - self.order, dtype=np.int64)
+                    for order in range(self.order + 1, max_order + 1):
+                        (
+                            ntup_order_occ[order - (self.order + 1)],
+                            ntup_order_virt[order - (self.order + 1)],
+                        ) = orb_n_tuples(
+                            self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                            self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                            self.ref_nelec,
+                            self.ref_nhole,
+                            self.vanish_exc,
+                            order,
+                        )
                     ntup_order_tot = [
                         n_tuples(
                             self.exp_space[-1][self.exp_space[-1] < self.nocc],
@@ -1470,10 +1500,8 @@ class ExpCls(
 
                     # check if expansion has ended
                     if np.sum(ntup_order_tot) == 0:
-                        self.exp_space[-1] = np.array([], dtype=np.int64)
                         keep_screening = False
-                        mpi.global_comm.bcast(keep_screening, root=0)
-                        return
+                        break
 
                     # get maximum relative factor from last two orders
                     rel_factor = np.max(
@@ -1485,10 +1513,7 @@ class ExpCls(
 
                         # get mean absolute increments for orbital
                         mean_abs_inc = np.array(
-                            [
-                                screen["mean_abs_inc"][orb]
-                                for screen in self.screen[self.vanish_exc - 1 :]
-                            ],
+                            [screen["mean_abs_inc"][orb] for screen in self.screen],
                             dtype=np.float64,
                         )
 
@@ -1516,34 +1541,29 @@ class ExpCls(
                             if r2_value > 0.9:
 
                                 # fit log-transformed mean absolute increments
-                                slope, const = np.polyfit(orders, log_mean_abs_inc, 1)
+                                fit = Polynomial.fit(orders, log_mean_abs_inc, 1)
 
                             else:
 
                                 # assume mean absolute increment does not decrease
-                                slope, const = 0.0, log_mean_abs_inc[-1]
+                                fit = Polynomial([log_mean_abs_inc[-1], 0.0])
 
                         else:
 
                             keep_screening = False
-                            mpi.global_comm.bcast(keep_screening, root=0)
-                            return
+                            break
 
-                        # loop over remaining orders
-                        for order in range(self.order + 1, max_order + 1):
+                        # get estimates for remaining orders
+                        error_estimate[orb_idx] = rel_factor * np.exp(
+                            fit(np.arange(self.order + 1, max_order + 1))
+                        )
+                        error_estimate[orb_idx] *= (
+                            ntup_order_occ if orb < self.nocc else ntup_order_virt
+                        )
 
-                            if orb < self.nocc:
-                                ntup_order = ntup_order_occ[order - (self.order + 1)]
-                            else:
-                                ntup_order = ntup_order_virt[order - (self.order + 1)]
-
-                            # estimate error
-                            error_estimate[orb_idx, order - (self.order + 1)] = (
-                                ntup_order * rel_factor * np.exp(slope * order + const)
-                            )
-
-                    if mpi.global_master:
-                        np.save("error_estimate_" + str(self.order), error_estimate)
+                    # check if orbitals will be screened away at this order
+                    if not keep_screening:
+                        break
 
                     # calculate total error
                     tot_error = np.sum(error_estimate, axis=1)
@@ -1567,7 +1587,7 @@ class ExpCls(
                     if error_diff[min_idx] > 0.0:
 
                         # add screened orbital contribution to error
-                        self.error += min_orb_contrib
+                        self.mbe_tot_error[-1] += min_orb_contrib
 
                         # signal other processes to continue screening
                         mpi.global_comm.bcast(keep_screening, root=0)
@@ -1634,10 +1654,13 @@ class ExpCls(
                                 else 0.0
                             )
 
+                    # stop screening if no other orbitals contribute above threshold
                     else:
 
                         keep_screening = False
-                        mpi.global_comm.bcast(keep_screening, root=0)
+
+                # signal other processes to stop screening
+                mpi.global_comm.bcast(keep_screening, root=0)
 
             else:
 
@@ -1682,11 +1705,21 @@ class ExpCls(
                 get_eqv_inc_orbs(self.symm_eqv_orbs[-1], self.nsymm, self.norb)
             )
 
-        if mpi.global_master:
+        return
 
-            # write restart files
-            if self.rst:
-                write_file(self.exp_space[-1], "exp_space", self.order + 1)
+    def _screen_restart(self) -> None:
+        """
+        this function writes restart files after screening
+        """
+        # write restart file
+        if self.rst:
+            if self.screen_type == "adaptive":
+                for k in range(self.order - self.min_order + 1):
+                    write_file_mult(self.screen[k], "mbe_screen", k + self.min_order)
+                write_file(
+                    np.asarray(self.mbe_tot_error[-1]), "mbe_tot_error", self.order
+                )
+            write_file(self.exp_space[-1], "exp_space", self.order + 1)
 
         return
 
@@ -2294,12 +2327,13 @@ class ExpCls(
                     raise RuntimeError("Last order tuple not found:", tup_last)
 
             # reduce contributions
-            remove_sum_abs = mpi_allreduce(mpi.global_comm, remove_sum_abs, op=MPI.SUM)
-            remove_sum = mpi_allreduce(mpi.global_comm, remove_sum, op=MPI.SUM)
+            remove_sum_abs = mpi_reduce(mpi.global_comm, remove_sum_abs, op=MPI.SUM)
+            remove_sum = mpi_reduce(mpi.global_comm, remove_sum, op=MPI.SUM)
 
             # remove contributions to screening functions
-            self.screen[k - self.min_order]["sum_abs"] -= remove_sum_abs
-            self.screen[k - self.min_order]["sum"] -= remove_sum
+            if mpi.global_master:
+                self.screen[k - self.min_order]["sum_abs"] -= remove_sum_abs
+                self.screen[k - self.min_order]["sum"] -= remove_sum
 
         return
 

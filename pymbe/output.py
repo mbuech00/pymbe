@@ -79,7 +79,9 @@ def main_header(mpi: Optional[MPICls] = None, method: Optional[str] = None) -> s
     return string
 
 
-def mbe_header(order: int, n_tuples: int, thres: float) -> str:
+def mbe_header(
+    order: int, n_tuples: int, screen_type: str, screen_perc: float, screen_thres: float
+) -> str:
     """
     this function prints the mbe header
     """
@@ -87,9 +89,13 @@ def mbe_header(order: int, n_tuples: int, thres: float) -> str:
     string: str = "\n\n" + DIVIDER + "\n"
     string += (
         f" STATUS-{order:d}:  order k = {order:d} MBE started  ---  {n_tuples:d} "
-        f"tuples in total (thres: {thres:.2f})\n"
+        f"tuples in total "
     )
-    string += DIVIDER
+    if screen_type == "fixed":
+        string += f"(perc: {screen_perc:.2f})"
+    elif screen_type == "adaptive":
+        string += f"(thres: {screen_thres:.0e})"
+    string += "\n" + DIVIDER
 
     return string
 
@@ -202,10 +208,10 @@ def screen_results(
     string += (
         f" RESULT-{order:d}:  total number of screened MOs: {total_screen.size:}\n"
     )
-    string += DIVIDER + "\n"
     if screen_type == "adaptive":
-        string += f" RESULT-{order:d}:  total error: {error:>13.4e}\n"
         string += DIVIDER + "\n"
+        string += f" RESULT-{order:d}:  total error: {error:>13.4e}\n"
+    string += DIVIDER
 
     return string
 
