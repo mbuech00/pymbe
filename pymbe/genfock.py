@@ -53,7 +53,6 @@ from pymbe.parallel import (
     mpi_gatherv,
     open_shared_win,
 )
-from pymbe import direct_spin0_symm, direct_spin1_symm
 
 if TYPE_CHECKING:
 
@@ -795,16 +794,71 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
-        if not self.no_singles:
-            if spin_cas == 0:
-                solver = fci.direct_spin0_symm.FCI()
-            else:
-                solver = fci.direct_spin1_symm.FCI()
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
         else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # create special function for hamiltonian operation when singles are omitted
+        if not self.no_singles:
+
+            hop = None
+
+        else:
+
             if spin_cas == 0:
-                solver = direct_spin0_symm.FCISolver()
+
+                link_index = fci.cistring.gen_linkstr_index_trilidx(
+                    range(cas_idx.size), nelec[0]
+                )
+                na = link_index.shape[0]
+                t1_addrs = np.array(
+                    [
+                        fci.cistring.str2addr(cas_idx.size, nelec[0], x)
+                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
+                    ]
+                )
+                h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+
+                def hop(c):
+                    hc = solver.contract_2e(
+                        h2e_abs, c.reshape(na, na), cas_idx.size, nelec, link_index
+                    )
+                    hc[t1_addrs, 0] = 0.0
+                    hc[0, t1_addrs] = 0.0
+                    return hc.ravel()
+
             else:
-                solver = direct_spin1_symm.FCISolver()
+
+                link_indexa = fci.cistring.gen_linkstr_index_trilidx(
+                    range(cas_idx.size), nelec[0]
+                )
+                link_indexb = fci.cistring.gen_linkstr_index_trilidx(
+                    range(cas_idx.size), nelec[1]
+                )
+                t1_addrs_a = np.array(
+                    [
+                        fci.cistring.str2addr(cas_idx.size, nelec[0], x)
+                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
+                    ]
+                )
+                t1_addrs_b = np.array(
+                    [
+                        fci.cistring.str2addr(cas_idx.size, nelec[1], x)
+                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
+                    ]
+                )
+                h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+
+                def hop(c):
+                    hc = solver.contract_2e(
+                        h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
+                    )
+                    if t1_addrs_a.size > 0:
+                        hc[t1_addrs_a] = 0.0
+                    if t1_addrs_b.size > 0:
+                        hc[t1_addrs_b * na] = 0.0
+                    return hc.ravel()
 
         # settings
         solver.conv_tol = CONV_TOL
@@ -834,7 +888,9 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
             this function provides an interface to solver.kernel
             """
             # perform calc
-            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
+            e, c = solver.kernel(
+                h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0, hop=hop
+            )
 
             # collect results
             if solver.nroots == 1:
@@ -1021,16 +1077,71 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
         for solver_info in solvers:
 
             # init fci solver
-            if not self.no_singles:
-                if solver_info["spin"] == 0:
-                    solver = fci.direct_spin0_symm.FCI()
-                else:
-                    solver = fci.direct_spin1_symm.FCI()
+            if solver_info["spin"] == 0:
+                solver = fci.direct_spin0_symm.FCI()
             else:
+                solver = fci.direct_spin1_symm.FCI()
+
+            # create special function for hamiltonian operation when singles are omitted
+            if not self.no_singles:
+
+                hop = None
+
+            else:
+
                 if solver_info["spin"] == 0:
-                    solver = direct_spin0_symm.FCISolver()
+
+                    link_index = fci.cistring.gen_linkstr_index_trilidx(
+                        range(cas_idx.size), nelec[0]
+                    )
+                    na = link_index.shape[0]
+                    t1_addrs = np.array(
+                        [
+                            fci.cistring.str2addr(cas_idx.size, nelec[0], x)
+                            for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
+                        ]
+                    )
+                    h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+
+                    def hop(c):
+                        hc = solver.contract_2e(
+                            h2e_abs, c.reshape(na, na), cas_idx.size, nelec, link_index
+                        )
+                        hc[t1_addrs, 0] = 0.0
+                        hc[0, t1_addrs] = 0.0
+                        return hc.ravel()
+
                 else:
-                    solver = direct_spin1_symm.FCISolver()
+
+                    link_indexa = fci.cistring.gen_linkstr_index_trilidx(
+                        range(cas_idx.size), nelec[0]
+                    )
+                    link_indexb = fci.cistring.gen_linkstr_index_trilidx(
+                        range(cas_idx.size), nelec[1]
+                    )
+                    t1_addrs_a = np.array(
+                        [
+                            fci.cistring.str2addr(cas_idx.size, nelec[0], x)
+                            for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
+                        ]
+                    )
+                    t1_addrs_b = np.array(
+                        [
+                            fci.cistring.str2addr(cas_idx.size, nelec[1], x)
+                            for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
+                        ]
+                    )
+                    h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+
+                    def hop(c):
+                        hc = solver.contract_2e(
+                            h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
+                        )
+                        if t1_addrs_a.size > 0:
+                            hc[t1_addrs_a] = 0.0
+                        if t1_addrs_b.size > 0:
+                            hc[t1_addrs_b * na] = 0.0
+                        return hc.ravel()
 
             # get roots
             roots = [states[state]["root"] for state in solver_info["states"]]
@@ -1066,7 +1177,13 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                 """
                 # perform calc
                 e, c = solver.kernel(
-                    h1e, h2e, cas_idx.size, solver_info["nelec"], ecore=e_core, ci0=ci0
+                    h1e,
+                    h2e,
+                    cas_idx.size,
+                    solver_info["nelec"],
+                    ecore=e_core,
+                    ci0=ci0,
+                    hop=hop,
                 )
 
                 # collect results
@@ -1085,7 +1202,7 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                     civec[root], cas_idx.size, solver_info["nelec"]
                 )
 
-                if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+                if np.abs((solver_info["spin"] + 1) - mult) > SPIN_TOL:
 
                     # fix spin by applying level shift
                     sz = np.abs(solver_info["nelec"][0] - solver_info["nelec"][1]) * 0.5
@@ -1102,7 +1219,7 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                             civec[root], cas_idx.size, solver_info["nelec"]
                         )
                         assertion(
-                            np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                            np.abs((solver_info["spin"] + 1) - mult) < SPIN_TOL,
                             f"spin contamination for root entry = {root}\n"
                             f"2*S + 1 = {mult:.6f}\n"
                             f"cas_idx = {cas_idx}\n"
