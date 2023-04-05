@@ -719,7 +719,7 @@ def orb_tuples(
     if orb in occ_space:
 
         # remove orbital
-        occ_space = np.delete(occ_space, occ_space == orb)
+        occ_space = np.delete(occ_space, np.where(occ_space == orb)[0][0])
 
         # combinations of occupied and virtual MOs
         for k in range(1, order - 1):
@@ -746,7 +746,7 @@ def orb_tuples(
     elif orb in virt_space:
 
         # remove orbital
-        virt_space = np.delete(virt_space, virt_space == orb)
+        virt_space = np.delete(virt_space, np.where(virt_space == orb)[0][0])
 
         # combinations of occupied and virtual MOs
         for k in range(1, order - 1):
