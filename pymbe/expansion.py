@@ -2081,7 +2081,7 @@ class ExpCls(
         hashes.append(
             open_shared_win(hashes_win, np.int64, (self.n_tuples["inc"][-1],))
         )
-        if local_master and not global_master:
+        if local_master and (not global_master or not rst_read):
             hashes[-1][:].fill(0)
 
         return hashes, hashes_win
@@ -2130,7 +2130,7 @@ class ExpCls(
             )
         )
 
-        if (local_master and not global_master) or (global_master and not rst_read):
+        if local_master and (not global_master or not rst_read):
             inc[-1][:].fill(0.0)
 
         return inc, inc_win
