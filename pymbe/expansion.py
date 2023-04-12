@@ -22,8 +22,6 @@ from abc import ABCMeta, abstractmethod
 from numpy.polynomial.polynomial import Polynomial
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union
 
-import matplotlib.pyplot as plt
-
 from pymbe.output import (
     main_header,
     mbe_header,
@@ -1225,18 +1223,6 @@ class ExpCls(
         if mpi.local_master:
             inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
             hashes[-1][:].sort()
-
-        # if mpi.global_master:
-        #     fig, ax = plt.subplots()
-        #     bins = np.logspace(-15, -3, 100)
-        #     n, bins, patches = ax.hist(np.abs(inc[-1][inc[-1] != 0.0]), bins=bins)
-        #     ax.set_xscale("log")
-        #     ax.set_xlabel("Increment energy in a.u.")
-        #     ax.set_ylabel("Number of tuples")
-        #     # ax.set_xlim(-1e-3, 1e-3)
-        #     # ax1.set_xticks([-1e-3, -1e-5, -1e-7, -1e-9, -1e-11, 0, 1e-11, 1e-9, 1e-7, 1e-5, 1e-3])
-        #     # ax1.set_title('Order 6')
-        #     fig.savefig("abs_incs_" + str(self.order) + ".pdf")
 
         # increment statistics
         min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
