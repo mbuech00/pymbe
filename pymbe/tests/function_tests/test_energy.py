@@ -151,6 +151,7 @@ def test_mbe(
         )
 
         exp.n_tuples["inc"].append(int(n_tuples))
+        exp.n_tuples["van"].append(int(n_tuples))
 
         exp._mbe(mbe.mpi)
 
