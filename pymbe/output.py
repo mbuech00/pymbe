@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING
 from pymbe.tools import git_version, time_str, intervals
 
 if TYPE_CHECKING:
-
     from typing import List, Dict, Optional
 
     from pymbe.parallel import MPICls
@@ -71,7 +70,6 @@ def main_header(mpi: Optional[MPICls] = None, method: Optional[str] = None) -> s
 
     # method
     if method is not None:
-
         string += HEADER + "\n"
         string += f"{method.upper() + ' expansion':^87s}\n"
         string += HEADER

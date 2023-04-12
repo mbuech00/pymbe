@@ -24,7 +24,6 @@ from pymbe.tools import get_nelec, assertion
 from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
-
     import matplotlib
     from typing import Tuple, Union, List
 
@@ -148,11 +147,9 @@ class TransExpCls(DipoleExpCls):
 
         # multiplicity check
         for root in range(len(civec)):
-
             s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
 
             if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-
                 # fix spin by applying level shift
                 sz = np.abs(nelec[0] - nelec[1]) * 0.5
                 solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))

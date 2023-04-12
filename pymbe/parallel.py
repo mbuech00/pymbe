@@ -20,7 +20,6 @@ from pyscf import lib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-
     from typing import Tuple
 
     from pymbe.pymbe import MBE
@@ -64,7 +63,6 @@ class MPICls:
 
         # local masters
         if self.local_master:
-
             self.num_masters = self.master_comm.Get_size()
             self.master_global_ranks = np.array(
                 self.master_comm.allgather(self.global_rank)
@@ -83,7 +81,6 @@ def kw_dist(mbe: MBE) -> MBE:
     this function bcast all keywords to slaves
     """
     if mbe.mpi.global_master:
-
         # collect keywords (must be updated with new future attributes)
         keywords = {
             "method": mbe.method,
@@ -110,7 +107,6 @@ def kw_dist(mbe: MBE) -> MBE:
         mbe.mpi.global_comm.bcast(keywords, root=0)
 
     else:
-
         # receive info from master
         keywords = mbe.mpi.global_comm.bcast(None, root=0)
 
@@ -126,7 +122,6 @@ def system_dist(mbe: MBE) -> MBE:
     this function bcasts all system quantities to slaves
     """
     if mbe.mpi.global_master:
-
         # collect system quantites (must be updated with new future attributes)
         system = {
             "norb": mbe.norb,
@@ -149,7 +144,6 @@ def system_dist(mbe: MBE) -> MBE:
         mbe.mpi.global_comm.bcast(system, root=0)
 
     else:
-
         # receive system quantites from master
         system = mbe.mpi.global_comm.bcast(None, root=0)
 

@@ -37,7 +37,6 @@ from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
-
     import matplotlib
     from typing import List, Optional, Tuple, Union
 
@@ -113,7 +112,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         # check if system is open-shell
         if self.spin > 0:
-
             # get indices for eris that only include open-shell orbitals
             os_eri_idx = idx_tril(os_idx)
 
@@ -151,7 +149,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         # perform base calc
         if self.base_method is not None:
-
             energy -= self._kernel(
                 self.base_method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
             )
@@ -225,7 +222,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         s, mult = solver.spin_square(civec, cas_idx.size, nelec)
 
         if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-
             # fix spin by applying level shift
             sz = np.abs(nelec[0] - nelec[1]) * 0.5
             solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
@@ -245,7 +241,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         # convergence check
         if solver.nroots == 1:
-
             assertion(
                 solver.converged,
                 f"state {self.fci_state_root} not converged\n"
@@ -254,7 +249,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             )
 
         else:
-
             assertion(
                 solver.converged[-1],
                 f"state {self.fci_state_root} not converged\n"
@@ -282,7 +276,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         singlet = spin_cas == 0
 
         if self.cc_backend == "pyscf":
-
             # init ccsd solver
             mol_tmp = gto.Mole(verbose=0)
             mol_tmp._built = True
@@ -334,7 +327,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
             # calculate (t) correction
             if method == "ccsd(t)":
-
                 # number of holes in cas space
                 nhole = get_nhole(nelec, cas_idx)
 
@@ -346,7 +338,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                     e_cc += ccsd.ccsd_t()
 
         elif self.cc_backend in ["ecc", "ncc"]:
-
             # calculate cc energy
             cc_energy, success = mbecc_interface(
                 method,

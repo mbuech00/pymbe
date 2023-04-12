@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from pymbe.trans import TransExpCls
 
 if TYPE_CHECKING:
-
     from mpi4py import MPI
     from pyscf import scf
     from typing import Tuple, Optional

@@ -67,7 +67,6 @@ from pymbe.parallel import (
 from pymbe.results import timings_prt
 
 if TYPE_CHECKING:
-
     from pyscf import gto
     from typing import Dict, Optional
 
@@ -238,7 +237,6 @@ class ExpCls(
         # print output from restarted calculation
         if self.restarted:
             for i in range(self.min_order, self.start_order):
-
                 # print mbe header
                 logger.info(
                     mbe_header(
@@ -264,7 +262,6 @@ class ExpCls(
 
         # begin or resume mbe expansion depending
         for self.order in range(self.start_order, self.max_order + 1):
-
             # theoretical and actual number of tuples at current order
             if len(self.n_tuples["inc"]) == self.order - self.min_order:
                 self.n_tuples["theo"].append(
@@ -389,7 +386,6 @@ class ExpCls(
 
             # convergence check
             if self.exp_space[-1].size < self.order + 1 or self.order == self.max_order:
-
                 # final order
                 self.final_order = self.order
 
@@ -416,12 +412,10 @@ class ExpCls(
 
         # enter slave state
         while slave:
-
             # task id
             msg = mpi.global_comm.bcast(None, root=0)
 
             if msg["task"] == "mbe":
-
                 # receive order
                 self.order = msg["order"]
 
@@ -455,7 +449,6 @@ class ExpCls(
                     )
 
             elif msg["task"] == "purge":
-
                 # receive order
                 self.order = msg["order"]
 
@@ -463,7 +456,6 @@ class ExpCls(
                 self._purge(mpi)
 
             elif msg["task"] == "exit":
-
                 slave = False
 
     def print_results(self, mol: Optional[gto.Mole], mpi: MPICls) -> str:
@@ -579,7 +571,6 @@ class ExpCls(
         """
         # calculate reference space property on global master
         if mpi.global_master:
-
             # load hcore
             hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
 
@@ -600,7 +591,6 @@ class ExpCls(
             mpi.global_comm.bcast(hf_prop, root=0)
 
         else:
-
             # receive ref_prop from master
             hf_prop = mpi.global_comm.bcast(None, root=0)
 
@@ -620,7 +610,6 @@ class ExpCls(
         """
         # calculate reference space property on global master
         if mpi.global_master:
-
             # load hcore
             hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
 
@@ -653,7 +642,6 @@ class ExpCls(
             mpi.global_comm.bcast(ref_prop, root=0)
 
         else:
-
             # receive ref_prop from master
             ref_prop = mpi.global_comm.bcast(None, root=0)
 
@@ -696,7 +684,6 @@ class ExpCls(
 
         # loop over all other files
         for i in range(len(files)):
-
             # read hashes
             if "mbe_hashes" in files[i]:
                 n_tuples = self.n_tuples["inc"][len(self.hashes)]
@@ -730,7 +717,6 @@ class ExpCls(
                 mpi.local_comm.Barrier()
 
             if mpi.global_master:
-
                 # read expansion spaces
                 if "exp_space" in files[i]:
                     self.exp_space.append(np.load(os.path.join(RST, files[i])))
@@ -910,14 +896,12 @@ class ExpCls(
             ),
             tup_idx,
         ):
-
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
             # write restart files and re-init time
             if rst_write and tup_idx % self.rst_freq < mpi.global_size:
-
                 # mpi barrier
                 mpi.local_comm.Barrier()
 
@@ -1134,7 +1118,6 @@ class ExpCls(
             self.incs.append(inc_win)
 
         if mpi.global_master:
-
             # append total property
             self.mbe_tot_prop.append(tot)
             if self.order > self.min_order:
@@ -1180,7 +1163,6 @@ class ExpCls(
 
         # loop over previous orders
         for k in range(self.min_order, self.order + 1):
-
             # load k-th order hashes and increments
             hashes = open_shared_win(
                 self.hashes[k - self.min_order],
@@ -1213,7 +1195,6 @@ class ExpCls(
                     k,
                 )
             ):
-
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
                     continue
@@ -1319,11 +1300,9 @@ class ExpCls(
         this function return the result property from a given method
         """
         if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
-
             res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
 
         elif method == "fci":
-
             res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec)
 
         return res
@@ -1639,7 +1618,6 @@ class SingleTargetExpCls(
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
-
             # loop over subtuples
             for tup_sub in tuples(
                 tup_occ,
@@ -1649,7 +1627,6 @@ class SingleTargetExpCls(
                 self.vanish_exc,
                 k,
             ):
-
                 # compute index
                 idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
 

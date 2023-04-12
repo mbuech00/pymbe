@@ -30,7 +30,6 @@ from typing import TYPE_CHECKING, overload
 from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
-
     from typing import Tuple, List, Generator, Union, Optional
 
 

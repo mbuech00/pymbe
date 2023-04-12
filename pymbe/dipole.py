@@ -34,7 +34,6 @@ from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
-
     import matplotlib
     from typing import List, Optional, Tuple, Union
 
@@ -131,7 +130,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         # perform base calc
         if self.base_method is not None:
-
             dipole -= self._kernel(
                 self.base_method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
             )
@@ -206,7 +204,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         s, mult = solver.spin_square(civec, cas_idx.size, nelec)
 
         if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-
             # fix spin by applying level shift
             sz = np.abs(nelec[0] - nelec[1]) * 0.5
             solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
@@ -226,7 +223,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         # convergence check
         if solver.nroots == 1:
-
             assertion(
                 solver.converged,
                 f"state {self.fci_state_root} not converged\n"
@@ -235,7 +231,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
             )
 
         else:
-
             assertion(
                 solver.converged[-1],
                 f"state {self.fci_state_root} not converged\n"
@@ -491,7 +486,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         # loop over x, y, and z
         for k in range(3):
-
             # set string
             string += f"\n RESULT-{order:d}:{comp[k]:^81}\n"
             string += DIVIDER_OUTPUT + "\n"

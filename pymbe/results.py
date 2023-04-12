@@ -42,7 +42,6 @@ if PLT_FOUND:
 from pymbe.tools import time_str
 
 if TYPE_CHECKING:
-
     from typing import Dict, List
 
     from pymbe.expansion import ExpCls

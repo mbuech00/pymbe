@@ -32,7 +32,6 @@ from pymbe.genfock import ssGenFockExpCls, saGenFockExpCls
 from pymbe.tools import RST, assertion
 
 if TYPE_CHECKING:
-
     from typing import Union, Optional, Tuple, List
     from matplotlib import figure
 
@@ -41,7 +40,6 @@ if TYPE_CHECKING:
 
 @dataclass
 class MBE:
-
     # expansion model
     method: str = "fci"
     cc_backend: str = "pyscf"
@@ -183,7 +181,6 @@ class MBE:
             self.dump_flags()
 
         if self.mpi.global_master:
-
             # main master driver
             self.exp.driver_master(self.mpi)
 
@@ -192,7 +189,6 @@ class MBE:
                 shutil.rmtree(RST)
 
         else:
-
             # main slave driver
             self.exp.driver_slave(self.mpi)
 
@@ -236,11 +232,9 @@ class MBE:
         this function returns pymbe results as a string
         """
         if self.mpi.global_master:
-
             output_str = self.exp.print_results(self.mol, self.mpi)
 
         else:
-
             output_str = ""
 
         return output_str
@@ -256,7 +250,6 @@ class MBE:
         this function returns the total property
         """
         if self.mpi.global_master:
-
             assertion(
                 isinstance(prop_type, str),
                 "final_prop: property type (prop_type keyword argument) must be a "
@@ -288,7 +281,6 @@ class MBE:
                     prop = self.exp.prop(prop_type)
 
         else:
-
             prop = None
 
         return prop
@@ -302,7 +294,6 @@ class MBE:
         this function plots pymbe results
         """
         if self.mpi.global_master:
-
             assertion(
                 isinstance(y_axis, str),
                 "plot: y-axis property (y_axis keyword argument) must be a string",
@@ -335,7 +326,6 @@ class MBE:
                     fig = self.exp.plot_results(y_axis)
 
         else:
-
             fig = None
 
         return fig

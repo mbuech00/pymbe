@@ -6,7 +6,6 @@ from pymbe import MBE
 
 
 def mbe_example(rst=True):
-
     # create mol object
     mol = gto.Mole()
     mol.build(
@@ -23,7 +22,6 @@ def mbe_example(rst=True):
     )
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
-
         # frozen core
         ncore = 1
 
@@ -81,7 +79,6 @@ def mbe_example(rst=True):
         )
 
     else:
-
         # create mbe object
         mbe = MBE()
 
@@ -95,7 +92,6 @@ def mbe_example(rst=True):
 
 
 if __name__ == "__main__":
-
     # call example function
     energy = mbe_example()
 

@@ -21,7 +21,6 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-
     from typing import List
 
 examples = [
@@ -162,15 +161,12 @@ def test_system(example: List[str]) -> None:
     )
 
     if example[2] in ["energy", "excitation", "dipole"]:
-
         assert prop == pytest.approx(np.load(ref_path / "ref.npy"))
 
     elif example[2] == "trans":
-
         assert prop == pytest.approx(np.load(ref_path / "ref.npy"), rel=1e-5, abs=1e-12)
 
     elif example[2] == "rdm12":
-
         assert prop[0] == pytest.approx(
             np.load(ref_path / "ref_rdm1.npy"), rel=1e-5, abs=1e-12
         )
@@ -179,7 +175,6 @@ def test_system(example: List[str]) -> None:
         )
 
     elif example[2] == "genfock":
-
         assert prop[0] == pytest.approx(np.load(ref_path / "ref_energy.npy"))
         assert prop[1] == pytest.approx(
             np.load(ref_path / "ref_gen_fock.npy"), rel=1e-5, abs=1e-11

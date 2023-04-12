@@ -6,7 +6,6 @@ from pymbe import MBE
 
 
 def mbe_example(rst=True):
-
     # create mol object
     mol = gto.Mole()
     mol.build(
@@ -22,7 +21,6 @@ def mbe_example(rst=True):
     )
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
-
         # number of occupied orbitals
         nocc = 2
 
@@ -106,7 +104,6 @@ def mbe_example(rst=True):
         gen_fock = mbe.kernel()
 
     else:
-
         # create mbe object
         mbe = MBE()
 
@@ -117,7 +114,6 @@ def mbe_example(rst=True):
 
 
 if __name__ == "__main__":
-
     # call example function
     gen_fock = mbe_example()
 

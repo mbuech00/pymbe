@@ -27,7 +27,6 @@ from pymbe.tools import RST, logger_config, assertion, ground_state_sym
 
 
 if TYPE_CHECKING:
-
     from typing import Dict, Union, List
 
     from pymbe.pymbe import MBE
@@ -38,19 +37,15 @@ logger = logging.getLogger("pymbe_logger")
 
 
 def main(mbe: MBE) -> MBE:
-
     # mpi object
     mbe.mpi = MPICls()
 
     # input handling
     if mbe.mpi.global_master:
-
         # check for restart folder
         if not os.path.isdir(RST):
-
             # copy attributes from mol object
             if mbe.mol:
-
                 # number of orbitals
                 if mbe.norb is None:
                     if isinstance(mbe.mol.nao, int):
@@ -178,7 +173,6 @@ def main(mbe: MBE) -> MBE:
 
             # prepare integrals
             if isinstance(mbe.eri, np.ndarray) and isinstance(mbe.norb, int):
-
                 # reorder electron repulsion integrals
                 mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
 
@@ -221,7 +215,6 @@ def main(mbe: MBE) -> MBE:
             mbe.restarted = False
 
         else:
-
             # read keywords
             mbe = restart_read_kw(mbe)
 
