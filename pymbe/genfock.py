@@ -56,7 +56,6 @@ from pymbe.parallel import (
 )
 
 if TYPE_CHECKING:
-
     import matplotlib
     from typing import List, Optional, Union
 
@@ -149,7 +148,6 @@ class GenFockExpCls(
 
         # check if system is open-shell
         if os_idx.size > 0:
-
             # get indices for eris that only include open-shell orbitals
             os_eri_idx = idx_tril(os_idx)
 
@@ -243,7 +241,6 @@ class GenFockExpCls(
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
-
             # loop over subtuples
             for tup_sub in tuples(
                 tup_occ,
@@ -253,7 +250,6 @@ class GenFockExpCls(
                 self.vanish_exc,
                 k,
             ):
-
                 # compute index
                 idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
 
@@ -338,7 +334,6 @@ class GenFockExpCls(
 
         # calculate (t) correction
         if method == "ccsd(t)":
-
             # number of holes in cas space
             nhole = get_nhole(nelec, cas_idx)
 
@@ -792,13 +787,10 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
 
         # create special function for hamiltonian operation when singles are omitted
         if not self.no_singles:
-
             hop = None
 
         else:
-
             if spin_cas == 0:
-
                 link_index = fci.cistring.gen_linkstr_index_trilidx(
                     range(cas_idx.size), nelec[0]
                 )
@@ -820,7 +812,6 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
                     return hc.ravel()
 
             else:
-
                 link_indexa = fci.cistring.gen_linkstr_index_trilidx(
                     range(cas_idx.size), nelec[0]
                 )
@@ -894,11 +885,9 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
 
         # multiplicity check
         for root in range(len(civec)):
-
             s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
 
             if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-
                 # fix spin by applying level shift
                 sz = np.abs(nelec[0] - nelec[1]) * 0.5
                 solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
@@ -919,7 +908,6 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
 
         # convergence check
         if solver.nroots == 1:
-
             assertion(
                 solver.converged,
                 f"state {root} not converged\n"
@@ -928,7 +916,6 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
             )
 
         else:
-
             assertion(
                 solver.converged[-1],
                 f"state {root} not converged\n"
@@ -1025,7 +1012,6 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
         # loop over states
         for n, state in enumerate(states):
-
             # nelec
             occup = np.zeros(self.norb, dtype=np.int64)
             occup[: np.amin(self.nelec[n])] = 2
@@ -1040,20 +1026,17 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
             # loop over solver settings
             for solver_info in solvers:
-
                 # determine if state is already described by solver
                 if (
                     state["spin"] == solver_info["spin"]
                     and state["sym"] == solver_info["sym"]
                 ):
-
                     # add state to solver
                     solver_info["states"].append(n)
                     break
 
             # no solver describes state
             else:
-
                 # add new solver
                 solvers.append(
                     {
@@ -1066,7 +1049,6 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
         # loop over solvers
         for solver_info in solvers:
-
             # init fci solver
             if solver_info["spin"] == 0:
                 solver = fci.direct_spin0_symm.FCI()
@@ -1075,13 +1057,10 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
             # create special function for hamiltonian operation when singles are omitted
             if not self.no_singles:
-
                 hop = None
 
             else:
-
                 if solver_info["spin"] == 0:
-
                     link_index = fci.cistring.gen_linkstr_index_trilidx(
                         range(cas_idx.size), nelec[0]
                     )
@@ -1103,7 +1082,6 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                         return hc.ravel()
 
                 else:
-
                     link_indexa = fci.cistring.gen_linkstr_index_trilidx(
                         range(cas_idx.size), nelec[0]
                     )
@@ -1188,13 +1166,11 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
             # multiplicity check
             for root in range(len(civec)):
-
                 s, mult = solver.spin_square(
                     civec[root], cas_idx.size, solver_info["nelec"]
                 )
 
                 if np.abs((solver_info["spin"] + 1) - mult) > SPIN_TOL:
-
                     # fix spin by applying level shift
                     sz = np.abs(solver_info["nelec"][0] - solver_info["nelec"][1]) * 0.5
                     solver = fci.addons.fix_spin_(
@@ -1219,7 +1195,6 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
             # convergence check
             if solver.nroots == 1:
-
                 assertion(
                     solver.converged,
                     f"state {root} not converged\n"
@@ -1228,9 +1203,7 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                 )
 
             else:
-
                 for root in roots:
-
                     assertion(
                         solver.converged[root],
                         f"state {root} not converged\n"
@@ -1239,7 +1212,6 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                     )
 
             for root, state_idx in zip(roots, solver_info["states"]):
-
                 sa_energy += self.fci_state_weights[state_idx] * energy[root]
                 sa_rdm12 += self.fci_state_weights[state_idx] * RDMCls(
                     *solver.make_rdm12(civec[root], cas_idx.size, solver_info["nelec"])

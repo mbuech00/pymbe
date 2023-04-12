@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, overload
 from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
-
     from typing import Tuple, List, Generator, Union, Optional, Dict, Set
 
 
@@ -717,7 +716,6 @@ def orb_tuples(
     """
     # orbital is occupied
     if orb in occ_space:
-
         # remove orbital
         occ_space = np.delete(occ_space, np.where(occ_space == orb)[0][0])
 
@@ -744,7 +742,6 @@ def orb_tuples(
 
     # orbital is virtual
     elif orb in virt_space:
-
         # remove orbital
         virt_space = np.delete(virt_space, np.where(virt_space == orb)[0][0])
 
@@ -869,7 +866,6 @@ def orb_n_tuples(
 
     # check if occupied orbitals exist in expansion space
     if occ_space.size > 0:
-
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
@@ -886,7 +882,6 @@ def orb_n_tuples(
 
     # check if virtual orbitals exist in expansion space
     if virt_space.size > 0:
-
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
@@ -1023,7 +1018,6 @@ def symm_eqv_tup(
 
     # loop over symmetry operations in point group
     for symm_op in symm_orbs:
-
         # get permuted cas space by applying symmetry operation
         perm_cas = apply_symm_op(symm_op, cas_idx)
 
@@ -1040,16 +1034,13 @@ def symm_eqv_tup(
 
         # loop over orbs in cas space and permuted cas space
         for orb, perm_orb in zip(cas_idx, perm_cas):
-
             # check if orb in cas space is smaller than orb in permuted cas space
             if orb < perm_orb:
-
                 # tuple is not unique and not lexicographically smaller
                 return None
 
             # check if orb in cas space is greater than orb in permuted cas space
             elif orb > perm_orb:
-
                 # tuple is lexicographically greater
                 break
 
@@ -1075,7 +1066,6 @@ def symm_eqv_inc(
 
     # check if all tuples in set will produce the same increment
     while len(eqv_tup_set) > 0:
-
         # start with random tuple in set of equivalent tuples
         curr_cas = eqv_tup_set.pop()
 
@@ -1093,7 +1083,6 @@ def symm_eqv_inc(
 
         # loop over symmetry operations
         for perm_cas in perm_cas_spaces:
-
             # skip this symmetry operation
             if perm_cas[0] == -1 or (
                 ref_space is not None
@@ -1107,7 +1096,6 @@ def symm_eqv_inc(
 
             # check if tuple has been added to set of tuples with the same increments
             if tup_perm_cas not in eqv_inc_sets[-1]:
-
                 # add permuted tuple to set of tuples with the same increments
                 eqv_inc_sets[-1].add(tup_perm_cas)
 
@@ -1116,10 +1104,8 @@ def symm_eqv_inc(
 
                 # loop over orbs in lex_cas and perm_cas
                 for lex_orb, perm_orb in zip(lex_cas[-1], perm_cas):
-
                     # check if orb in lex_cas is smaller than orb in perm_cas
                     if lex_orb < perm_orb:
-
                         # set permuted cas space as lexicographically greatest
                         lex_cas[-1] = perm_cas
 
@@ -1128,7 +1114,6 @@ def symm_eqv_inc(
 
                     # check if orb in lex_cas is greater than orb in perm_cas
                     elif lex_orb > perm_orb:
-
                         # perm_cas is lexicographically smaller
                         break
 
@@ -1169,7 +1154,6 @@ def is_lex_tup(
 
     # loop over symmetry operations in point group
     for perm_cas in perm_cas_spaces:
-
         # skip this symmetry operation
         if (
             ref_space is not None
@@ -1180,16 +1164,13 @@ def is_lex_tup(
 
         # loop over orbs in cas_idx and perm_cas
         for curr_orb, perm_orb in zip(cas_idx, perm_cas):
-
             # check if orb in cas_idx is smaller than orb in perm_cas
             if curr_orb < perm_orb:
-
                 # perm_cas is lexicographically greater
                 return False
 
             # check if orb in lex_cas is greater than orb in perm_cas
             elif curr_orb > perm_orb:
-
                 # perm_cas is lexicographically smaller
                 break
 
@@ -1214,7 +1195,6 @@ def get_lex_cas(
 
     # loop over symmetry operations in point group
     for perm_cas in perm_cas_spaces:
-
         # skip this symmetry operation
         if (
             ref_space is not None
@@ -1225,10 +1205,8 @@ def get_lex_cas(
 
         # loop over orbs in lex_cas and perm_cas
         for lex_orb, perm_orb in zip(lex_cas, perm_cas):
-
             # check if orb in lex_cas is smaller than orb in perm_cas
             if lex_orb < perm_orb:
-
                 # set permuted cas space as lexicographically greatest
                 lex_cas = perm_cas
 
@@ -1237,7 +1215,6 @@ def get_lex_cas(
 
             # check if orb in lex_cas is greater than orb in perm_cas
             elif lex_orb > perm_orb:
-
                 # perm_cas is lexicographically smaller
                 break
 

@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from pymbe.excitation import ExcExpCls
 
 if TYPE_CHECKING:
-
     from mpi4py import MPI
     from pyscf import scf
     from typing import Tuple, Optional
@@ -114,11 +113,9 @@ def test_kernel(
     exp.fci_state_root = root
 
     if system == "h2o":
-
         occup = hf.mo_occ
 
     elif system == "hubbard":
-
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
 
     core_idx, cas_idx, _ = indices
@@ -160,11 +157,9 @@ def test_fci_kernel(
     exp.fci_state_root = root
 
     if system == "h2o":
-
         occup = hf.mo_occ
 
     elif system == "hubbard":
-
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
 
     core_idx, cas_idx, _ = indices

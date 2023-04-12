@@ -80,7 +80,6 @@ from pymbe.parallel import (
 from pymbe.results import timings_prt
 
 if TYPE_CHECKING:
-
     from pyscf import gto
     from typing import Dict, Optional
 
@@ -297,7 +296,6 @@ class ExpCls(
 
         # begin mbe expansion depending
         for self.order in range(self.min_order, self.max_order + 1):
-
             # theoretical and actual number of tuples at current order
             if not self.restarted or self.order > self.start_order:
                 self._ntuples(mpi)
@@ -374,7 +372,6 @@ class ExpCls(
                 self.screen_orbs.size > 0
                 and self.exp_space[self.order - self.min_order + 1].size > self.order
             ):
-
                 # print header
                 logger.info(purge_header(self.order))
 
@@ -398,7 +395,6 @@ class ExpCls(
 
             # convergence check
             if self.exp_space[-1].size < self.order + 1 or self.order == self.max_order:
-
                 # final order
                 self.final_order = self.order
 
@@ -425,12 +421,10 @@ class ExpCls(
 
         # enter slave state
         while slave:
-
             # task id
             msg = mpi.global_comm.bcast(None, root=0)
 
             if msg["task"] == "ntuples":
-
                 # receive order
                 self.order = msg["order"]
 
@@ -438,7 +432,6 @@ class ExpCls(
                 self._ntuples(mpi)
 
             elif msg["task"] == "mbe":
-
                 # receive order
                 self.order = msg["order"]
 
@@ -451,7 +444,6 @@ class ExpCls(
                 )
 
             elif msg["task"] == "screen":
-
                 # receive order
                 self.order = msg["order"]
 
@@ -459,7 +451,6 @@ class ExpCls(
                 self._screen(mpi)
 
             elif msg["task"] == "purge":
-
                 # receive order
                 self.order = msg["order"]
 
@@ -467,7 +458,6 @@ class ExpCls(
                 self._purge(mpi)
 
             elif msg["task"] == "exit":
-
                 slave = False
 
     def print_results(self, mol: Optional[gto.Mole], mpi: MPICls) -> str:
@@ -580,7 +570,6 @@ class ExpCls(
         """
         # calculate reference space property on global master
         if mpi.global_master:
-
             # load hcore
             hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
 
@@ -601,7 +590,6 @@ class ExpCls(
             mpi.global_comm.bcast(hf_prop, root=0)
 
         else:
-
             # receive ref_prop from master
             hf_prop = mpi.global_comm.bcast(None, root=0)
 
@@ -621,7 +609,6 @@ class ExpCls(
         """
         # calculate reference space property on global master
         if mpi.global_master:
-
             # load hcore
             hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
 
@@ -654,7 +641,6 @@ class ExpCls(
             mpi.global_comm.bcast(ref_prop, root=0)
 
         else:
-
             # receive ref_prop from master
             ref_prop = mpi.global_comm.bcast(None, root=0)
 
@@ -690,7 +676,6 @@ class ExpCls(
 
         # loop over all other files
         for i in range(len(files)):
-
             # read hashes
             if "mbe_hashes" in files[i]:
                 n_tuples = self.n_tuples["inc"][len(self.hashes)]
@@ -724,7 +709,6 @@ class ExpCls(
                 mpi.local_comm.Barrier()
 
             if mpi.global_master:
-
                 # read expansion spaces
                 if "exp_space" in files[i]:
                     self.exp_space.append(np.load(os.path.join(RST, files[i])))
@@ -800,7 +784,6 @@ class ExpCls(
         this function determines the theoretical and actual number of tuples
         """
         if mpi.global_master:
-
             # determine theoretical number of tuples
             if len(self.n_tuples["theo"]) == self.order - self.min_order:
                 self.n_tuples["theo"].append(
@@ -842,7 +825,6 @@ class ExpCls(
 
         # determine number of increments
         if len(self.n_tuples["inc"]) == self.order - self.min_order:
-
             # wake up slaves
             if mpi.global_master:
                 msg = {"task": "ntuples", "order": self.order}
@@ -852,7 +834,6 @@ class ExpCls(
             if self.pi_prune or (
                 self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None
             ):
-
                 # occupied and virtual expansion spaces
                 exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
                 exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
@@ -871,7 +852,6 @@ class ExpCls(
                         self.order,
                     )
                 ):
-
                     # distribute tuples
                     if tup_idx % mpi.global_size != mpi.global_rank:
                         continue
@@ -882,7 +862,6 @@ class ExpCls(
 
                     # symmetry-pruning
                     elif self.eqv_inc_orbs is not None:
-
                         # add reference space if it is not symmetry-invariant
                         if self.symm_inv_ref_space:
                             cas_idx = tup
@@ -900,7 +879,6 @@ class ExpCls(
                 )
 
             else:
-
                 if len(self.n_tuples["inc"]) == self.order - self.min_order:
                     self.n_tuples["inc"].append(
                         n_tuples(
@@ -914,7 +892,6 @@ class ExpCls(
                     )
 
         if mpi.global_master:
-
             # determine number of calculations
             if len(self.n_tuples["calc"]) == self.order - self.min_order:
                 self.n_tuples["calc"].append(self.n_tuples["inc"][-1])
@@ -1067,10 +1044,8 @@ class ExpCls(
             occ_start,
             virt_start,
         ):
-
             # write restart files and re-init time
             if rst_write and tup_idx % self.rst_freq < n_prev_tup_idx:
-
                 # mpi barrier
                 mpi.local_comm.Barrier()
 
@@ -1140,7 +1115,6 @@ class ExpCls(
 
             # symmetry-pruning
             if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-
                 # add reference space if it is not symmetry-invariant
                 if self.symm_inv_ref_space:
                     cas_idx = tup
@@ -1166,7 +1140,6 @@ class ExpCls(
                 n_prev_tup_idx = len(eqv_inc_lex_tup)
 
             else:
-
                 # every tuple is unique without symmetry pruning
                 eqv_inc_lex_tup = [tup]
                 eqv_inc_set = [[tup]]
@@ -1196,7 +1169,6 @@ class ExpCls(
 
             # loop over equivalent increment sets
             for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
-
                 # calculate increment
                 if self.order > self.min_order:
                     inc_tup = target_tup - self._sum(inc, hashes, tup)
@@ -1312,7 +1284,6 @@ class ExpCls(
 
         # save statistics & timings
         if mpi.global_master:
-
             # append total property
             self.mbe_tot_prop.append(tot)
             if self.order > self.min_order:
@@ -1366,10 +1337,8 @@ class ExpCls(
 
         # fixed screening procedure
         if self.screen_type == "fixed":
-
             # start screening
             if mpi.global_master:
-
                 thres = 1.0 if self.order < self.screen_start else self.screen_perc
                 nkeep = int(thres * self.exp_space[-1].size)
                 if self.screen_func == "rnd":
@@ -1392,13 +1361,11 @@ class ExpCls(
                 mpi.global_comm.bcast(self.exp_space[-1], root=0)
 
             else:
-
                 # receive updated expansion space
                 self.exp_space.append(mpi.global_comm.bcast(None, root=0))
 
         # adaptive screening procedure
         elif self.screen_type == "adaptive":
-
             # add previous expansion space for current order
             self.exp_space.append(self.exp_space[-1])
 
@@ -1408,7 +1375,6 @@ class ExpCls(
 
             # start screening
             if mpi.global_master:
-
                 # initialize error for current order
                 self.mbe_tot_error.append(
                     self.mbe_tot_error[-1] if self.order > self.min_order else 0.0
@@ -1454,7 +1420,6 @@ class ExpCls(
                 # remove orbitals until minimum orbital contribution is larger than
                 # threshold
                 while keep_screening:
-
                     # define maximum possible order
                     max_order = self.exp_space[-1].size
 
@@ -1511,7 +1476,6 @@ class ExpCls(
 
                     # loop over orbitals
                     for orb_idx, orb in enumerate(self.exp_space[-1]):
-
                         # get mean absolute increments for orbital
                         mean_abs_inc = np.array(
                             [screen["mean_abs_inc"][orb] for screen in self.screen],
@@ -1528,7 +1492,6 @@ class ExpCls(
 
                         # require at least 3 points to fit
                         if orders.size > 2:
-
                             # get pearson correlation coefficient
                             r2_value = (
                                 np.corrcoef(
@@ -1540,17 +1503,14 @@ class ExpCls(
 
                             # check if correlation is good enough
                             if r2_value > 0.9:
-
                                 # fit log-transformed mean absolute increments
                                 fit = Polynomial.fit(orders, log_mean_abs_inc, 1)
 
                             else:
-
                                 # assume mean absolute increment does not decrease
                                 fit = Polynomial([log_mean_abs_inc[-1], 0.0])
 
                         else:
-
                             keep_screening = False
                             break
 
@@ -1586,7 +1546,6 @@ class ExpCls(
 
                     # screen orbital away if contribution is smaller than threshold
                     if error_diff[min_idx] > 0.0:
-
                         # add screened orbital contribution to error
                         self.mbe_tot_error[-1] += min_orb_contrib
 
@@ -1610,7 +1569,6 @@ class ExpCls(
 
                         # loop over all orders
                         for k in range(self.min_order, self.order + 1):
-
                             # get number of tuples per orbital
                             ntup_occ, ntup_virt = orb_n_tuples(
                                 exp_occ,
@@ -1657,26 +1615,22 @@ class ExpCls(
 
                     # stop screening if no other orbitals contribute above threshold
                     else:
-
                         keep_screening = False
 
                 # signal other processes to stop screening
                 mpi.global_comm.bcast(keep_screening, root=0)
 
             else:
-
                 # initialize boolean to keep screening
                 keep_screening = True
 
                 # remove orbitals until minimum orbital contribution is larger than
                 # threshold
                 while keep_screening:
-
                     # determine if still screening
                     keep_screening = mpi.global_comm.bcast(None, root=0)
 
                     if keep_screening:
-
                         # get minimum orbital
                         min_idx = mpi.global_comm.bcast(None, root=0)
 
@@ -1743,7 +1697,6 @@ class ExpCls(
 
         # loop over previous orders
         for k in range(self.min_order, self.order + 1):
-
             # load k-th order hashes and increments
             hashes = open_shared_win(
                 self.hashes[k - self.min_order],
@@ -1776,7 +1729,6 @@ class ExpCls(
                     k,
                 )
             ):
-
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
                     continue
@@ -1787,7 +1739,6 @@ class ExpCls(
 
                 # symmetry-pruning
                 if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-
                     # add reference space if it is not symmetry-invariant
                     if self.symm_inv_ref_space:
                         cas_idx = tup
@@ -1815,7 +1766,6 @@ class ExpCls(
                         )
 
                 else:
-
                     # no redundant tuples
                     tup_last = tup
 
@@ -1966,11 +1916,9 @@ class ExpCls(
         this function return the result property from a given method
         """
         if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
-
             res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
 
         elif method == "fci":
-
             res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec)
 
         return res
@@ -2244,7 +2192,6 @@ class ExpCls(
         """
         # loop over all orders
         for k in range(self.min_order, self.order + 1):
-
             # initialize arrays for contributions to be removed
             remove_sum_abs = np.zeros(self.norb, dtype=np.float64)
             remove_sum = np.zeros(self.norb, dtype=np.float64)
@@ -2275,7 +2222,6 @@ class ExpCls(
                     orb,
                 )
             ):
-
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
                     continue
@@ -2286,7 +2232,6 @@ class ExpCls(
 
                 # symmetry-pruning
                 if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-
                     # add reference space if it is not symmetry-invariant
                     if self.symm_inv_ref_space:
                         cas_idx = tup
@@ -2309,7 +2254,6 @@ class ExpCls(
                         )
 
                 else:
-
                     # no redundant tuples
                     tup_last = tup
 
@@ -2391,7 +2335,6 @@ class SingleTargetExpCls(
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
-
             # loop over subtuples
             for tup_sub in tuples(
                 tup_occ,
@@ -2401,7 +2344,6 @@ class SingleTargetExpCls(
                 self.vanish_exc,
                 k,
             ):
-
                 # pi-pruning
                 if self.pi_prune and not pi_prune(
                     self.pi_orbs, self.pi_hashes, tup_sub
@@ -2410,7 +2352,6 @@ class SingleTargetExpCls(
 
                 # symmetry-pruning
                 if self.eqv_inc_orbs is not None:
-
                     # add reference space if it is not symmetry-invariant
                     if self.symm_inv_ref_space:
                         ref_space = None

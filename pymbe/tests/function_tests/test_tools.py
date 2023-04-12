@@ -50,7 +50,6 @@ from pymbe.tools import (
 )
 
 if TYPE_CHECKING:
-
     from typing import Union, Tuple, List, Optional
 
 

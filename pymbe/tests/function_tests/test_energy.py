@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING
 from pymbe.energy import EnergyExpCls
 
 if TYPE_CHECKING:
-
     from pyscf import gto, scf
     from typing import List, Tuple, Optional
 
@@ -135,7 +134,6 @@ def test_mbe(
     inc: List[np.ndarray] = []
 
     for exp.order in range(1, order + 1):
-
         n_tuples = 0.0
 
         for k in range(1, exp.order):
@@ -316,7 +314,6 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     inc: List[np.ndarray] = []
 
     for k in range(0, 3):
-
         hashes_win = MPI.Win.Allocate_shared(
             8 * exp.n_tuples["inc"][k], 8, comm=mbe.mpi.local_comm  # type: ignore
         )
@@ -351,7 +348,6 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     purged_inc: List[np.ndarray] = []
 
     for k in range(0, 3):
-
         buf = exp.hashes[k].Shared_query(0)[0]
         purged_hashes.append(
             np.ndarray(
@@ -437,12 +433,10 @@ def test_kernel(
     exp.orbsym = orbsym
 
     if system == "h2o":
-
         exp.point_group = "C2v"
         occup = hf.mo_occ
 
     elif system == "hubbard":
-
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
         exp.point_group = "C1"
 
@@ -483,11 +477,9 @@ def test_fci_kernel(
     exp.orbsym = orbsym
 
     if system == "h2o":
-
         occup = hf.mo_occ
 
     elif system == "hubbard":
-
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
 
     core_idx, cas_idx, _ = indices

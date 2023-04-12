@@ -29,7 +29,6 @@ except ImportError:
     CCLIB_AVAILABLE = False
 
 if TYPE_CHECKING:
-
     from typing import Tuple
 
 
@@ -121,7 +120,6 @@ def mbecc_interface(
 
     # convergence check
     if success.value != 1:
-
         # redo calculation in debug mode if not converged
         verbose_val = ctypes.c_int64(1)
 
