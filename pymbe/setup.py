@@ -63,7 +63,7 @@ def main(mbe: MBE) -> MBE:
                     mbe.nelec = mbe.mol.nelec
 
                 # point group
-                if mbe.point_group is None:
+                if mbe.point_group is None and mbe.orbsym is not None:
                     if mbe.orb_type == "local":
                         mbe.point_group = mbe.mol.topgroup
                     else:

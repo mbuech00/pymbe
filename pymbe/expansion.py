@@ -1052,7 +1052,7 @@ class ExpCls(
             exp_occ, exp_virt, tup_occ, tup_virt
         )
 
-        # initialize number of increments from for previous calculation
+        # initialize number of increments from previous calculation
         n_prev_tup_idx = 0
 
         # loop until no tuples left
@@ -1170,6 +1170,7 @@ class ExpCls(
                 # every tuple is unique without symmetry pruning
                 eqv_inc_lex_tup = [tup]
                 eqv_inc_set = [[tup]]
+                n_prev_tup_idx = 1
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
@@ -1258,8 +1259,8 @@ class ExpCls(
         if mpi.global_master:
             # total current-order increment
             tot = self._total_inc(inc[-1], mean_inc)
-            if self.n_tuples["inc"][-1] != 0:
-                mean_inc /= self.n_tuples["inc"][-1]
+            if self.n_tuples["van"][-1] != 0:
+                mean_inc /= self.n_tuples["van"][-1]
 
         # pair_corr statistics
         if pair_corr is not None:
