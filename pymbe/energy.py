@@ -19,19 +19,11 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import (
-    RST,
-    write_file,
-    get_nelec,
-    idx_tril,
-    get_nhole,
-    get_nexc,
-    assertion,
-)
+from pymbe.tools import RST, write_file, get_nelec, idx_tril, get_nhole, get_nexc
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 from pymbe.interface import mbecc_interface
@@ -39,8 +31,6 @@ from pymbe.interface import mbecc_interface
 if TYPE_CHECKING:
     import matplotlib
     from typing import List, Optional, Tuple, Union, Dict
-
-    from pymbe.pymbe import MBE
 
 
 # get logger
@@ -52,15 +42,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
     this class contains the pymbe expansion attributes for expansions of the electronic
     energy
     """
-
-    def __init__(self, mbe: MBE) -> None:
-        """
-        init expansion attributes
-        """
-        super().__init__(mbe, cast(float, mbe.base_prop))
-
-        # initialize dependent attributes
-        self._init_dep_attrs(mbe)
 
     def prop(self, prop_type: str, nuc_prop: float = 0.0) -> float:
         """
@@ -171,7 +152,8 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
         if spin_cas == 0:
@@ -231,29 +213,20 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
             # verify correct spin
             s, mult = solver.spin_square(civec, cas_idx.size, nelec)
-            assertion(
-                np.abs((spin_cas + 1) - mult) < SPIN_TOL,
-                f"spin contamination for root entry = {self.fci_state_root}\n"
-                f"2*S + 1 = {mult:.6f}\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
+            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+                raise RuntimeError(
+                    f"spin contamination for root = {self.fci_state_root}\n"
+                    f"2*S + 1 = {mult:.6f}\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}"
+                )
 
         # convergence check
-        if solver.nroots == 1:
-            assertion(
-                solver.converged,
+        if not (solver.converged if solver.nroots == 1 else solver.converged[-1]):
+            raise RuntimeError(
                 f"state {self.fci_state_root} not converged\n"
                 f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        else:
-            assertion(
-                solver.converged[-1],
-                f"state {self.fci_state_root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
+                f"cas_sym = {self.orbsym[cas_idx]}"
             )
 
         return energy - self.hf_prop
@@ -272,7 +245,8 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         this function returns the results of a cc calculation
         """
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
         singlet = spin_cas == 0
 
         if self.cc_backend == "pyscf":
@@ -317,10 +291,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             ccsd.kernel(eris=eris)
 
             # convergence check
-            assertion(
-                ccsd.converged,
-                f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
-            )
+            if not ccsd.converged:
+                raise RuntimeError(
+                    f"CCSD error: no convergence, core_idx = {core_idx}, "
+                    f"cas_idx = {cas_idx}"
+                )
 
             # e_corr
             e_cc = ccsd.e_corr
@@ -353,10 +328,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             )
 
             # convergence check
-            assertion(
-                success == 1,
-                f"MBECC error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
-            )
+            if not success == 1:
+                raise RuntimeError(
+                    f"MBECC error: no convergence, core_idx = {core_idx}, "
+                    f"cas_idx = {cas_idx}"
+                )
 
             # e_corr
             e_cc = cc_energy

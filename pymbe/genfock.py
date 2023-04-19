@@ -20,7 +20,7 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List
+from typing import TYPE_CHECKING, TypedDict, Tuple, List
 
 from pymbe.expansion import (
     ExpCls,
@@ -43,7 +43,6 @@ from pymbe.tools import (
     get_occup,
     get_nhole,
     get_nexc,
-    assertion,
     idx_tril,
     write_file_mult,
 )
@@ -59,8 +58,6 @@ if TYPE_CHECKING:
     import matplotlib
     from typing import List, Optional, Union
 
-    from pymbe.pymbe import MBE
-
 
 # get logger
 logger = logging.getLogger("pymbe_logger")
@@ -69,6 +66,7 @@ logger = logging.getLogger("pymbe_logger")
 class GenFockExpCls(
     ExpCls[
         GenFockCls,
+        Tuple[float, np.ndarray],
         GenFockArrayCls,
         Tuple[MPI.Win, MPI.Win],
         StateIntType,
@@ -79,31 +77,6 @@ class GenFockExpCls(
     this class contains the pymbe expansion attributes for the generalized Fock matrix
     elements
     """
-
-    def __init__(self, mbe: MBE) -> None:
-        """
-        init expansion attributes
-        """
-        super(GenFockExpCls, self).__init__(
-            mbe, GenFockCls(*cast(tuple, mbe.base_prop))
-        )
-
-        # additional system parameters
-        self.full_norb = cast(int, mbe.full_norb)
-        self.full_nocc = cast(int, mbe.full_nocc)
-        self.full_nvirt = self.full_norb - self.norb - self.full_nocc
-
-        # additional integrals
-        self.inact_fock = cast(np.ndarray, mbe.inact_fock)
-        self.eri_goaa = cast(np.ndarray, mbe.eri_goaa)
-        self.eri_gaao = cast(np.ndarray, mbe.eri_gaao)
-        self.eri_gaaa = cast(np.ndarray, mbe.eri_gaaa)
-
-        # additional settings
-        self.no_singles = mbe.no_singles
-
-        # initialize dependent attributes
-        self._init_dep_attrs(mbe)
 
     def prop(self, prop_type: str) -> Tuple[float, np.ndarray]:
         """
@@ -129,6 +102,13 @@ class GenFockExpCls(
         this function plots the generalized Fock matrix elements
         """
         raise NotImplementedError
+
+    @staticmethod
+    def _convert_to_target(prop: Tuple[float, np.ndarray]) -> GenFockCls:
+        """
+        this function converts the input target type into the used target type
+        """
+        return GenFockCls(*prop)
 
     def _calc_hf_prop(
         self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
@@ -273,7 +253,8 @@ class GenFockExpCls(
         this function returns the results of a cc calculation
         """
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
         singlet = spin_cas == 0
 
         # number of holes in cas space
@@ -324,10 +305,11 @@ class GenFockExpCls(
         ccsd.kernel(eris=eris)
 
         # convergence check
-        assertion(
-            ccsd.converged,
-            f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
-        )
+        if not ccsd.converged:
+            raise RuntimeError(
+                f"CCSD error: no convergence, core_idx = {core_idx}, "
+                f"cas_idx = {cas_idx}"
+            )
 
         # e_corr
         e_cc = ccsd.e_corr
@@ -777,7 +759,8 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
         if spin_cas == 0:
@@ -856,6 +839,7 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         solver.nroots = self.fci_state_root + 1
 
         # hf starting guess
+        ci0: Union[np.ndarray, None]
         if self.hf_guess:
             na = fci.cistring.num_strings(cas_idx.size, nelec[0])
             nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
@@ -898,29 +882,19 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
                 # verify correct spin
                 for root in range(len(civec)):
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-                    assertion(
-                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                    raise RuntimeError(
                         f"spin contamination for root entry = {root}\n"
                         f"2*S + 1 = {mult:.6f}\n"
                         f"cas_idx = {cas_idx}\n"
-                        f"cas_sym = {self.orbsym[cas_idx]}",
+                        f"cas_sym = {self.orbsym[cas_idx]}"
                     )
 
         # convergence check
-        if solver.nroots == 1:
-            assertion(
-                solver.converged,
+        if not (solver.converged if solver.nroots == 1 else solver.converged[-1]):
+            raise RuntimeError(
                 f"state {root} not converged\n"
                 f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        else:
-            assertion(
-                solver.converged[-1],
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
+                f"cas_sym = {self.orbsym[cas_idx]}"
             )
 
         rdm1, rdm2 = solver.make_rdm12(civec[-1], cas_idx.size, nelec)
@@ -1020,9 +994,8 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
             # spin
             spin_cas = abs(nelec[0] - nelec[1])
-            assertion(
-                spin_cas == state["spin"], f"casci wrong spin in space: {cas_idx}"
-            )
+            if spin_cas != state["spin"]:
+                raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
             # loop over solver settings
             for solver_info in solvers:
@@ -1129,6 +1102,7 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
             solver.nroots = max(roots) + 1
 
             # hf starting guess
+            ci0: Union[np.ndarray, None]
             if self.hf_guess:
                 na = fci.cistring.num_strings(cas_idx.size, solver_info["nelec"][0])
                 nb = fci.cistring.num_strings(cas_idx.size, solver_info["nelec"][1])
@@ -1185,26 +1159,19 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                         s, mult = solver.spin_square(
                             civec[root], cas_idx.size, solver_info["nelec"]
                         )
-                        assertion(
-                            np.abs((solver_info["spin"] + 1) - mult) < SPIN_TOL,
-                            f"spin contamination for root entry = {root}\n"
-                            f"2*S + 1 = {mult:.6f}\n"
-                            f"cas_idx = {cas_idx}\n"
-                            f"cas_sym = {self.orbsym[cas_idx]}",
-                        )
+                        if np.abs((solver_info["spin"] + 1) - mult) > SPIN_TOL:
+                            raise RuntimeError(
+                                f"spin contamination for root entry = {root}\n"
+                                f"2*S + 1 = {mult:.6f}\n"
+                                f"cas_idx = {cas_idx}\n"
+                                f"cas_sym = {self.orbsym[cas_idx]}"
+                            )
 
             # convergence check
-            if solver.nroots == 1:
-                assertion(
-                    solver.converged,
-                    f"state {root} not converged\n"
-                    f"cas_idx = {cas_idx}\n"
-                    f"cas_sym = {self.orbsym[cas_idx]}",
-                )
-
-            else:
-                for root in roots:
-                    assertion(
+            converged = [solver.converged] if solver.nroots == 1 else solver.converged
+            for root in roots:
+                if not solver.converged[root]:
+                    raise RuntimeError(
                         solver.converged[root],
                         f"state {root} not converged\n"
                         f"cas_idx = {cas_idx}\n"

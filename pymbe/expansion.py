@@ -80,7 +80,6 @@ from pymbe.parallel import (
 from pymbe.results import timings_prt
 
 if TYPE_CHECKING:
-    from pyscf import gto
     from typing import Dict, Optional
 
     from pymbe.pymbe import MBE
@@ -89,6 +88,15 @@ if TYPE_CHECKING:
 
 # define variable type for target properties
 TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls, GenFockCls)
+
+# define variable type for input target properties
+InputTargetType = TypeVar(
+    "InputTargetType",
+    float,
+    np.ndarray,
+    Tuple[np.ndarray, np.ndarray],
+    Tuple[float, np.ndarray],
+)
 
 # define variable type for increment arrays
 IncType = TypeVar("IncType", np.ndarray, packedRDMCls, GenFockArrayCls)
@@ -116,57 +124,85 @@ SPIN_TOL = 1.0e-05
 
 
 class ExpCls(
-    Generic[TargetType, IncType, MPIWinType, StateIntType, StateArrayType],
+    Generic[
+        TargetType,
+        InputTargetType,
+        IncType,
+        MPIWinType,
+        StateIntType,
+        StateArrayType,
+    ],
     metaclass=ABCMeta,
 ):
     """
     this class contains the pymbe expansion attributes
     """
 
-    def __init__(self, mbe: MBE, base_prop: TargetType) -> None:
+    def __init__(self, mbe: MBE) -> None:
         """
         init expansion attributes
         """
         # expansion model
-        self.method: str = mbe.method
-        self.cc_backend: str = mbe.cc_backend
-        self.hf_guess: bool = mbe.hf_guess
+        self.method = mbe.method
+        self.cc_backend = mbe.cc_backend
+        self.hf_guess = mbe.hf_guess
 
         # target property
-        self.target: str = mbe.target
+        self.target = mbe.target
 
         # system
-        self.norb: int = cast(int, mbe.norb)
+        self.norb = mbe.norb
         self.nelec: StateArrayType = cast(StateArrayType, mbe.nelec)
-        self.point_group: str = cast(str, mbe.point_group)
-        self.orbsym: np.ndarray
+        self.point_group = mbe.point_group
         if isinstance(mbe.orbsym, np.ndarray):
             self.orbsym = mbe.orbsym
         else:
             self.orbsym = np.zeros(self.norb, dtype=np.int64)
         self.fci_state_sym: StateIntType = cast(StateIntType, mbe.fci_state_sym)
         self.fci_state_root: StateIntType = cast(StateIntType, mbe.fci_state_root)
-        self.fci_state_weights: np.ndarray = cast(np.ndarray, mbe.fci_state_weights)
+        if hasattr(mbe, "fci_state_weights"):
+            self.fci_state_weights = mbe.fci_state_weights
         self._state_occup()
 
+        # optional system parameters for generalized Fock matrix
+        if hasattr(mbe, "full_norb"):
+            self.full_norb = mbe.full_norb
+        if hasattr(mbe, "full_nocc"):
+            self.full_nocc = mbe.full_nocc
+        if hasattr(self, "full_norb") and hasattr(self, "full_nocc"):
+            self.full_nvirt = self.full_norb - self.norb - self.full_nocc
+
         # integrals
-        hcore_win, eri_win, vhf_win = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
-        self.hcore: MPI.Win = hcore_win
-        self.eri: MPI.Win = eri_win
-        self.vhf: MPI.Win = vhf_win
+        self.hcore, self.eri, self.vhf = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
+
+        # optional integrals for (transition) dipole moment
+        if hasattr(mbe, "dipole_ints"):
+            self.dipole_ints = mbe.dipole_ints
+
+        # optional integrals for generalized Fock matrix
+        if hasattr(mbe, "inact_fock"):
+            self.inact_fock = mbe.inact_fock
+        if hasattr(mbe, "eri_goaa"):
+            self.eri_goaa = mbe.eri_goaa
+        if hasattr(mbe, "eri_gaao"):
+            self.eri_gaao = mbe.eri_gaao
+        if hasattr(mbe, "eri_gaaa"):
+            self.eri_gaaa = mbe.eri_gaaa
 
         # orbital representation
-        self.orb_type: str = mbe.orb_type
+        self.orb_type = mbe.orb_type
 
         # reference and expansion spaces
-        self.ref_space: np.ndarray = mbe.ref_space
+        self.ref_space = mbe.ref_space
         self.ref_nelec = get_nelec(self.occup, self.ref_space)
         self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
-        self.exp_space: List[np.ndarray] = [cast(np.ndarray, mbe.exp_space)]
+        self.exp_space = [mbe.exp_space]
 
         # base model
-        self.base_method: Optional[str] = mbe.base_method
-        self.base_prop: TargetType = base_prop
+        self.base_method = mbe.base_method
+        self.base_prop: TargetType = self._convert_to_target(
+            cast(InputTargetType, mbe.base_prop)
+        )
 
         # total mbe property
         self.mbe_tot_prop: List[TargetType] = []
@@ -195,35 +231,28 @@ class ExpCls(
         }
 
         # screening
-        self.screen_type: str = mbe.screen_type
-        self.screen_start: int = mbe.screen_start
-        self.screen_perc: float = mbe.screen_perc
-        self.screen_thres: float = mbe.screen_thres
-        self.screen_func: str = mbe.screen_func
+        self.screen_type = mbe.screen_type
+        self.screen_start = mbe.screen_start
+        self.screen_perc = mbe.screen_perc
+        self.screen_thres = mbe.screen_thres
+        self.screen_func = mbe.screen_func
         self.screen: List[Dict[str, np.ndarray]] = []
         self.screen_orbs = np.array([], dtype=np.int64)
         self.mbe_tot_error: List[float] = []
 
         # restart
-        self.rst: bool = mbe.rst
-        self.rst_freq: int = mbe.rst_freq
-        self.restarted: bool = mbe.restarted
+        self.rst = mbe.rst
+        self.rst_freq = mbe.rst_freq
+        self.restarted = mbe.restarted
 
         # order
-        self.order: int = 0
-        self.start_order: int = 0
-        self.min_order: int = 1
-
-        if mbe.max_order is not None:
-            max_order = min(self.exp_space[0].size, mbe.max_order)
-        else:
-            max_order = self.exp_space[0].size
-        self.max_order: int = max_order
-
-        self.final_order: int = 0
+        self.order = 0
+        self.start_order = 0
+        self.min_order = 1
+        self.max_order = mbe.max_order
+        self.final_order = 0
 
         # number of vanishing excitations for current model
-        self.vanish_exc: int = 0
         if self.base_method is None:
             self.vanish_exc = 1
         elif self.base_method in ["ccsd", "ccsd(t)"]:
@@ -234,24 +263,25 @@ class ExpCls(
             self.vanish_exc = 4
 
         # verbose
-        self.verbose: int = mbe.verbose
+        self.verbose = mbe.verbose
 
         # pi-pruning
-        self.pi_prune: bool = mbe.pi_prune
+        self.pi_prune = mbe.pi_prune
         if self.pi_prune:
-            self.orbsym_linear = cast(np.ndarray, mbe.orbsym_linear)
-            pi_orbs, pi_hashes = pi_space(
+            self.orbsym_linear = mbe.orbsym_linear
+            self.pi_orbs, self.pi_hashes = pi_space(
                 "Dooh" if self.point_group == "D2h" else "Coov",
                 self.orbsym_linear,
                 self.exp_space[0],
             )
-            self.pi_orbs: np.ndarray = pi_orbs
-            self.pi_hashes: np.ndarray = pi_hashes
+
+        # exclude single excitations
+        self.no_singles = mbe.no_singles
 
         # localized orbital symmetry
-        self.nsymm: int = 0
+        self.nsymm = 0
         self.symm_eqv_orbs: Optional[List[List[Dict[int, Tuple[int, ...]]]]] = None
-        self.symm_inv_ref_space: bool = False
+        self.symm_inv_ref_space = False
         self.eqv_inc_orbs: Optional[List[np.ndarray]] = None
         if (
             mbe.orb_type == "local"
@@ -282,10 +312,16 @@ class ExpCls(
                 ]
 
         # hartree fock property
-        self.hf_prop: TargetType
+        self.hf_prop: TargetType = self._hf_prop(mbe.mpi)
 
         # reference space property
-        self.ref_prop: TargetType
+        self.ref_prop: TargetType = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(mbe.mpi)
+
+        # attributes from restarted calculation
+        if self.restarted:
+            self._restart_main(mbe.mpi)
 
     def driver_master(self, mpi: MPICls) -> None:
         """
@@ -460,15 +496,20 @@ class ExpCls(
             elif msg["task"] == "exit":
                 slave = False
 
-    def print_results(self, mol: Optional[gto.Mole], mpi: MPICls) -> str:
+    def print_results(self, mpi: MPICls) -> str:
         """
         this function handles printing of results
         """
         # print header
-        string = main_header() + "\n\n"
+        string = main_header(mpi, self.method) + "\n\n"
 
         # print timings
-        string += timings_prt(self, self.method) + "\n\n"
+        string += (
+            timings_prt(
+                self.method, self.min_order, self.final_order, self.n_tuples, self.time
+            )
+            + "\n\n"
+        )
 
         # print results
         string += self._results_prt()
@@ -485,10 +526,7 @@ class ExpCls(
         self.occup: np.ndarray
 
     def _int_wins(
-        self,
-        hcore_in: Optional[np.ndarray],
-        eri_in: Optional[np.ndarray],
-        mpi: MPICls,
+        self, hcore_in: np.ndarray, eri_in: np.ndarray, mpi: MPICls
     ) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
         """
         this function creates shared memory windows for integrals on every node
@@ -503,7 +541,7 @@ class ExpCls(
 
         # set hcore on global master
         if mpi.global_master:
-            hcore[:] = cast(np.ndarray, hcore_in)
+            hcore[:] = hcore_in
 
         # mpi_bcast hcore
         if mpi.num_masters > 1 and mpi.local_master:
@@ -521,7 +559,7 @@ class ExpCls(
 
         # set eri on global master
         if mpi.global_master:
-            eri[:] = cast(np.ndarray, eri_in)
+            eri[:] = eri_in
 
         # mpi_bcast eri
         if mpi.num_masters > 1 and mpi.local_master:
@@ -548,21 +586,12 @@ class ExpCls(
 
         return hcore_win, eri_win, vhf_win
 
-    def _init_dep_attrs(self, mbe: MBE) -> None:
+    @staticmethod
+    @abstractmethod
+    def _convert_to_target(prop: InputTargetType) -> TargetType:
         """
-        this function inititializes attributes that depend on other attributes
+        this function converts the input target type into the used target type
         """
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
-
-        # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
-
-        # attributes from restarted calculation
-        if self.restarted:
-            self._restart_main(mbe.mpi)
 
     def _hf_prop(self, mpi: MPICls) -> TargetType:
         """
@@ -2304,7 +2333,8 @@ SingleTargetType = TypeVar("SingleTargetType", float, np.ndarray)
 
 
 class SingleTargetExpCls(
-    ExpCls[SingleTargetType, np.ndarray, MPI.Win, int, np.ndarray], metaclass=ABCMeta
+    ExpCls[SingleTargetType, SingleTargetType, np.ndarray, MPI.Win, int, np.ndarray],
+    metaclass=ABCMeta,
 ):
     """
     this class holds all function definitions for single-target expansions irrespective
@@ -2318,6 +2348,13 @@ class SingleTargetExpCls(
         self.nocc = np.max(self.nelec)
         self.spin = abs(self.nelec[0] - self.nelec[1])
         self.occup = get_occup(self.norb, self.nelec)
+
+    @staticmethod
+    def _convert_to_target(prop: SingleTargetType) -> SingleTargetType:
+        """
+        this function converts the input target type into the used target type
+        """
+        return prop
 
     def _sum(
         self, inc: List[np.ndarray], hashes: List[np.ndarray], tup: np.ndarray

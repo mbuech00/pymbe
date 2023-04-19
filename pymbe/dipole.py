@@ -25,19 +25,17 @@ from pyscf.cc import (
     uccsd_t_lambda,
     uccsd_t_rdm,
 )
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec, get_nhole, get_nexc, assertion
+from pymbe.tools import RST, write_file, get_nelec, get_nhole, get_nexc
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import List, Optional, Tuple, Union
-
-    from pymbe.pymbe import MBE
+    from typing import Optional, Tuple, Union
 
 
 # get logger
@@ -49,18 +47,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
     this class contains the pymbe expansion attributes for expansions of the dipole
     moment
     """
-
-    def __init__(self, mbe: MBE) -> None:
-        """
-        init expansion attributes
-        """
-        super().__init__(mbe, cast(np.ndarray, mbe.base_prop))
-
-        # additional integrals
-        self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
-
-        # initialize dependent attributes
-        self._init_dep_attrs(mbe)
 
     def prop(
         self, prop_type: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -152,7 +138,8 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
         if spin_cas == 0:
@@ -213,29 +200,20 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
             # verify correct spin
             s, mult = solver.spin_square(civec, cas_idx.size, nelec)
-            assertion(
-                np.abs((spin_cas + 1) - mult) < SPIN_TOL,
-                f"spin contamination for root = {self.fci_state_root}\n"
-                f"2*S + 1 = {mult:.6f}\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
+            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+                raise RuntimeError(
+                    f"spin contamination for root = {self.fci_state_root}\n"
+                    f"2*S + 1 = {mult:.6f}\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}"
+                )
 
         # convergence check
-        if solver.nroots == 1:
-            assertion(
-                solver.converged,
+        if not (solver.converged if solver.nroots == 1 else solver.converged[-1]):
+            raise RuntimeError(
                 f"state {self.fci_state_root} not converged\n"
                 f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        else:
-            assertion(
-                solver.converged[-1],
-                f"state {self.fci_state_root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
+                f"cas_sym = {self.orbsym[cas_idx]}"
             )
 
         # init rdm1
@@ -263,7 +241,8 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         this function returns the results of a cc calculation
         """
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
         singlet = spin_cas == 0
 
         # number of holes in cas space
@@ -314,10 +293,11 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         ccsd.kernel(eris=eris)
 
         # convergence check
-        assertion(
-            ccsd.converged,
-            f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
-        )
+        if not ccsd.converged:
+            raise RuntimeError(
+                f"CCSD error: no convergence, core_idx = {core_idx}, "
+                f"cas_idx = {cas_idx}"
+            )
 
         # rdms
         if method == "ccsd" or nexc <= 2:

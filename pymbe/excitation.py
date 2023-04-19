@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from pymbe.expansion import MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.energy import EnergyExpCls
 from pymbe.results import DIVIDER, results_plt
-from pymbe.tools import assertion
 
 if TYPE_CHECKING:
     import matplotlib
@@ -70,7 +69,8 @@ class ExcExpCls(EnergyExpCls):
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
         if spin_cas == 0:
@@ -129,22 +129,22 @@ class ExcExpCls(EnergyExpCls):
                 # verify correct spin
                 for root in range(len(civec)):
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-                    assertion(
-                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
-                        f"spin contamination for root entry = {root}\n"
-                        f"2*S + 1 = {mult:.6f}\n"
-                        f"cas_idx = {cas_idx}\n"
-                        f"cas_sym = {self.orbsym[cas_idx]}",
-                    )
+                    if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+                        raise RuntimeError(
+                            f"spin contamination for root entry = {root}\n"
+                            f"2*S + 1 = {mult:.6f}\n"
+                            f"cas_idx = {cas_idx}\n"
+                            f"cas_sym = {self.orbsym[cas_idx]}"
+                        )
 
         # convergence check
         for root in [0, solver.nroots - 1]:
-            assertion(
-                solver.converged[root],
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
+            if not solver.converged[root]:
+                raise RuntimeError(
+                    f"state {root} not converged\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}"
+                )
 
         return energy[-1] - energy[0]
 

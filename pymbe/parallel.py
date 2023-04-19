@@ -82,39 +82,45 @@ def kw_dist(mbe: MBE) -> MBE:
     """
     if mbe.mpi.global_master:
         # collect keywords (must be updated with new future attributes)
-        keywords = {
-            "method": mbe.method,
-            "cc_backend": mbe.cc_backend,
-            "hf_guess": mbe.hf_guess,
-            "target": mbe.target,
-            "point_group": mbe.point_group,
-            "fci_state_sym": mbe.fci_state_sym,
-            "fci_state_root": mbe.fci_state_root,
-            "orb_type": mbe.orb_type,
-            "base_method": mbe.base_method,
-            "screen_type": mbe.screen_type,
-            "screen_start": mbe.screen_start,
-            "screen_perc": mbe.screen_perc,
-            "screen_thres": mbe.screen_thres,
-            "screen_func": mbe.screen_func,
-            "max_order": mbe.max_order,
-            "rst": mbe.rst,
-            "rst_freq": mbe.rst_freq,
-            "restarted": mbe.restarted,
-            "verbose": mbe.verbose,
-            "pi_prune": mbe.pi_prune,
-            "no_singles": mbe.no_singles,
-        }
+        keywords = [
+            "method",
+            "cc_backend",
+            "hf_guess",
+            "target",
+            "point_group",
+            "fci_state_sym",
+            "fci_state_root",
+            "orb_type",
+            "base_method",
+            "screen_type",
+            "screen_start",
+            "screen_perc",
+            "screen_thres",
+            "screen_func",
+            "max_order",
+            "rst",
+            "rst_freq",
+            "restarted",
+            "verbose",
+            "pi_prune",
+            "no_singles",
+        ]
+
+        # put keyword attributes that exist into dictionary
+        kw_dict = {}
+        for kw in keywords:
+            if hasattr(mbe, kw):
+                kw_dict[kw] = getattr(mbe, kw)
 
         # bcast to slaves
-        mbe.mpi.global_comm.bcast(keywords, root=0)
+        mbe.mpi.global_comm.bcast(kw_dict, root=0)
 
     else:
         # receive info from master
-        keywords = mbe.mpi.global_comm.bcast(None, root=0)
+        kw_dict = mbe.mpi.global_comm.bcast(None, root=0)
 
         # set mbe attributes from keywords
-        for key, val in keywords.items():
+        for key, val in kw_dict.items():
             setattr(mbe, key, val)
 
     return mbe
@@ -126,32 +132,38 @@ def system_dist(mbe: MBE) -> MBE:
     """
     if mbe.mpi.global_master:
         # collect system quantites (must be updated with new future attributes)
-        system = {
-            "norb": mbe.norb,
-            "nelec": mbe.nelec,
-            "orbsym": mbe.orbsym,
-            "ref_space": mbe.ref_space,
-            "exp_space": mbe.exp_space,
-            "base_prop": mbe.base_prop,
-            "orbsym_linear": mbe.orbsym_linear,
-            "dipole_ints": mbe.dipole_ints,
-            "full_norb": mbe.full_norb,
-            "full_nocc": mbe.full_nocc,
-            "inact_fock": mbe.inact_fock,
-            "eri_goaa": mbe.eri_goaa,
-            "eri_gaao": mbe.eri_gaao,
-            "eri_gaaa": mbe.eri_gaaa,
-        }
+        system = [
+            "norb",
+            "nelec",
+            "orbsym",
+            "ref_space",
+            "exp_space",
+            "base_prop",
+            "orbsym_linear",
+            "dipole_ints",
+            "full_norb",
+            "full_nocc",
+            "inact_fock",
+            "eri_goaa",
+            "eri_gaao",
+            "eri_gaaa",
+        ]
+
+        # put keyword attributes that exist into dictionary
+        system_dict = {}
+        for attr in system:
+            if hasattr(mbe, attr):
+                system_dict[attr] = getattr(mbe, attr)
 
         # bcast to slaves
-        mbe.mpi.global_comm.bcast(system, root=0)
+        mbe.mpi.global_comm.bcast(system_dict, root=0)
 
     else:
         # receive system quantites from master
-        system = mbe.mpi.global_comm.bcast(None, root=0)
+        system_dict = mbe.mpi.global_comm.bcast(None, root=0)
 
         # set mbe attributes from system dict
-        for key, val in system.items():
+        for key, val in system_dict.items():
             setattr(mbe, key, val)
 
     return mbe

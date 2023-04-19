@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from pymbe.expansion import MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.dipole import DipoleExpCls
-from pymbe.tools import get_nelec, assertion
+from pymbe.tools import get_nelec
 from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
@@ -100,7 +100,8 @@ class TransExpCls(DipoleExpCls):
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
         if spin_cas == 0:
@@ -160,22 +161,21 @@ class TransExpCls(DipoleExpCls):
                 # verify correct spin
                 for root in range(len(civec)):
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-                    assertion(
-                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                    raise RuntimeError(
                         f"spin contamination for root entry = {root}\n"
                         f"2*S + 1 = {mult:.6f}\n"
                         f"cas_idx = {cas_idx}\n"
-                        f"cas_sym = {self.orbsym[cas_idx]}",
+                        f"cas_sym = {self.orbsym[cas_idx]}"
                     )
 
         # convergence check
         for root in [0, solver.nroots - 1]:
-            assertion(
-                solver.converged[root],
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
+            if not solver.converged[root]:
+                raise RuntimeError(
+                    f"state {root} not converged\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}"
+                )
 
         # init transition rdm1
         t_rdm1 = np.zeros([self.occup.size, self.occup.size], dtype=np.float64)

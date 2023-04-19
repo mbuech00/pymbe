@@ -16,7 +16,6 @@ __status__ = "Development"
 
 import os
 import re
-import sys
 import logging
 import numpy as np
 import scipy.special as sc
@@ -25,7 +24,6 @@ from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby, chain
 from bisect import insort
 from subprocess import Popen, PIPE
-from traceback import format_stack
 from typing import TYPE_CHECKING, overload
 
 from pymbe.parallel import open_shared_win
@@ -550,22 +548,6 @@ def logger_config(verbose: int) -> None:
     # set level for logger
     logger.setLevel(verbose_level[verbose])
 
-    # add new handler to log to stdout
-    handler = logging.StreamHandler(sys.stdout)
-
-    # create new formatter
-    formatter = logging.Formatter("%(message)s")
-
-    # add formatter to handler
-    handler.setFormatter(formatter)
-
-    # add handler to logger if it does not already exist
-    if not len(logger.handlers):
-        logger.addHandler(handler)
-
-    # prevent logger from propagating handlers from parent loggers
-    logger.propagate = False
-
 
 def git_version() -> str:
     """
@@ -600,20 +582,6 @@ def get_pymbe_path() -> str:
     this function returns the path to pymbe
     """
     return os.path.dirname(__file__)
-
-
-def assertion(cond: Union[bool, np.bool_], reason: str) -> None:
-    """
-    this function returns an assertion of a given condition
-    """
-    if not cond:
-        # get stack
-        stack = "".join(format_stack()[:-1])
-        # print stack
-        logger.error("\n\n" + stack)
-        logger.error("\n\n*** PyMBE assertion error: " + reason + " ***\n\n")
-        # abort mpi
-        MPI.COMM_WORLD.Abort()
 
 
 def time_str(time: float) -> str:
