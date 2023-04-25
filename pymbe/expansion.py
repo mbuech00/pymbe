@@ -173,7 +173,7 @@ class ExpCls(
             self.full_nvirt = self.full_norb - self.norb - self.full_nocc
 
         # integrals
-        self.hcore, self.eri, self.vhf = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
+        self.hcore, self.eri, self.vhf = self._int_wins(mbe, mbe.mpi)
 
         # optional integrals for (transition) dipole moment
         if hasattr(mbe, "dipole_ints"):
@@ -525,9 +525,7 @@ class ExpCls(
         self.spin: StateIntType
         self.occup: np.ndarray
 
-    def _int_wins(
-        self, hcore_in: np.ndarray, eri_in: np.ndarray, mpi: MPICls
-    ) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
+    def _int_wins(self, mbe: MBE, mpi: MPICls) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
         """
         this function creates shared memory windows for integrals on every node
         """
@@ -541,7 +539,7 @@ class ExpCls(
 
         # set hcore on global master
         if mpi.global_master:
-            hcore[:] = hcore_in
+            hcore[:] = mbe.hcore
 
         # mpi_bcast hcore
         if mpi.num_masters > 1 and mpi.local_master:
@@ -559,7 +557,7 @@ class ExpCls(
 
         # set eri on global master
         if mpi.global_master:
-            eri[:] = eri_in
+            eri[:] = mbe.eri
 
         # mpi_bcast eri
         if mpi.num_masters > 1 and mpi.local_master:
