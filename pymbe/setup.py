@@ -16,24 +16,18 @@ __status__ = "Development"
 
 import sys
 import os
-import logging
 import numpy as np
 from json import load, dump
 from pyscf import symm
 from typing import TYPE_CHECKING
 
+from pymbe.logger import logger
 from pymbe.parallel import kw_dist, system_dist
 from pymbe.tools import RST, logger_config, ground_state_sym
 
 
 if TYPE_CHECKING:
-    from typing import Dict, Any
-
     from pymbe.pymbe import MBE
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 
 def main(mbe: MBE) -> MBE:

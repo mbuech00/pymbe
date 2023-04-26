@@ -15,7 +15,6 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
@@ -30,11 +29,7 @@ from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import List, Optional, Tuple, Union, Dict
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
+    from typing import Optional, Tuple, Union, Dict
 
 
 class EnergyExpCls(SingleTargetExpCls[float]):

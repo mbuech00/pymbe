@@ -16,11 +16,11 @@ __status__ = "Development"
 
 import os
 import shutil
-import logging
 from pyscf import ao2mo, symm
 import numpy as np
 from typing import TYPE_CHECKING, cast
 
+from pymbe.logger import logger
 from pymbe.parallel import MPICls
 from pymbe.setup import (
     restart_read_kw,
@@ -426,9 +426,6 @@ class MBE:
         """
         this function dumps all input flags
         """
-        # get logger
-        logger = logging.getLogger("pymbe_logger")
-
         # dump flags
         logger.info("\n" + DIVIDER + "\n")
         for key, value in vars(self).items():

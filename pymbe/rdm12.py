@@ -15,7 +15,6 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto, scf, fci, cc
@@ -49,10 +48,6 @@ from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
 if TYPE_CHECKING:
     import matplotlib
     from typing import Optional, Union
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 
 class RDMExpCls(
