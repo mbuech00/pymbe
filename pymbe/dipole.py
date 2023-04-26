@@ -15,7 +15,6 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto, scf, fci, cc
@@ -36,10 +35,6 @@ from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 if TYPE_CHECKING:
     import matplotlib
     from typing import Optional, Tuple, Union
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 
 class DipoleExpCls(SingleTargetExpCls[np.ndarray]):

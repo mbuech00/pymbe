@@ -16,7 +16,6 @@ __status__ = "Development"
 
 import os
 import re
-import logging
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
@@ -26,14 +25,12 @@ from bisect import insort
 from subprocess import Popen, PIPE
 from typing import TYPE_CHECKING, overload
 
+from pymbe.logger import logger
 from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
     from typing import Tuple, List, Generator, Union, Optional, Dict, Set
 
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 # restart folder
 RST = os.getcwd() + "/rst"
@@ -543,7 +540,7 @@ def logger_config(verbose: int) -> None:
     this function configures the pymbe logger
     """
     # corresponding logging level
-    verbose_level = {0: 30, 1: 20, 2: 10, 3: 10}
+    verbose_level = {0: 30, 1: 20, 2: 15, 3: 10}
 
     # set level for logger
     logger.setLevel(verbose_level[verbose])

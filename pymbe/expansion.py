@@ -15,13 +15,13 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
 from numpy.polynomial.polynomial import Polynomial
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union
 
+from pymbe.logger import logger
 from pymbe.output import (
     main_header,
     mbe_header,
@@ -109,10 +109,6 @@ StateIntType = TypeVar("StateIntType", int, List[int])
 
 # define variable type for numpy arrays describing electronic states
 StateArrayType = TypeVar("StateArrayType", np.ndarray, List[np.ndarray])
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 
 SCREEN = 1000.0  # random, non-sensical number
@@ -1509,6 +1505,9 @@ class ExpCls(
                         [screen["rel_factor"] for screen in self.screen[-2:]]
                     )
 
+                    # initialize array for
+                    good_fit = np.ones(self.exp_space[-1].size, dtype=bool)
+
                     # loop over orbitals
                     for orb_idx, orb in enumerate(self.exp_space[-1]):
                         # get mean absolute increments for orbital
@@ -1542,6 +1541,9 @@ class ExpCls(
                                 fit = Polynomial.fit(orders, log_mean_abs_inc, 1)
 
                             else:
+                                # fit is not good
+                                good_fit[orb_idx] = False
+
                                 # assume mean absolute increment does not decrease
                                 fit = Polynomial([log_mean_abs_inc[-1], 0.0])
 
@@ -1581,6 +1583,15 @@ class ExpCls(
 
                     # screen orbital away if contribution is smaller than threshold
                     if error_diff[min_idx] > 0.0:
+                        # log screening
+                        logger.info2(
+                            f" Orbital {self.exp_space[-1][min_idx]} is screened away "
+                            f"(Error = {tot_error[min_idx]:>10.4e}, Factor = "
+                            f"{rel_factor:>10.4e})"
+                        )
+                        if not good_fit[self.exp_space[-1][min_idx]]:
+                            logger.info2(" Screened orbital R^2 value is < 0.9")
+
                         # add screened orbital contribution to error
                         self.mbe_tot_error[-1] += min_orb_contrib
 
@@ -1654,6 +1665,13 @@ class ExpCls(
 
                 # signal other processes to stop screening
                 mpi.global_comm.bcast(keep_screening, root=0)
+
+                # log screening
+                if np.array_equal(self.exp_space[-1], self.exp_space[-2]):
+                    logger.info2(
+                        f" No orbitals were screened away (Factor = "
+                        f"{rel_factor:>10.4e})"
+                    )
 
             else:
                 # initialize boolean to keep screening

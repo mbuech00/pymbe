@@ -16,7 +16,6 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
@@ -57,10 +56,6 @@ from pymbe.parallel import (
 if TYPE_CHECKING:
     import matplotlib
     from typing import List, Optional, Union
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 
 class GenFockExpCls(
