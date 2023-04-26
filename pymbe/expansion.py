@@ -577,7 +577,7 @@ class ExpCls(
         if mpi.num_masters > 1 and mpi.local_master:
             vhf[:] = mpi_bcast(mpi.master_comm, vhf)
 
-        # mpi barrier
+        # mpi barrier (ensure integrals are broadcasted to all nodes before continuing)
         mpi.global_comm.Barrier()
 
         return hcore_win, eri_win, vhf_win
@@ -980,6 +980,10 @@ class ExpCls(
             mpi.global_master, mpi.local_master, mpi.local_comm, rst_read
         )
 
+        # mpi barrier (ensures hashes and inc arrays are zeroed on the local masters 
+        # before slaves start writing)
+        mpi.local_comm.Barrier()
+
         # init time
         if mpi.global_master:
             if not rst_read:
@@ -1014,9 +1018,6 @@ class ExpCls(
             ]
         else:
             pair_corr = None
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
 
         # occupied and virtual expansion spaces
         exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
@@ -1071,7 +1072,9 @@ class ExpCls(
         ):
             # write restart files and re-init time
             if rst_write and tup_idx % self.rst_freq < n_prev_tup_idx:
-                # mpi barrier
+
+                # mpi barrier (ensures all slaves are done writing to hashes and inc
+                # arrays before these are reduced and zeroed)
                 mpi.local_comm.Barrier()
 
                 # reduce hashes & increments onto global master
@@ -1084,6 +1087,10 @@ class ExpCls(
                     inc[-1][:] = self._mpi_reduce_inc(mpi.master_comm, inc[-1], MPI.SUM)
                     if not mpi.global_master:
                         inc[-1][:].fill(0.0)
+
+                # mpi barrier (ensures hashes and inc arrays are zeroed on the local 
+                # masters before slaves start writing)
+                mpi.local_comm.Barrier()
 
                 # reduce increment statistics onto global master
                 min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
@@ -1232,7 +1239,8 @@ class ExpCls(
                 # increment tuple counter
                 tup_idx += 1
 
-        # mpi barrier
+        # mpi barrier (ensures all slaves are done writing to hashes and inc arrays 
+        # before these are reduced and zeroed)
         mpi.global_comm.Barrier()
 
         # print final status
