@@ -787,7 +787,7 @@ def restart_write_kw(mbe: MBE) -> None:
 
     # write keywords
     with open(os.path.join(RST, "keywords.rst"), "w") as f:
-        dump(keywords, f)
+        dump(kw_dict, f)
 
 
 def restart_read_kw(mbe: MBE) -> MBE:

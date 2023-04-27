@@ -224,6 +224,7 @@ class ExpCls(
             "van": [],
             "calc": [],
             "inc": [],
+            "prev": [],
         }
 
         # screening
@@ -336,7 +337,7 @@ class ExpCls(
             logger.info(
                 mbe_header(
                     self.order,
-                    self.n_tuples["calc"][self.order - self.min_order],
+                    self.n_tuples["inc"][self.order - self.min_order],
                     self.screen_type,
                     1.0 if self.order < self.screen_start else self.screen_perc,
                     self.screen_thres,
@@ -366,7 +367,7 @@ class ExpCls(
                     self.order,
                     self.n_tuples["screen"][self.order - self.min_order],
                     self.n_tuples["van"][self.order - self.min_order],
-                    self.n_tuples["calc"][self.order - self.min_order],
+                    self.n_tuples["inc"][self.order - self.min_order],
                     self.pi_prune or self.symm_eqv_orbs is not None,
                 )
             )
@@ -915,9 +916,13 @@ class ExpCls(
                     )
 
         if mpi.global_master:
-            # determine number of calculations
+            # initialize number of calculations
             if len(self.n_tuples["calc"]) == self.order - self.min_order:
-                self.n_tuples["calc"].append(self.n_tuples["inc"][-1])
+                self.n_tuples["calc"].append(0)
+
+            # determine number of increments before purging
+            if len(self.n_tuples["prev"]) == self.order - self.min_order:
+                self.n_tuples["prev"].append(self.n_tuples["inc"][-1])
 
             # write restart files
             if self.rst:
@@ -978,7 +983,7 @@ class ExpCls(
             mpi.global_master, mpi.local_master, mpi.local_comm, rst_read
         )
 
-        # mpi barrier (ensures hashes and inc arrays are zeroed on the local masters 
+        # mpi barrier (ensures hashes and inc arrays are zeroed on the local masters
         # before slaves start writing)
         mpi.local_comm.Barrier()
 
@@ -987,6 +992,12 @@ class ExpCls(
             if not rst_read:
                 self.time["mbe"].append(0.0)
             time = MPI.Wtime()
+
+        # init number of global master
+        if mpi.global_master and rst_read:
+            n_calc = self.n_tuples["calc"][-1]
+        else:
+            n_calc = 0
 
         # init increment statistics
         if mpi.global_master and rst_read:
@@ -1070,7 +1081,6 @@ class ExpCls(
         ):
             # write restart files and re-init time
             if rst_write and tup_idx % self.rst_freq < n_prev_tup_idx:
-
                 # mpi barrier (ensures all slaves are done writing to hashes and inc
                 # arrays before these are reduced and zeroed)
                 mpi.local_comm.Barrier()
@@ -1086,9 +1096,19 @@ class ExpCls(
                     if not mpi.global_master:
                         inc[-1][:].fill(0.0)
 
-                # mpi barrier (ensures hashes and inc arrays are zeroed on the local 
+                # mpi barrier (ensures hashes and inc arrays are zeroed on the local
                 # masters before slaves start writing)
                 mpi.local_comm.Barrier()
+
+                # reduce number of calculations onto global master
+                n_calc = mpi_reduce(
+                    mpi.global_comm,
+                    np.array(n_calc, dtype=np.int64),
+                    root=0,
+                    op=MPI.SUM,
+                ).item()
+                if not mpi.global_master:
+                    n_calc = 0
 
                 # reduce increment statistics onto global master
                 min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
@@ -1123,6 +1143,7 @@ class ExpCls(
                     self._write_target_file(max_inc, "mbe_max_inc", self.order)
                     write_file_mult(screen, "mbe_screen", self.order)
                     write_file(np.asarray(tup_idx), "mbe_idx", self.order)
+                    write_file(np.asarray(n_calc), "mbe_n_tuples_calc", self.order)
                     write_file(tup, "mbe_tup", self.order)
                     write_file(hashes[-1], "mbe_hashes", self.order)
                     self._write_inc_file(inc[-1], self.order)
@@ -1197,6 +1218,9 @@ class ExpCls(
                 e_core, h1e_cas, h2e_cas, core_idx, cas_idx
             )
 
+            # increment calculation counter
+            n_calc += 1
+
             # loop over equivalent increment sets
             for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
                 # calculate increment
@@ -1237,7 +1261,7 @@ class ExpCls(
                 # increment tuple counter
                 tup_idx += 1
 
-        # mpi barrier (ensures all slaves are done writing to hashes and inc arrays 
+        # mpi barrier (ensures all slaves are done writing to hashes and inc arrays
         # before these are reduced and zeroed)
         mpi.global_comm.Barrier()
 
@@ -1254,6 +1278,11 @@ class ExpCls(
         if mpi.local_master:
             inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
             hashes[-1][:].sort()
+
+        # number of actual calculations
+        n_calc = mpi_reduce(
+            mpi.global_comm, np.array(n_calc, dtype=np.int64), root=0, op=MPI.SUM
+        ).item()
 
         # increment statistics
         min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
@@ -1275,7 +1304,7 @@ class ExpCls(
         # reduce screen
         if screen_mpi_func is not None:
             for screen_func, screen_array in screen.items():
-                self.screen[-1][screen_func] = mpi_reduce(
+                screen[screen_func] = mpi_reduce(
                     mpi.global_comm,
                     screen_array,
                     op=screen_mpi_func[screen_func],
@@ -1320,6 +1349,12 @@ class ExpCls(
             if self.order > self.min_order:
                 self.mbe_tot_prop[-1] += self.mbe_tot_prop[-2]
 
+            # append total number of calculations
+            if len(self.n_tuples["calc"]) > self.order - self.min_order:
+                self.n_tuples["calc"][-1] = n_calc
+            else:
+                self.n_tuples["calc"].append(n_calc)
+
             # append increment statistics
             if len(self.mean_inc) > self.order - self.min_order:
                 self.mean_inc[-1] = mean_inc
@@ -1329,6 +1364,12 @@ class ExpCls(
                 self.mean_inc.append(mean_inc)
                 self.min_inc.append(min_inc)
                 self.max_inc.append(max_inc)
+
+            # append screening arrays
+            if len(self.screen) > self.order - self.min_order:
+                self.screen[-1] = screen
+            else:
+                self.screen.append(screen)
 
             self.time["mbe"][-1] += MPI.Wtime() - time
 
@@ -1352,6 +1393,9 @@ class ExpCls(
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
             write_file_mult(self.screen[-1], "mbe_screen", self.order)
             write_file(np.asarray(self.n_tuples["inc"][-1]), "mbe_idx", self.order)
+            write_file(
+                np.asarray(self.n_tuples["calc"][-1]), "mbe_n_tuples_calc", self.order
+            )
             write_file(np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order)
             self._write_target_file(self.mbe_tot_prop[-1], "mbe_tot_prop", self.order)
 
@@ -1589,7 +1633,7 @@ class ExpCls(
                             f"(Error = {tot_error[min_idx]:>10.4e}, Factor = "
                             f"{rel_factor:>10.4e})"
                         )
-                        if not good_fit[self.exp_space[-1][min_idx]]:
+                        if not good_fit[min_idx]:
                             logger.info2(" Screened orbital R^2 value is < 0.9")
 
                         # add screened orbital contribution to error
