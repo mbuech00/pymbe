@@ -1515,11 +1515,15 @@ class ExpCls(
                         keep_screening = False
                         break
 
-                    # define error allowed per orbital
+                    # define allowed error
                     error_thresh = self.screen_thres - self.mbe_tot_error[-1]
 
-                    # initialize array for error estimate
-                    error_estimate = np.zeros(
+                    # initialize array for mean and error estimates
+                    mean_estimate = np.empty(
+                        (self.exp_space[-1].size, max_order - self.order),
+                        dtype=np.float64,
+                    )
+                    error_estimate = np.empty(
                         (self.exp_space[-1].size, max_order - self.order),
                         dtype=np.float64,
                     )
@@ -1608,9 +1612,10 @@ class ExpCls(
                             break
 
                         # get estimates for remaining orders
-                        error_estimate[orb_idx] = rel_factor * np.exp(
+                        mean_estimate[orb_idx] = np.exp(
                             fit(np.arange(self.order + 1, max_order + 1))
                         )
+                        error_estimate[orb_idx] = rel_factor * mean_estimate[orb_idx]
                         error_estimate[orb_idx] *= (
                             ntup_order_occ if orb < self.nocc else ntup_order_virt
                         )
@@ -1647,7 +1652,14 @@ class ExpCls(
                         )
                         if not good_fit[min_idx]:
                             logger.info2(" Screened orbital R^2 value is < 0.9")
-
+                        logger.info2(" ----------------------------------")
+                        logger.info2("  Order | Est. mean abs. increment")
+                        logger.info2(" ----------------------------------")
+                        for order, mean_est in zip(
+                            range(self.order + 1, max_order + 1), mean_estimate[min_idx]
+                        ):
+                            logger.info2(f"  {order:5} |        {mean_est:>10.4e}")
+                        logger.info2(" ----------------------------------\n")
                         # add screened orbital contribution to error
                         self.mbe_tot_error[-1] += min_orb_contrib
 
