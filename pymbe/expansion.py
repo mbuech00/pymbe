@@ -1489,6 +1489,18 @@ class ExpCls(
                     else 0.0
                 )
 
+                # log individual orbital contributions
+                logger.info2(" ----------------------------------------------")
+                logger.info2("  Orbital | Mean absolute increment |  Factor  ")
+                logger.info2(" ----------------------------------------------")
+                for orb in range(self.norb):
+                    logger.info2(
+                        f"     {orb:3}  | "
+                        f"       {self.screen[-1]['mean_abs_inc'][orb]:>10.4e}       | "
+                        f"{self.screen[-1]['rel_factor'][orb]:>8.2e}     "
+                    )
+                logger.info2(" ----------------------------------------------")
+
                 # initialize boolean to keep screening
                 keep_screening = True
 
@@ -1631,7 +1643,7 @@ class ExpCls(
                         logger.info2(
                             f" Orbital {self.exp_space[-1][min_idx]} is screened away "
                             f"(Error = {tot_error[min_idx]:>10.4e}, Factor = "
-                            f"{rel_factor:>10.4e})"
+                            f"{rel_factor:>8.2e})"
                         )
                         if not good_fit[min_idx]:
                             logger.info2(" Screened orbital R^2 value is < 0.9")
@@ -1714,7 +1726,7 @@ class ExpCls(
                 if np.array_equal(self.exp_space[-1], self.exp_space[-2]):
                     logger.info2(
                         f" No orbitals were screened away (Factor = "
-                        f"{rel_factor:>10.4e})"
+                        f"{rel_factor:>8.2e})"
                     )
 
             else:
