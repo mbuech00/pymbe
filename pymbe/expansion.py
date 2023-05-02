@@ -1493,7 +1493,7 @@ class ExpCls(
                 logger.info2(" ----------------------------------------------")
                 logger.info2("  Orbital | Mean absolute increment |  Factor  ")
                 logger.info2(" ----------------------------------------------")
-                for orb in range(self.norb):
+                for orb in self.exp_space[-1]:
                     logger.info2(
                         f"     {orb:3}  | "
                         f"       {self.screen[-1]['mean_abs_inc'][orb]:>10.4e}       | "
