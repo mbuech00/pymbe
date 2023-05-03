@@ -1586,21 +1586,18 @@ class ExpCls(
 
                         # require at least 3 points to fit
                         if orders.size > 2:
-                            # get pearson correlation coefficient
-                            r2_value = (
-                                np.corrcoef(
-                                    orders,
-                                    log_mean_abs_inc,
-                                )[0, 1]
-                                ** 2
+                            # calculate weights
+                            distance = self.order + 1 - orders
+                            weights = np.exp(-distance)
+                            weights = weights / np.sum(weights)
+
+                            # fit logarithmic mean absolute increment
+                            fit, diagnostic = Polynomial.fit(
+                                orders, log_mean_abs_inc, 1, w=weights, full=True
                             )
 
                             # check if correlation is good enough
-                            if r2_value > 0.9:
-                                # fit log-transformed mean absolute increments
-                                fit = Polynomial.fit(orders, log_mean_abs_inc, 1)
-
-                            else:
+                            if (1 - diagnostic[0][0]) < 0.99:
                                 # fit is not good
                                 good_fit[orb_idx] = False
 
