@@ -1382,10 +1382,14 @@ class ExpCls(
                 self.screen.append(screen)
 
             # append orb_contrib statistics
-            if len(self.orb_contrib) > self.order - self.min_order:
-                self.orb_contrib[-1] = screen["sum"] / self.order
+            if "sum" in screen.keys():
+                orb_contrib = screen["sum"] / self.order
             else:
-                self.orb_contrib.append(screen["sum"] / self.order)
+                orb_contrib = np.zeros(self.norb, dtype=np.float64)
+            if len(self.orb_contrib) > self.order - self.min_order:
+                self.orb_contrib[-1] = orb_contrib
+            else:
+                self.orb_contrib.append(orb_contrib)
 
             self.time["mbe"][-1] += MPI.Wtime() - time
 
