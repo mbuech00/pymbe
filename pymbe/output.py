@@ -183,7 +183,7 @@ def redundant_results(
 def screen_results(
     order: int,
     orbs: np.ndarray,
-    exp_space: List[np.ndarray],
+    n_screen_orbs: int,
     screen_type: str,
     error: float,
 ) -> str:
@@ -201,11 +201,8 @@ def screen_results(
         if 0 < idx:
             string += f" RESULT-{order:d}:{'':19s}"
         string += f"[{elms}]\n"
-    total_screen = np.setdiff1d(exp_space[0], exp_space[-1])
     string += DIVIDER + "\n"
-    string += (
-        f" RESULT-{order:d}:  total number of screened MOs: {total_screen.size:}\n"
-    )
+    string += f" RESULT-{order:d}:  total number of screened MOs: {n_screen_orbs:}\n"
     if screen_type == "adaptive":
         string += DIVIDER + "\n"
         string += f" RESULT-{order:d}:  total error: {error:>13.4e}\n"

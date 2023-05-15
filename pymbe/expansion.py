@@ -237,6 +237,9 @@ class ExpCls(
         self.screen_orbs = np.array([], dtype=np.int64)
         self.mbe_tot_error: List[float] = []
 
+        # individual orbital contributions
+        self.orb_contrib: List[np.ndarray] = []
+
         # restart
         self.rst = mbe.rst
         self.rst_freq = mbe.rst_freq
@@ -392,9 +395,12 @@ class ExpCls(
                     screen_results(
                         self.order,
                         self.screen_orbs,
-                        self.exp_space,
+                        np.setdiff1d(
+                            self.exp_space[0],
+                            self.exp_space[self.order - self.min_order + 1],
+                        ).size,
                         self.screen_type,
-                        self.mbe_tot_error[-1]
+                        self.mbe_tot_error[self.order - self.min_order]
                         if self.screen_type == "adaptive"
                         else 0.0,
                     )
@@ -762,6 +768,10 @@ class ExpCls(
                 # read max increment
                 elif "mbe_max_inc" in files[i]:
                     self.max_inc.append(self._read_target_file(files[i]))
+
+                # read orbital contributions
+                elif "mbe_orb_contrib" in files[i]:
+                    self.orb_contrib.append(np.load(os.path.join(RST, files[i])))
 
                 # read timings
                 elif "mbe_time_mbe" in files[i]:
@@ -1371,6 +1381,12 @@ class ExpCls(
             else:
                 self.screen.append(screen)
 
+            # append orb_contrib statistics
+            if len(self.orb_contrib) > self.order - self.min_order:
+                self.orb_contrib[-1] = screen["sum"] / self.order
+            else:
+                self.orb_contrib.append(screen["sum"] / self.order)
+
             self.time["mbe"][-1] += MPI.Wtime() - time
 
         return
@@ -1392,6 +1408,7 @@ class ExpCls(
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
             write_file_mult(self.screen[-1], "mbe_screen", self.order)
+            write_file(self.orb_contrib[-1], "mbe_orb_contrib", self.order)
             write_file(np.asarray(self.n_tuples["inc"][-1]), "mbe_idx", self.order)
             write_file(
                 np.asarray(self.n_tuples["calc"][-1]), "mbe_n_tuples_calc", self.order
@@ -1507,6 +1524,11 @@ class ExpCls(
                 # remove orbitals until minimum orbital contribution is larger than
                 # threshold
                 while keep_screening:
+                    # get maximum relative factor from last two orders
+                    rel_factor = np.max(
+                        [screen["rel_factor"] for screen in self.screen[-2:]]
+                    )
+
                     # define maximum possible order
                     max_order = self.exp_space[-1].size
 
@@ -1559,11 +1581,6 @@ class ExpCls(
                     if np.sum(ntup_order_tot) == 0:
                         keep_screening = False
                         break
-
-                    # get maximum relative factor from last two orders
-                    rel_factor = np.max(
-                        [screen["rel_factor"] for screen in self.screen[-2:]]
-                    )
 
                     # initialize array for
                     good_fit = np.ones(self.exp_space[-1].size, dtype=bool)
@@ -1648,7 +1665,7 @@ class ExpCls(
                             f"{rel_factor:>8.2e})"
                         )
                         if not good_fit[min_idx]:
-                            logger.info2(" Screened orbital R^2 value is < 0.9")
+                            logger.info2(" Screened orbital R^2 value is < 0.99")
                         logger.info2(" ----------------------------------")
                         logger.info2("  Order | Est. mean abs. increment")
                         logger.info2(" ----------------------------------")
