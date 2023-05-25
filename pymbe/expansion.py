@@ -1586,101 +1586,128 @@ class ExpCls(
                         keep_screening = False
                         break
 
-                    # initialize array for
-                    good_fit = np.ones(self.exp_space[-1].size, dtype=bool)
+                    # get index in expansion space for minimum mean absolute increment
+                    min_idx = np.argmin(self.screen[-1]["mean_abs_inc"])
 
-                    # loop over orbitals
-                    for orb_idx, orb in enumerate(self.exp_space[-1]):
-                        # get mean absolute increments for orbital
-                        mean_abs_inc = np.array(
-                            [screen["mean_abs_inc"][orb] for screen in self.screen],
-                            dtype=np.float64,
-                        )
+                    # check if minimum mean absolute increment comes close to
+                    # convergence threshold
+                    if 0.0 < self.screen[-1]["mean_abs_inc"][min_idx] < 1e1 * CONV_TOL:
+                        # orbital is screened away
+                        screen = True
 
-                        # log transform mean absolute increments
-                        log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
-
-                        # get orders for fit
-                        orders = self.min_order + np.argwhere(
-                            mean_abs_inc > 0.0
-                        ).reshape(-1)
-
-                        # require at least 3 points to fit
-                        if orders.size > 2:
-                            # calculate weights
-                            distance = self.order + 1 - orders
-                            weights = np.exp(-distance)
-                            weights = weights / np.sum(weights)
-
-                            # fit logarithmic mean absolute increment
-                            fit, diagnostic = Polynomial.fit(
-                                orders, log_mean_abs_inc, 1, w=weights, full=True
-                            )
-
-                            # check if correlation is good enough
-                            if (1 - diagnostic[0][0]) < 0.99:
-                                # fit is not good
-                                good_fit[orb_idx] = False
-
-                                # assume mean absolute increment does not decrease
-                                fit = Polynomial([log_mean_abs_inc[-1], 0.0])
-
-                        else:
-                            keep_screening = False
-                            break
-
-                        # get estimates for remaining orders
-                        mean_estimate[orb_idx] = np.exp(
-                            fit(np.arange(self.order + 1, max_order + 1))
-                        )
-                        error_estimate[orb_idx] = rel_factor * mean_estimate[orb_idx]
-                        error_estimate[orb_idx] *= (
-                            ntup_order_occ if orb < self.nocc else ntup_order_virt
-                        )
-
-                    # check if orbitals will be screened away at this order
-                    if not keep_screening:
-                        break
-
-                    # calculate total error
-                    tot_error = np.sum(error_estimate, axis=1)
-
-                    # calculate difference to allowed error
-                    error_diff = np.zeros_like(tot_error)
-                    error_diff[: self.nocc] = (
-                        np.sum(ntup_order_occ) / np.sum(ntup_order_tot)
-                    ) * error_thresh - tot_error[: self.nocc]
-                    error_diff[self.nocc :] = (
-                        np.sum(ntup_order_virt) / np.sum(ntup_order_tot)
-                    ) * error_thresh - tot_error[self.nocc :]
-
-                    # get index in expansion space for minimum orbital contribution
-                    min_idx = np.argmax(error_diff)
-
-                    # get minimum orbital contribution
-                    min_orb_contrib = tot_error[min_idx]
-
-                    # screen orbital away if contribution is smaller than threshold
-                    if error_diff[min_idx] > 0.0:
                         # log screening
                         logger.info2(
                             f" Orbital {self.exp_space[-1][min_idx]} is screened away "
-                            f"(Error = {tot_error[min_idx]:>10.4e}, Factor = "
-                            f"{rel_factor:>8.2e})"
+                            "due to the majority of increments getting close to "
+                            "convergence\n criterium"
                         )
-                        if not good_fit[min_idx]:
-                            logger.info2(" Screened orbital R^2 value is < 0.99")
-                        logger.info2(" ----------------------------------")
-                        logger.info2("  Order | Est. mean abs. increment")
-                        logger.info2(" ----------------------------------")
-                        for order, mean_est in zip(
-                            range(self.order + 1, max_order + 1), mean_estimate[min_idx]
-                        ):
-                            logger.info2(f"  {order:5} |        {mean_est:>10.4e}")
-                        logger.info2(" ----------------------------------\n")
-                        # add screened orbital contribution to error
-                        self.mbe_tot_error[-1] += min_orb_contrib
 
+                    else:
+                        # assume no orbital is screened away
+                        screen = False
+
+                        # initialize array for
+                        good_fit = np.ones(self.exp_space[-1].size, dtype=bool)
+
+                        # loop over orbitals
+                        for orb_idx, orb in enumerate(self.exp_space[-1]):
+                            # get mean absolute increments for orbital
+                            mean_abs_inc = np.array(
+                                [screen["mean_abs_inc"][orb] for screen in self.screen],
+                                dtype=np.float64,
+                            )
+
+                            # log transform mean absolute increments
+                            log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
+
+                            # get orders for fit
+                            orders = self.min_order + np.argwhere(
+                                mean_abs_inc > 0.0
+                            ).reshape(-1)
+
+                            # require at least 3 points to fit
+                            if orders.size > 2:
+                                # calculate weights
+                                distance = self.order + 1 - orders
+                                weights = np.exp(-distance)
+                                weights = weights / np.sum(weights)
+
+                                # fit logarithmic mean absolute increment
+                                fit, diagnostic = Polynomial.fit(
+                                    orders, log_mean_abs_inc, 1, w=weights, full=True
+                                )
+
+                                # check if correlation is good enough
+                                if (1 - diagnostic[0][0]) < 0.99:
+                                    # fit is not good
+                                    good_fit[orb_idx] = False
+
+                                    # assume mean absolute increment does not decrease
+                                    fit = Polynomial([log_mean_abs_inc[-1], 0.0])
+
+                            else:
+                                keep_screening = False
+                                break
+
+                            # get estimates for remaining orders
+                            mean_estimate[orb_idx] = np.exp(
+                                fit(np.arange(self.order + 1, max_order + 1))
+                            )
+                            error_estimate[orb_idx] = (
+                                rel_factor * mean_estimate[orb_idx]
+                            )
+                            error_estimate[orb_idx] *= (
+                                ntup_order_occ if orb < self.nocc else ntup_order_virt
+                            )
+
+                        # check if orbitals will be screened away at this order
+                        if not keep_screening:
+                            break
+
+                        # calculate total error
+                        tot_error = np.sum(error_estimate, axis=1)
+
+                        # calculate difference to allowed error
+                        error_diff = np.zeros_like(tot_error)
+                        error_diff[: self.nocc] = (
+                            np.sum(ntup_order_occ) / np.sum(ntup_order_tot)
+                        ) * error_thresh - tot_error[: self.nocc]
+                        error_diff[self.nocc :] = (
+                            np.sum(ntup_order_virt) / np.sum(ntup_order_tot)
+                        ) * error_thresh - tot_error[self.nocc :]
+
+                        # get index in expansion space for minimum orbital contribution
+                        min_idx = np.argmax(error_diff)
+
+                        # get minimum orbital contribution
+                        min_orb_contrib = tot_error[min_idx]
+
+                        # screen orbital away if contribution is smaller than threshold
+                        if error_diff[min_idx] > 0.0:
+                            screen = True
+
+                            # log screening
+                            logger.info2(
+                                f" Orbital {self.exp_space[-1][min_idx]} is screened away "
+                                f"(Error = {tot_error[min_idx]:>10.4e}, Factor = "
+                                f"{rel_factor:>8.2e})"
+                            )
+                            if not good_fit[min_idx]:
+                                logger.info2(" Screened orbital R^2 value is < 0.99")
+                            logger.info2(" ----------------------------------")
+                            logger.info2("  Order | Est. mean abs. increment")
+                            logger.info2(" ----------------------------------")
+                            for order, mean_est in zip(
+                                range(self.order + 1, max_order + 1),
+                                mean_estimate[min_idx],
+                            ):
+                                logger.info2(f"  {order:5} |        {mean_est:>10.4e}")
+                            logger.info2(" ----------------------------------\n")
+
+                            # add screened orbital contribution to error
+                            self.mbe_tot_error[-1] += min_orb_contrib
+
+                    if screen:
                         # signal other processes to continue screening
                         mpi.global_comm.bcast(keep_screening, root=0)
 
