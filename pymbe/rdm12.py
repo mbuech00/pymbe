@@ -125,14 +125,12 @@ class RDMExpCls(
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[RDMCls, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> RDMCls:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
         rdm12 = self._kernel(
             self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
@@ -148,7 +146,7 @@ class RDMExpCls(
 
         rdm12[ind] -= self.ref_prop
 
-        return rdm12, nelec
+        return rdm12
 
     def _sum(
         self,

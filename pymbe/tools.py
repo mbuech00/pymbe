@@ -16,11 +16,12 @@ __status__ = "Development"
 
 import os
 import re
+import operator
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm, ao2mo
-from itertools import islice, combinations, groupby, chain
+from itertools import islice, combinations, groupby
 from bisect import insort
 from subprocess import Popen, PIPE
 from typing import TYPE_CHECKING, overload
@@ -875,7 +876,7 @@ def core_cas(
     this function returns a core and a cas space
     """
     cas_idx = cas(ref_space, tup)
-    core_idx = np.setdiff1d(np.arange(nocc), cas_idx)
+    core_idx = np.setdiff1d(np.arange(nocc), cas_idx, assume_unique=True)
     return core_idx, cas_idx
 
 
@@ -1193,7 +1194,8 @@ def apply_symm_op(
     this function applies a symmetry operation to a tuple of orbitals
     """
     try:
-        perm_set = set(chain.from_iterable(symm_op[orb] for orb in tup))
+        perm_set: Set[int] = set()
+        perm_set.update(*operator.itemgetter(*tup)(symm_op))
     except KeyError:
         return None
     set_len = len(perm_set)

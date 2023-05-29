@@ -265,6 +265,9 @@ class ExpCls(
         # verbose
         self.verbose = mbe.verbose
 
+        # dryrun
+        self.dryrun = mbe.dryrun
+
         # pi-pruning
         self.pi_prune = mbe.pi_prune
         if self.pi_prune:
@@ -297,7 +300,11 @@ class ExpCls(
                 ]
                 self.symm_inv_ref_space = True
                 for symm_op in self.symm_eqv_orbs[0]:
-                    perm_ref_space = apply_symm_op(symm_op, self.ref_space)
+                    perm_ref_space: Optional[np.ndarray]
+                    if self.ref_space.size == 0:
+                        perm_ref_space = np.array([], dtype=np.int64)
+                    else:
+                        perm_ref_space = apply_symm_op(symm_op, self.ref_space)
                     if perm_ref_space is None or not np.array_equal(
                         np.sort(mbe.ref_space), np.sort(perm_ref_space)
                     ):
@@ -664,8 +671,11 @@ class ExpCls(
             # compute e_core and h1e_cas
             e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
+            # get nelec_cas
+            nelec_cas = get_nelec(self.occup, cas_idx)
+
             # compute reference space property
-            ref_prop, _ = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+            ref_prop = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_cas)
 
             # bcast ref_prop to slaves
             mpi.global_comm.bcast(ref_prop, root=0)
@@ -1223,10 +1233,16 @@ class ExpCls(
             # compute e_core and h1e_cas
             e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
+            # get nelec_tup
+            nelec_tup = get_nelec(self.occup, cas_idx)
+
             # calculate CASCI property
-            target_tup, nelec_tup = self._inc(
-                e_core, h1e_cas, h2e_cas, core_idx, cas_idx
-            )
+            if not self.dryrun:
+                target_tup = self._inc(
+                    e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_tup
+                )
+            else:
+                target_tup = self._init_target_inst(0.0, cas_idx.size)
 
             # increment calculation counter
             n_calc += 1
@@ -1234,7 +1250,7 @@ class ExpCls(
             # loop over equivalent increment sets
             for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
                 # calculate increment
-                if self.order > self.min_order:
+                if not self.dryrun and self.order > self.min_order:
                     inc_tup = target_tup - self._sum(inc, hashes, tup)
                 else:
                     inc_tup = target_tup
@@ -2062,7 +2078,8 @@ class ExpCls(
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[TargetType, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> TargetType:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple

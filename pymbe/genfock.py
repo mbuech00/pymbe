@@ -177,14 +177,12 @@ class GenFockExpCls(
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[GenFockCls, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> GenFockCls:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
         gen_fock = self._kernel(
             self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
@@ -198,7 +196,7 @@ class GenFockExpCls(
 
         gen_fock -= self.ref_prop
 
-        return gen_fock, nelec
+        return gen_fock
 
     def _sum(
         self, inc: List[GenFockArrayCls], hashes: List[np.ndarray], tup: np.ndarray

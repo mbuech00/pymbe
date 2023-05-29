@@ -639,6 +639,14 @@ def sanity_check(mbe: MBE) -> None:
     if mbe.verbose < 0:
         raise ValueError("verbose option (verbose keyword argument) must be  >= 0")
 
+    # dryrun
+    if not isinstance(mbe.dryrun, bool):
+        raise TypeError("dryrun option (dryrun keyword argument) must be a bool")
+    if mbe.dryrun:
+        logger.warning(
+            "Warning: Calculation is a dryrun and will skip actual CASCI calculations."
+        )
+
     # pi pruning
     if not isinstance(mbe.pi_prune, bool):
         raise TypeError(
@@ -775,6 +783,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "rst",
         "rst_freq",
         "verbose",
+        "dryrun",
         "pi_prune",
         "no_singles",
     ]

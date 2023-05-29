@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 
 from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec, get_nhole, get_nexc
+from pymbe.tools import RST, write_file, get_nhole, get_nexc
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
@@ -96,14 +96,12 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> np.ndarray:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
         dipole = self._kernel(
             self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
@@ -117,7 +115,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         dipole -= self.ref_prop
 
-        return dipole, nelec
+        return dipole
 
     def _fci_kernel(
         self,

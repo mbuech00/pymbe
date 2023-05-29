@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING
 
 from pymbe.expansion import MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.dipole import DipoleExpCls
-from pymbe.tools import get_nelec
 from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
@@ -69,14 +68,12 @@ class TransExpCls(DipoleExpCls):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> np.ndarray:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
         trans = self._kernel(
             self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
@@ -84,7 +81,7 @@ class TransExpCls(DipoleExpCls):
 
         trans -= self.ref_prop
 
-        return trans, nelec
+        return trans
 
     def _fci_kernel(
         self,

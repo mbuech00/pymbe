@@ -84,6 +84,7 @@ class MBE:
         rst: bool = True,
         rst_freq: int = int(1e6),
         verbose: int = 0,
+        dryrun: bool = False,
         pi_prune: bool = False,
         orbsym_linear: Optional[np.ndarray] = None,
         no_singles: bool = False,
@@ -326,6 +327,9 @@ class MBE:
 
                 # verbose
                 self.verbose = verbose
+
+                # dryrun
+                self.dryrun = dryrun
 
                 # pi-pruning
                 self.pi_prune = pi_prune

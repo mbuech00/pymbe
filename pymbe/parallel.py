@@ -102,6 +102,7 @@ def kw_dist(mbe: MBE) -> MBE:
             "rst_freq",
             "restarted",
             "verbose",
+            "dryrun",
             "pi_prune",
             "no_singles",
         ]
