@@ -1029,25 +1029,6 @@ class ExpCls(
             mean_inc = self._init_target_inst(0.0, self.norb)
             max_inc = self._init_target_inst(0.0, self.norb)
 
-        # init pair_corr statistics
-        if (
-            self.ref_space.size == 0
-            and self.order == 2
-            and self.base_method is None
-            and self.target not in ["rdm12", "genfock"]
-        ):
-            pair_corr: Optional[List[np.ndarray]] = [
-                np.zeros(
-                    self.n_tuples["inc"][self.order - self.min_order], dtype=np.float64
-                ),
-                np.zeros(
-                    [self.n_tuples["inc"][self.order - self.min_order], 2],
-                    dtype=np.int32,
-                ),
-            ]
-        else:
-            pair_corr = None
-
         # occupied and virtual expansion spaces
         exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
         exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
@@ -1087,205 +1068,199 @@ class ExpCls(
         # initialize number of increments from previous calculation
         n_prev_tup_idx = 0
 
-        # loop until no tuples left
-        for tup in tuples(
-            exp_occ,
-            exp_virt,
-            self.ref_nelec,
-            self.ref_nhole,
-            self.vanish_exc,
-            self.order,
-            order_start,
-            occ_start,
-            virt_start,
-        ):
-            # write restart files and re-init time
-            if rst_write and tup_idx % self.rst_freq < n_prev_tup_idx:
-                # mpi barrier (ensures all slaves are done writing to hashes and inc
-                # arrays before these are reduced and zeroed)
-                mpi.local_comm.Barrier()
+        # perform calculation if not dryrun
+        if not self.dryrun:
+            # loop until no tuples left
+            for tup in tuples(
+                exp_occ,
+                exp_virt,
+                self.ref_nelec,
+                self.ref_nhole,
+                self.vanish_exc,
+                self.order,
+                order_start,
+                occ_start,
+                virt_start,
+            ):
+                # write restart files and re-init time
+                if rst_write and tup_idx % self.rst_freq < n_prev_tup_idx:
+                    # mpi barrier (ensures all slaves are done writing to hashes and
+                    # inc arrays before these are reduced and zeroed)
+                    mpi.local_comm.Barrier()
 
-                # reduce hashes & increments onto global master
-                if mpi.num_masters > 1 and mpi.local_master:
-                    hashes[-1][:] = mpi_reduce(
-                        mpi.master_comm, hashes[-1], root=0, op=MPI.SUM
-                    )
-                    if not mpi.global_master:
-                        hashes[-1][:].fill(0)
-                    inc[-1][:] = self._mpi_reduce_inc(mpi.master_comm, inc[-1], MPI.SUM)
-                    if not mpi.global_master:
-                        inc[-1][:].fill(0.0)
-
-                # mpi barrier (ensures hashes and inc arrays are zeroed on the local
-                # masters before slaves start writing)
-                mpi.local_comm.Barrier()
-
-                # reduce number of calculations onto global master
-                n_calc = mpi_reduce(
-                    mpi.global_comm,
-                    np.array(n_calc, dtype=np.int64),
-                    root=0,
-                    op=MPI.SUM,
-                ).item()
-                if not mpi.global_master:
-                    n_calc = 0
-
-                # reduce increment statistics onto global master
-                min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
-                mean_inc = self._mpi_reduce_target(mpi.global_comm, mean_inc, MPI.SUM)
-                max_inc = self._mpi_reduce_target(mpi.global_comm, max_inc, MPI.MAX)
-                if not mpi.global_master:
-                    min_inc = self._init_target_inst(1.0e12, self.norb)
-                    mean_inc = self._init_target_inst(0.0, self.norb)
-                    max_inc = self._init_target_inst(0.0, self.norb)
-
-                # reduce screen onto global master
-                if screen_mpi_func is not None:
-                    for screen_func, screen_array in screen.items():
-                        screen[screen_func] = mpi_reduce(
-                            mpi.global_comm,
-                            screen_array,
-                            root=0,
-                            op=screen_mpi_func[screen_func],
+                    # reduce hashes & increments onto global master
+                    if mpi.num_masters > 1 and mpi.local_master:
+                        hashes[-1][:] = mpi_reduce(
+                            mpi.master_comm, hashes[-1], root=0, op=MPI.SUM
                         )
+                        if not mpi.global_master:
+                            hashes[-1][:].fill(0)
+                        inc[-1][:] = self._mpi_reduce_inc(
+                            mpi.master_comm, inc[-1], MPI.SUM
+                        )
+                        if not mpi.global_master:
+                            inc[-1][:].fill(0.0)
+
+                    # mpi barrier (ensures hashes and inc arrays are zeroed on the
+                    # local masters before slaves start writing)
+                    mpi.local_comm.Barrier()
+
+                    # reduce number of calculations onto global master
+                    n_calc = mpi_reduce(
+                        mpi.global_comm,
+                        np.array(n_calc, dtype=np.int64),
+                        root=0,
+                        op=MPI.SUM,
+                    ).item()
                     if not mpi.global_master:
-                        screen = self._init_screen()
+                        n_calc = 0
 
-                # update rst_write
-                rst_write = (
-                    tup_idx + self.rst_freq < self.n_tuples["inc"][-1] - mpi.global_size
-                )
-
-                if mpi.global_master:
-                    # write restart files
-                    self._write_target_file(min_inc, "mbe_min_inc", self.order)
-                    self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
-                    self._write_target_file(max_inc, "mbe_max_inc", self.order)
-                    write_file_mult(screen, "mbe_screen", self.order)
-                    write_file(np.asarray(tup_idx), "mbe_idx", self.order)
-                    write_file(np.asarray(n_calc), "mbe_n_tuples_calc", self.order)
-                    write_file(tup, "mbe_tup", self.order)
-                    write_file(hashes[-1], "mbe_hashes", self.order)
-                    self._write_inc_file(inc[-1], self.order)
-                    self.time["mbe"][-1] += MPI.Wtime() - time
-                    write_file(
-                        np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order
+                    # reduce increment statistics onto global master
+                    min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
+                    mean_inc = self._mpi_reduce_target(
+                        mpi.global_comm, mean_inc, MPI.SUM
                     )
-                    # re-init time
-                    time = MPI.Wtime()
-                    # print status
-                    logger.info(
-                        mbe_status(self.order, tup_idx / self.n_tuples["inc"][-1])
+                    max_inc = self._mpi_reduce_target(mpi.global_comm, max_inc, MPI.MAX)
+                    if not mpi.global_master:
+                        min_inc = self._init_target_inst(1.0e12, self.norb)
+                        mean_inc = self._init_target_inst(0.0, self.norb)
+                        max_inc = self._init_target_inst(0.0, self.norb)
+
+                    # reduce screen onto global master
+                    if screen_mpi_func is not None:
+                        for screen_func, screen_array in screen.items():
+                            screen[screen_func] = mpi_reduce(
+                                mpi.global_comm,
+                                screen_array,
+                                root=0,
+                                op=screen_mpi_func[screen_func],
+                            )
+                        if not mpi.global_master:
+                            screen = self._init_screen()
+
+                    # update rst_write
+                    rst_write = (
+                        tup_idx + self.rst_freq
+                        < self.n_tuples["inc"][-1] - mpi.global_size
                     )
 
-            # pi-pruning
-            if self.pi_prune and not pi_prune(self.pi_orbs, self.pi_hashes, tup):
-                for screen_func in screen.keys():
-                    screen[screen_func][tup] = SCREEN
-                continue
+                    if mpi.global_master:
+                        # write restart files
+                        self._write_target_file(min_inc, "mbe_min_inc", self.order)
+                        self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
+                        self._write_target_file(max_inc, "mbe_max_inc", self.order)
+                        write_file_mult(screen, "mbe_screen", self.order)
+                        write_file(np.asarray(tup_idx), "mbe_idx", self.order)
+                        write_file(np.asarray(n_calc), "mbe_n_tuples_calc", self.order)
+                        write_file(tup, "mbe_tup", self.order)
+                        write_file(hashes[-1], "mbe_hashes", self.order)
+                        self._write_inc_file(inc[-1], self.order)
+                        self.time["mbe"][-1] += MPI.Wtime() - time
+                        write_file(
+                            np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order
+                        )
+                        # re-init time
+                        time = MPI.Wtime()
+                        # print status
+                        logger.info(
+                            mbe_status(self.order, tup_idx / self.n_tuples["inc"][-1])
+                        )
 
-            # symmetry-pruning
-            if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-                # add reference space if it is not symmetry-invariant
-                if self.symm_inv_ref_space:
-                    cas_idx = tup
-                    ref_space = None
-                else:
-                    cas_idx = cas(self.ref_space, tup)
-                    ref_space = self.ref_space
-
-                # check if tuple is last symmetrically equivalent tuple
-                eqv_tup_set = symm_eqv_tup(cas_idx, self.symm_eqv_orbs[-1], ref_space)
-
-                # skip calculation if symmetrically equivalent tuple will come later
-                if eqv_tup_set is None:
-                    n_prev_tup_idx = 0
+                # pi-pruning
+                if self.pi_prune and not pi_prune(self.pi_orbs, self.pi_hashes, tup):
+                    for screen_func in screen.keys():
+                        screen[screen_func][tup] = SCREEN
                     continue
 
-                # check for symmetrically equivalent increments
-                eqv_inc_lex_tup, eqv_inc_set = symm_eqv_inc(
-                    self.eqv_inc_orbs[-1], eqv_tup_set, ref_space
-                )
+                # symmetry-pruning
+                if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
+                    # add reference space if it is not symmetry-invariant
+                    if self.symm_inv_ref_space:
+                        cas_idx = tup
+                        ref_space = None
+                    else:
+                        cas_idx = cas(self.ref_space, tup)
+                        ref_space = self.ref_space
 
-                # save number of different increments for calculation
-                n_prev_tup_idx = len(eqv_inc_lex_tup)
+                    # check if tuple is last symmetrically equivalent tuple
+                    eqv_tup_set = symm_eqv_tup(
+                        cas_idx, self.symm_eqv_orbs[-1], ref_space
+                    )
 
-            else:
-                # every tuple is unique without symmetry pruning
-                eqv_inc_lex_tup = [tup]
-                eqv_inc_set = [[tup]]
-                n_prev_tup_idx = 1
+                    # skip calculation if symmetrically equivalent tuple will come later
+                    if eqv_tup_set is None:
+                        n_prev_tup_idx = 0
+                        continue
 
-            # distribute tuples
-            if tup_idx % mpi.global_size != mpi.global_rank:
-                tup_idx += n_prev_tup_idx
-                continue
+                    # check for symmetrically equivalent increments
+                    eqv_inc_lex_tup, eqv_inc_set = symm_eqv_inc(
+                        self.eqv_inc_orbs[-1], eqv_tup_set, ref_space
+                    )
 
-            # get core and cas indices
-            core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
+                    # save number of different increments for calculation
+                    n_prev_tup_idx = len(eqv_inc_lex_tup)
 
-            # get h2e indices
-            cas_idx_tril = idx_tril(cas_idx)
+                else:
+                    # every tuple is unique without symmetry pruning
+                    eqv_inc_lex_tup = [tup]
+                    eqv_inc_set = [[tup]]
+                    n_prev_tup_idx = 1
 
-            # get h2e_cas
-            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+                # distribute tuples
+                if tup_idx % mpi.global_size != mpi.global_rank:
+                    tup_idx += n_prev_tup_idx
+                    continue
 
-            # compute e_core and h1e_cas
-            e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+                # get core and cas indices
+                core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
 
-            # get nelec_tup
-            nelec_tup = get_nelec(self.occup, cas_idx)
+                # get h2e indices
+                cas_idx_tril = idx_tril(cas_idx)
 
-            # calculate CASCI property
-            if not self.dryrun:
+                # get h2e_cas
+                h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+
+                # compute e_core and h1e_cas
+                e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+
+                # get nelec_tup
+                nelec_tup = get_nelec(self.occup, cas_idx)
+
+                # calculate CASCI property
                 target_tup = self._inc(
                     e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_tup
                 )
-            else:
-                target_tup = self._init_target_inst(0.0, cas_idx.size)
 
-            # increment calculation counter
-            n_calc += 1
+                # increment calculation counter
+                n_calc += 1
 
-            # loop over equivalent increment sets
-            for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
-                # calculate increment
-                if not self.dryrun and self.order > self.min_order:
+                # loop over equivalent increment sets
+                for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
+                    # calculate increment
                     inc_tup = target_tup - self._sum(inc, hashes, tup)
-                else:
-                    inc_tup = target_tup
 
-                # add hash and increment
-                hashes[-1][tup_idx] = hash_1d(tup)
-                inc[-1][tup_idx] = inc_tup
+                    # add hash and increment
+                    hashes[-1][tup_idx] = hash_1d(tup)
+                    inc[-1][tup_idx] = inc_tup
 
-                # screening procedure
-                if screen_mpi_func is not None:
-                    for eqv_tup in eqv_set:
-                        for screen_func in screen.keys():
-                            screen[screen_func][eqv_tup] = self._add_screen(
-                                inc_tup, screen[screen_func], eqv_tup, screen_func
-                            )
+                    # screening procedure
+                    if screen_mpi_func is not None:
+                        for eqv_tup in eqv_set:
+                            for screen_func in screen.keys():
+                                screen[screen_func][eqv_tup] = self._add_screen(
+                                    inc_tup, screen[screen_func], eqv_tup, screen_func
+                                )
 
-                # debug print
-                logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
+                    # debug print
+                    logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
 
-                # update increment statistics
-                min_inc, mean_inc, max_inc = self._update_inc_stats(
-                    inc_tup, min_inc, mean_inc, max_inc, cas_idx, len(eqv_set)
-                )
+                    # update increment statistics
+                    min_inc, mean_inc, max_inc = self._update_inc_stats(
+                        inc_tup, min_inc, mean_inc, max_inc, cas_idx, len(eqv_set)
+                    )
 
-                # update pair_corr statistics
-                if pair_corr is not None:
-                    inc_arr = np.asarray(inc_tup)
-                    if self.target in ["energy", "excitation"]:
-                        pair_corr[0][tup_idx] = inc_arr
-                    elif self.target in ["dipole", "trans"]:
-                        pair_corr[0][tup_idx] = inc_arr[np.argmax(np.abs(inc_arr))]
-                    pair_corr[1][tup_idx] = tup
-
-                # increment tuple counter
-                tup_idx += 1
+                    # increment tuple counter
+                    tup_idx += 1
 
         # mpi barrier (ensures all slaves are done writing to hashes and inc arrays
         # before these are reduced and zeroed)
@@ -1320,13 +1295,6 @@ class ExpCls(
             if self.n_tuples["van"][-1] != 0:
                 mean_inc /= self.n_tuples["van"][-1]
 
-        # pair_corr statistics
-        if pair_corr is not None:
-            pair_corr = [
-                mpi_reduce(mpi.global_comm, pair_corr[0], root=0, op=MPI.SUM),
-                mpi_reduce(mpi.global_comm, pair_corr[1], root=0, op=MPI.SUM),
-            ]
-
         # reduce screen
         if screen_mpi_func is not None:
             for screen_func, screen_array in screen.items():
@@ -1335,26 +1303,6 @@ class ExpCls(
                     screen_array,
                     op=screen_mpi_func[screen_func],
                 )
-
-        if mpi.global_master and pair_corr is not None:
-            pair_corr[1] = pair_corr[1][np.argsort(np.abs(pair_corr[0]))[::-1]]
-            pair_corr[0] = pair_corr[0][np.argsort(np.abs(pair_corr[0]))[::-1]]
-            logger.debug("\n " + "-" * 74)
-            logger.debug(f'{"pair correlation information":^75s}')
-            logger.debug(" " + "-" * 74)
-            logger.debug(
-                " orbital tuple  |  absolute corr.  |  relative corr.  |  "
-                "cumulative corr."
-            )
-            logger.debug(" " + "-" * 74)
-            for i in range(pair_corr[0].size):
-                logger.debug(
-                    f"   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |"
-                    f"    {pair_corr[0][i]:.3e}    |"
-                    f"        {pair_corr[0][i] / pair_corr[0][0]:.2f}      |"
-                    f"        {np.sum(pair_corr[0][:i+1]) / np.sum(pair_corr[0]):.2f}"
-                )
-            logger.debug(" " + "-" * 74 + "\n")
 
         # append window to hashes
         if len(self.hashes) == len(self.n_tuples["inc"]):
