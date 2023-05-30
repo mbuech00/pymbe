@@ -80,7 +80,9 @@ def mbecc_interface(
     # settings
     method_val = ctypes.c_int64(method_dict[method])
     cc_module_val = ctypes.c_int64(cc_module_dict[cc_backend])
-    point_group_val = ctypes.c_int64(point_group_dict[point_group])
+    point_group_val = ctypes.c_int64(
+        point_group_dict[point_group] if orb_type != "local" else 1
+    )
     non_canonical = ctypes.c_int64(0 if orb_type == "can" else 1)
     maxcor = ctypes.c_int64(MAX_MEM)  # max memory in integer words
     conv = ctypes.c_int64(CONV_TOL)
