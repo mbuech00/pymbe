@@ -822,44 +822,40 @@ def orb_n_tuples(
     ref_nhole: np.ndarray,
     vanish_exc: int,
     order: int,
-) -> Tuple[int, int]:
+    occ_type: str,
+) -> int:
     """
     this function returns the both the total number of tuples of a given order that
     include a specific occupied or a specific virtual orbital
     """
     # initialize ntup_occ
-    ntup_occ = 0.0
+    ntup = 0.0
 
-    # check if occupied orbitals exist in expansion space
-    if occ_space.size > 0:
+    if occ_type == "occ" and occ_space.size > 0:
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                ntup_occ += sc.binom(occ_space.size - 1, k - 1) * sc.binom(
+                ntup += sc.binom(occ_space.size - 1, k - 1) * sc.binom(
                     virt_space.size, order - k
                 )
 
         # only occupied MOs
         if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
-            ntup_occ += sc.binom(occ_space.size - 1, order - 1)
+            ntup += sc.binom(occ_space.size - 1, order - 1)
 
-    # initialize ntup_virt
-    ntup_virt = 0.0
-
-    # check if virtual orbitals exist in expansion space
-    if virt_space.size > 0:
+    elif occ_type == "virt" and virt_space.size > 0:
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                ntup_virt += sc.binom(occ_space.size, k) * sc.binom(
+                ntup += sc.binom(occ_space.size, k) * sc.binom(
                     virt_space.size - 1, order - k - 1
                 )
 
         # only virtual MOs
         if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
-            ntup_virt += sc.binom(virt_space.size - 1, order - 1)
+            ntup += sc.binom(virt_space.size - 1, order - 1)
 
-    return int(ntup_occ), int(ntup_virt)
+    return int(ntup)
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
