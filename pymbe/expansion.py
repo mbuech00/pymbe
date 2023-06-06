@@ -1601,6 +1601,7 @@ class ExpCls(
                                     orders,
                                     rel_factor[mean_abs_inc > 0.0],
                                     bounds=([0.5, 1.0], [np.inf, np.inf]),
+                                    maxfev=1000000,
                                 )
 
                                 # initialize number of tuples for orbital for remaining
