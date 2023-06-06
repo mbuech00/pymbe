@@ -1191,7 +1191,10 @@ def apply_symm_op(
     """
     try:
         perm_set: Set[int] = set()
-        perm_set.update(*operator.itemgetter(*tup)(symm_op))
+        try:
+            perm_set.update(*operator.itemgetter(*tup)(symm_op))
+        except TypeError:
+            perm_set.update(operator.itemgetter(*tup)(symm_op))
     except KeyError:
         return None
     set_len = len(perm_set)
