@@ -1529,9 +1529,6 @@ class ExpCls(
                         )
 
                     else:
-                        # initialize array for fit quality
-                        good_fit = np.ones(self.exp_space[-1].size, dtype=bool)
-
                         # initialize array for estimated quantities
                         est_error = np.zeros(
                             (self.exp_space[-1].size, max_order - self.order),
@@ -1569,25 +1566,16 @@ class ExpCls(
 
                             # require at least 3 points to fit
                             if orders.size > 2:
-                                # calculate weights
-                                distance = self.order + 1 - orders
-                                weights = np.exp(-distance)
-                                weights = weights / np.sum(weights)
-
                                 # fit logarithmic mean absolute increment
-                                mean_abs_inc_fit, diagnostic = Polynomial.fit(
-                                    orders, log_mean_abs_inc, 1, w=weights, full=True
+                                (opt_slope, opt_zero), cov = np.polyfit(
+                                    orders, log_mean_abs_inc, 1, cov=True
                                 )
+                                err_slope, err_zero = np.sqrt(np.diag(cov))
+                                opt_slope += err_slope
+                                opt_zero += err_zero
 
-                                # check if correlation is good enough
-                                if (1 - diagnostic[0][0]) < 0.99:
-                                    # fit is not good
-                                    good_fit[orb_idx] = False
-
-                                    # assume mean absolute increment does not decrease
-                                    mean_abs_inc_fit = Polynomial(
-                                        [log_mean_abs_inc[-1], 0.0]
-                                    )
+                                # assume mean absolute increment does not decrease
+                                mean_abs_inc_fit = Polynomial([opt_zero, opt_slope])
 
                                 # define fitting function for relative factor
                                 def rel_factor_fit(x, half, slope):
@@ -1596,13 +1584,16 @@ class ExpCls(
                                     )
 
                                 # fit relative factor
-                                (opt_half, opt_slope), _ = optimize.curve_fit(
+                                (opt_half, opt_slope), cov = optimize.curve_fit(
                                     rel_factor_fit,
                                     orders,
                                     rel_factor[mean_abs_inc > 0.0],
                                     bounds=([0.5, 1.0], [np.inf, np.inf]),
                                     maxfev=1000000,
                                 )
+                                err_half, err_slope = np.sqrt(np.diag(cov))
+                                opt_half += err_half
+                                opt_slope -= err_slope
 
                                 # initialize number of tuples for orbital for remaining
                                 # orders
@@ -1684,8 +1675,6 @@ class ExpCls(
                                 f" Orbital {self.exp_space[-1][min_idx]} is screened "
                                 f"away (Error = {tot_error[min_idx]:>10.4e})"
                             )
-                            if not good_fit[min_idx]:
-                                logger.info2(" Screened orbital R^2 value is < 0.99")
                             logger.info2(" " + 70 * "-")
                             logger.info2(
                                 "  Order | Est. relative factor | Est. mean abs. "
