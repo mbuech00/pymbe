@@ -1571,8 +1571,8 @@ class ExpCls(
                                     orders, log_mean_abs_inc, 1, cov=True
                                 )
                                 err_slope, err_zero = np.sqrt(np.diag(cov))
-                                opt_slope += err_slope
-                                opt_zero += err_zero
+                                opt_slope += 2 * err_slope
+                                opt_zero += 2 * err_zero
 
                                 # assume mean absolute increment does not decrease
                                 mean_abs_inc_fit = Polynomial([opt_zero, opt_slope])
@@ -1592,8 +1592,8 @@ class ExpCls(
                                     maxfev=1000000,
                                 )
                                 err_half, err_slope = np.sqrt(np.diag(cov))
-                                opt_half += err_half
-                                opt_slope -= err_slope
+                                opt_half += 2 * err_half
+                                opt_slope -= 2 * err_slope
 
                                 # initialize number of tuples for orbital for remaining
                                 # orders
