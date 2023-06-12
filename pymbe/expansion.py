@@ -1588,12 +1588,12 @@ class ExpCls(
                                     rel_factor_fit,
                                     orders,
                                     rel_factor[mean_abs_inc > 0.0],
-                                    bounds=([0.5, 1.0], [np.inf, np.inf]),
+                                    bounds=([0.5, 0.0], [np.inf, np.inf]),
                                     maxfev=1000000,
                                 )
                                 err_half, err_slope = np.sqrt(np.diag(cov))
                                 opt_half += 2 * err_half
-                                opt_slope -= 2 * err_slope
+                                opt_slope = max(opt_slope - 2 * err_slope, 0.0)
 
                                 # initialize number of tuples for orbital for remaining
                                 # orders
