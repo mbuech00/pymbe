@@ -1559,6 +1559,9 @@ class ExpCls(
                             # log transform mean absolute increments
                             log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
 
+                            # get corresponding relative factors
+                            rel_factor = rel_factor[mean_abs_inc > 0.0]
+
                             # get orders for fit
                             orders = self.min_order + np.argwhere(
                                 mean_abs_inc > 0.0
@@ -1584,16 +1587,23 @@ class ExpCls(
                                     )
 
                                 # fit relative factor
-                                (opt_half, opt_slope), cov = optimize.curve_fit(
-                                    rel_factor_fit,
-                                    orders,
-                                    rel_factor[mean_abs_inc > 0.0],
-                                    bounds=([0.5, 0.0], [np.inf, np.inf]),
-                                    maxfev=1000000,
-                                )
-                                err_half, err_slope = np.sqrt(np.diag(cov))
-                                opt_half += 2 * err_half
-                                opt_slope = max(opt_slope - 2 * err_slope, 0.0)
+                                if np.count_nonzero(rel_factor < 0.5) > 1:
+                                    (opt_half, opt_slope), cov = optimize.curve_fit(
+                                        rel_factor_fit,
+                                        orders,
+                                        rel_factor,
+                                        bounds=([0.5, 1.0], [max_order + 1, np.inf]),
+                                        maxfev=1000000,
+                                    )
+                                    err_half, err_slope = np.sqrt(np.diag(cov))
+
+                                    opt_half = min(
+                                        opt_half + 2 * err_half, max_order + 1
+                                    )
+                                    opt_slope = max(opt_slope - 2 * err_slope, 1.0)
+                                else:
+                                    opt_half = opt_slope = 0.0
+                                    rel_factor_fit = lambda *args: 1.0
 
                                 # initialize number of tuples for orbital for remaining
                                 # orders
