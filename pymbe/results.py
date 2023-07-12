@@ -82,10 +82,14 @@ def timings_prt(exp: ExpCls, method: str) -> str:
 
     string += DIVIDER[:106] + "\n"
     for i, j in enumerate(range(exp.min_order, exp.final_order + 1)):
-        calc_i = exp.n_tuples["calc"][i]
-        rel_i = exp.n_tuples["calc"][i] / exp.n_tuples["theo"][i] * 100.0
-        calc_tot = sum(exp.n_tuples["calc"][: i + 1])
-        rel_tot = calc_tot / sum(exp.n_tuples["theo"][: i + 1]) * 100.0
+        calc_i = sum(exp.n_tuples["calc"][i])
+        rel_i = calc_i / sum(exp.n_tuples["theo"][i]) * 100.0
+        calc_tot = sum(sum(order) for order in exp.n_tuples["calc"][: i + 1])
+        rel_tot = (
+            calc_tot
+            / sum(sum(order) for order in exp.n_tuples["theo"][: i + 1])
+            * 100.0
+        )
         string += (
             f"{'':3}{j:>8d}{'':6}{'|':1}"
             f"{_time(exp.time, 'mbe', i):>16s}{'':2}{'|':1}"

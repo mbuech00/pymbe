@@ -35,7 +35,7 @@ from pymbe.tools import (
     RDMCls,
     packedRDMCls,
     get_nelec,
-    tuples,
+    tuples_with_nocc,
     hash_1d,
     hash_lookup,
     get_occup,
@@ -48,7 +48,7 @@ from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import Optional, Union
+    from typing import Union
 
     from pymbe.pymbe import MBE
 
@@ -149,16 +149,18 @@ class RDMExpCls(
                 self.base_method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
             )
 
+        # get reference space indices in cas_idx
         ind = np.where(np.in1d(cas_idx, self.ref_space))[0]
 
+        # subtract reference space properties
         rdm12[ind] -= self.ref_prop
 
         return rdm12, nelec
 
     def _sum(
         self,
-        inc: List[packedRDMCls],
-        hashes: List[np.ndarray],
+        inc: List[List[packedRDMCls]],
+        hashes: List[List[np.ndarray]],
         tup: np.ndarray,
     ) -> RDMCls:
         """
@@ -168,16 +170,16 @@ class RDMExpCls(
         # init res
         res = RDMCls(
             np.zeros(
-                [self.ref_space.size + self.order, self.ref_space.size + self.order],
+                (self.ref_space.size + self.order, self.ref_space.size + self.order),
                 dtype=np.float64,
             ),
             np.zeros(
-                [
+                (
                     self.ref_space.size + self.order,
                     self.ref_space.size + self.order,
                     self.ref_space.size + self.order,
                     self.ref_space.size + self.order,
-                ],
+                ),
                 dtype=np.float64,
             ),
         )
@@ -197,41 +199,33 @@ class RDMExpCls(
             # rank of all orbitals in casci space
             ind_casci = np.empty(self.ref_space.size + k, dtype=np.int64)
 
-            # loop over subtuples
-            for tup_sub, ind_sub in zip(
-                tuples(
-                    tup_occ,
-                    tup_virt,
-                    self.ref_nelec,
-                    self.ref_nhole,
-                    self.vanish_exc,
-                    k,
-                ),
-                tuples(
-                    ind_tup_occ,
-                    ind_tup_virt,
-                    self.ref_nelec,
-                    self.ref_nhole,
-                    self.vanish_exc,
-                    k,
-                ),
-            ):
-                # compute index
-                idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
+            # loop over number of occupied orbitals
+            for l in range(k + 1):
+                # check if hashes are available
+                if hashes[k - self.min_order][l].size > 0:
+                    # loop over subtuples
+                    for tup_sub, ind_sub in zip(
+                        tuples_with_nocc(tup_occ, tup_virt, k, l),
+                        tuples_with_nocc(ind_tup_occ, ind_tup_virt, k, l),
+                    ):
+                        # compute index
+                        idx = hash_lookup(
+                            hashes[k - self.min_order][l], hash_1d(tup_sub)
+                        )
 
-                # sum up order increments
-                if idx is not None:
-                    # add rank of reference space orbitals
-                    ind_casci[: self.ref_space.size] = ind_ref
+                        # sum up order increments
+                        if idx is not None:
+                            # add rank of reference space orbitals
+                            ind_casci[: self.ref_space.size] = ind_ref
 
-                    # add rank of subtuple orbitals
-                    ind_casci[self.ref_space.size :] = ind_sub
+                            # add rank of subtuple orbitals
+                            ind_casci[self.ref_space.size :] = ind_sub
 
-                    # sort indices for faster assignment
-                    ind_casci.sort()
+                            # sort indices for faster assignment
+                            ind_casci.sort()
 
-                    # add subtuple rdms
-                    res[ind_casci] += inc[k - self.min_order][idx]
+                            # add subtuple rdms
+                            res[ind_casci] += inc[k - self.min_order][l][idx]
 
         return res
 
@@ -334,7 +328,7 @@ class RDMExpCls(
         return rdm12 - self.hf_prop[cas_idx]
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: RDMCls, string: str) -> None:
+    def _write_target_file(prop: RDMCls, string: str, order: int) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
@@ -354,13 +348,13 @@ class RDMExpCls(
         rdm_dict = np.load(os.path.join(RST, file))
         return RDMCls(rdm_dict["rdm1"], rdm_dict["rdm2"])
 
-    def _init_target_inst(self, value: float, norb: int) -> RDMCls:
+    def _init_target_inst(self, value: float, tup_norb: int, *args: int) -> RDMCls:
         """
         this function initializes an instance of the target type
         """
         return RDMCls(
-            np.full(2 * (norb,), value, dtype=np.float64),
-            np.full(4 * (norb,), value, dtype=np.float64),
+            np.full(2 * (tup_norb,), value, dtype=np.float64),
+            np.full(4 * (tup_norb,), value, dtype=np.float64),
         )
 
     @staticmethod
@@ -374,16 +368,13 @@ class RDMExpCls(
         )
 
     @staticmethod
-    def _write_inc_file(order: Optional[int], inc: packedRDMCls) -> None:
+    def _write_inc_file(inc: packedRDMCls, order: int, nocc: int) -> None:
         """
         this function defines how to write increment restart files
         """
-        if order is None:
-            np.savez(os.path.join(RST, "mbe_inc"), rdm1=inc.rdm1, rdm2=inc.rdm2)
-        else:
-            np.savez(
-                os.path.join(RST, f"mbe_inc_{order}"), rdm1=inc.rdm1, rdm2=inc.rdm2
-            )
+        np.savez(
+            os.path.join(RST, f"mbe_inc_{order}_{nocc}"), rdm1=inc.rdm1, rdm2=inc.rdm2
+        )
 
     @staticmethod
     def _read_inc_file(file: str) -> packedRDMCls:
@@ -395,38 +386,35 @@ class RDMExpCls(
         return packedRDMCls(rdm_dict["rdm1"], rdm_dict["rdm2"])
 
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
+        self, size: int, allocate: bool, comm: MPI.Comm, tup_norb: int, *args: int
     ) -> Tuple[MPI.Win, MPI.Win]:
         """
         this function allocates a shared increment window
         """
-        # get current length of incs array
-        idx = len(self.incs)
-
         # generate packing and unpacking indices if these have not been generated yet
-        if len(packedRDMCls.rdm1_size) == idx:
-            packedRDMCls.get_pack_idx(self.ref_space.size + self.min_order + idx)
+        if len(packedRDMCls.rdm1_size) == tup_norb - 1:
+            packedRDMCls.get_pack_idx(self.ref_space.size + tup_norb)
 
         return (
             MPI.Win.Allocate_shared(
-                8 * size * packedRDMCls.rdm1_size[idx] if allocate else 0,
+                8 * size * packedRDMCls.rdm1_size[tup_norb - 1] if allocate else 0,
                 8,
                 comm=comm,  # type: ignore
             ),
             MPI.Win.Allocate_shared(
-                8 * size * packedRDMCls.rdm2_size[idx] if allocate else 0,
+                8 * size * packedRDMCls.rdm2_size[tup_norb - 1] if allocate else 0,
                 8,
                 comm=comm,  # type: ignore
             ),
         )
 
     def _open_shared_inc(
-        self, window: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
+        self, window: Tuple[MPI.Win, MPI.Win], n_tuples: int, tup_norb: int, *args: int
     ) -> packedRDMCls:
         """
         this function opens a shared increment window
         """
-        return packedRDMCls.open_shared_RDM(window, n_tuples, idx)
+        return packedRDMCls.open_shared_RDM(window, n_tuples, tup_norb - 1)
 
     @staticmethod
     def _mpi_bcast_inc(comm: MPI.Comm, inc: packedRDMCls) -> packedRDMCls:
@@ -526,7 +514,7 @@ class RDMExpCls(
         return min_inc, mean_inc, max_inc
 
     @staticmethod
-    def _total_inc(inc: packedRDMCls, mean_inc: RDMCls) -> RDMCls:
+    def _total_inc(inc: List[packedRDMCls], mean_inc: RDMCls) -> RDMCls:
         """
         this function calculates the total increment at a certain order
         """
@@ -778,16 +766,17 @@ class ssRDMExpCls(RDMExpCls[int, np.ndarray]):
         string = mbe_debug(
             self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
         )
-        string += (
-            f"      rdm1 increment for root {self.fci_state_root:d} = "
-            + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
-            + "\n"
-        )
-        string += (
-            f"      rdm2 increment for root {self.fci_state_root:d} = "
-            + np.array2string(inc_tup.rdm2, max_line_width=59, precision=4)
-            + "\n"
-        )
+        if logger.getEffectiveLevel() == 10:
+            string += (
+                f"      rdm1 increment for root {self.fci_state_root:d} = "
+                + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
+                + "\n"
+            )
+            string += (
+                f"      rdm2 increment for root {self.fci_state_root:d} = "
+                + np.array2string(inc_tup.rdm2, max_line_width=59, precision=4)
+                + "\n"
+            )
 
         return string
 

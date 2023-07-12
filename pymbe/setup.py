@@ -196,15 +196,13 @@ def main(mbe: MBE) -> MBE:
                     )
                 elif (
                     mbe.target == "genfock"
-                    and isinstance(mbe.full_nocc, int)
                     and isinstance(mbe.norb, int)
                     and isinstance(mbe.full_norb, int)
                 ):
                     mbe.base_prop = (
                         0.0,
-                        np.zeros(
-                            (mbe.full_nocc + mbe.norb, mbe.full_norb), dtype=np.float64
-                        ),
+                        np.zeros(2 * (mbe.norb,), dtype=np.float64),
+                        np.zeros((mbe.norb, mbe.full_norb), dtype=np.float64),
                     )
 
             # create restart folder
@@ -636,16 +634,18 @@ def sanity_check(mbe: MBE) -> None:
         elif mbe.target == "genfock":
             assertion(
                 isinstance(mbe.base_prop, tuple)
-                and len(mbe.base_prop) == 2
+                and len(mbe.base_prop) == 3
                 and isinstance(mbe.base_prop[0], float)
                 and isinstance(mbe.base_prop[1], np.ndarray)
-                and mbe.base_prop[1].shape
-                == (cast(int, mbe.full_nocc) + cast(int, mbe.norb), mbe.full_norb),
+                and mbe.base_prop[1].shape == 2 * (mbe.norb,)
+                and isinstance(mbe.base_prop[2], np.ndarray)
+                and mbe.base_prop[2].shape == (cast(int, mbe.norb), mbe.full_norb),
                 "base model for generalized fock matrix calculation (base_prop keyword "
                 "argument) must be a tuple with dimension 2, the first element "
                 "describes the energy and must be a float, the second element "
-                "describes the generalized fock matrix and must be a np.ndarray with "
-                "shape (full_nocc + norb, full_norb)",
+                "describes the 1-particle RDM and must be a np.ndarray with shape "
+                "(norb, norb), the third element describes the generalized fock matrix "
+                "and must be a np.ndarray with shape (norb, full_norb)",
             )
 
     # screening
@@ -833,8 +833,8 @@ def restart_write_system(mbe: MBE) -> None:
     if isinstance(mbe.base_prop, (float, np.ndarray)):
         system["base_prop"] = mbe.base_prop
     elif isinstance(mbe.base_prop, tuple):
-        system["base_prop1"] = mbe.base_prop[0]
-        system["base_prop2"] = mbe.base_prop[1]
+        for idx in range(len(mbe.base_prop)):
+            system["base_prop" + str(idx)] = mbe.base_prop[idx]
 
     if mbe.orbsym_linear is not None:
         system["orbsym_linear"] = mbe.orbsym_linear
@@ -885,18 +885,22 @@ def restart_read_system(mbe: MBE) -> MBE:
     if mbe.target in ["energy", "excitation"]:
         scalars.append("base_prop")
     elif mbe.target == "rdm12":
-        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
+        system["base_prop"] = (system.pop("base_prop0"), system.pop("base_prop1"))
     elif mbe.target == "genfock":
         scalars.append("full_norb")
         scalars.append("full_nocc")
-        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
+        system["base_prop"] = (
+            system.pop("base_prop0"),
+            system.pop("base_prop1"),
+            system.pop("base_prop2"),
+        )
 
     # convert to scalars
     for scalar in scalars:
         system[scalar] = system[scalar].item()
 
     # convert to list
-    if system["nelec"].dim == 2:
+    if system["nelec"].ndim == 2:
         system["nelec"] = list(system["nelec"])
 
     # set system quantities as MBE attributes

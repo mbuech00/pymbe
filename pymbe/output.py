@@ -183,7 +183,9 @@ def purge_header(order: int) -> str:
     return string
 
 
-def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) -> str:
+def purge_results(
+    n_tuples: Dict[str, List[List[int]]], min_order: int, order: int
+) -> str:
     """
     this function prints the updated number of tuples
     """
@@ -195,11 +197,14 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
         if min_order < k:
             string += f" RESULT-{order:d}:{'':30s}"
         red = (
-            1.0 - n_tuples["inc"][k - min_order] / n_tuples["theo"][k - min_order]
+            1.0
+            - sum(n_tuples["inc"][k - min_order]) / sum(n_tuples["theo"][k - min_order])
         ) * 100.0
         string += f"no. of tuples at k = {k:2d} has been reduced by: {red:6.2f} %\n"
-    total_red_abs = sum(n_tuples["theo"]) - sum(n_tuples["inc"])
-    total_red_rel = (1.0 - sum(n_tuples["inc"]) / sum(n_tuples["theo"])) * 100.0
+    sum_n_tuples_theo = sum(sum(order) for order in n_tuples["theo"])
+    sum_n_tuples_inc = sum(sum(order) for order in n_tuples["inc"])
+    total_red_abs = sum_n_tuples_theo - sum_n_tuples_inc
+    total_red_rel = (1.0 - sum_n_tuples_inc / sum_n_tuples_theo) * 100.0
     string += DIVIDER + "\n"
     string += (
         f" RESULT-{order:d}:  total number of reduced tuples: {total_red_abs} "

@@ -246,7 +246,6 @@ def test_cc_kernel(
             np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
         ]
     )
-    print(nelec)
 
     res = exp._cc_kernel(method, core_idx, cas_idx, nelec, h1e_cas, h2e_cas, False)
 

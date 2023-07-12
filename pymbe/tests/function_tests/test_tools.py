@@ -80,7 +80,7 @@ test_cases_start_idx = [
         "virt",
         None,
         np.array([6, 9, 12], dtype=np.int64),
-        (3, -1, 2),
+        (0, 0, 2),
     ),
 ]
 
@@ -328,9 +328,13 @@ def test_n_tuples(
     occ_space = np.arange(10, dtype=np.int64)
     virt_space = np.arange(10, 50, dtype=np.int64)
 
-    assert (
-        n_tuples(occ_space, virt_space, ref_nelec, ref_nhole, 1, order) == ref_n_tuples
-    )
+    ntuples = 0
+    for tup_nocc in range(order + 1):
+        ntuples += n_tuples(
+            occ_space, virt_space, ref_nelec, ref_nhole, 1, order, tup_nocc
+        )
+
+    assert ntuples == ref_n_tuples
 
 
 def test_cas() -> None:

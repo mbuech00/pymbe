@@ -74,7 +74,12 @@ class MBE:
     # base model
     base_method: Optional[str] = None
     base_prop: Optional[
-        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+        Union[
+            float,
+            np.ndarray,
+            Tuple[np.ndarray, np.ndarray],
+            Tuple[float, np.ndarray, np.ndarray],
+        ]
     ] = None
 
     # screening

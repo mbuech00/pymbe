@@ -70,7 +70,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             nuc_prop,
             self.hf_prop
             if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb),
+            else self._init_target_inst(0.0, self.norb, self.nocc),
         )[-1]
 
     def plot_results(
@@ -84,7 +84,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                 nuc_prop,
                 self.hf_prop
                 if y_axis in ["electronic", "total"]
-                else self._init_target_inst(0.0, self.norb),
+                else self._init_target_inst(0.0, self.norb, self.nocc),
             ),
             self.min_order,
             self.final_order,
@@ -364,12 +364,12 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         return e_cc
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: float, string: str) -> None:
+    def _write_target_file(prop: float, string: str, order: int) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(order, np.array(prop, dtype=np.float64), string)
+        write_file(np.array(prop, dtype=np.float64), string, order=order)
 
     @staticmethod
     def _read_target_file(file: str) -> float:
@@ -400,7 +400,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         ).item()
 
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
+        self, size: int, allocate: bool, comm: MPI.Comm, *args: int
     ) -> MPI.Win:
         """
         this function allocates a shared increment window
@@ -437,11 +437,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             return np.maximum(screen[tup], np.abs(inc_tup))
 
     @staticmethod
-    def _total_inc(inc: np.ndarray, mean_inc: float) -> float:
+    def _total_inc(inc: List[np.ndarray], mean_inc: float) -> float:
         """
         this function calculates the total increment at a certain order
         """
-        return np.sum(inc, axis=0)
+        return np.sum(np.concatenate(inc))
 
     def _mbe_debug(
         self,

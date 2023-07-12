@@ -36,7 +36,7 @@ from pymbe.tools import (
     RDMCls,
     packedRDMCls,
     GenFockCls,
-    GenFockArrayCls,
+    packedGenFockCls,
     pi_space,
     natural_keys,
     n_tuples,
@@ -45,6 +45,7 @@ from pymbe.tools import (
     write_file,
     pi_prune,
     tuples,
+    tuples_with_nocc,
     get_nelec,
     get_nhole,
     get_nexc,
@@ -78,10 +79,12 @@ if TYPE_CHECKING:
 TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls, GenFockCls)
 
 # define variable type for increment arrays
-IncType = TypeVar("IncType", np.ndarray, packedRDMCls, GenFockArrayCls)
+IncType = TypeVar("IncType", np.ndarray, packedRDMCls, packedGenFockCls)
 
 # define variable type for MPI windows of increment arrays
-MPIWinType = TypeVar("MPIWinType", MPI.Win, Tuple[MPI.Win, MPI.Win])
+MPIWinType = TypeVar(
+    "MPIWinType", MPI.Win, Tuple[MPI.Win, MPI.Win], Tuple[MPI.Win, MPI.Win, MPI.Win]
+)
 
 # define variable type for integers describing electronic states
 StateIntType = TypeVar("StateIntType", int, List[int])
@@ -143,6 +146,8 @@ class ExpCls(
 
         # reference and expansion spaces
         self.ref_space: np.ndarray = mbe.ref_space
+        self.ref_occ = self.ref_space[self.ref_space < self.nocc]
+        self.ref_virt = self.ref_space[self.nocc <= self.ref_space]
         self.ref_nelec = get_nelec(self.occup, self.ref_space)
         self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
         self.exp_space: List[np.ndarray] = [cast(np.ndarray, mbe.exp_space)]
@@ -155,10 +160,10 @@ class ExpCls(
         self.mbe_tot_prop: List[TargetType] = []
 
         # increment windows
-        self.incs: List[MPIWinType] = []
+        self.incs: List[List[MPIWinType]] = []
 
         # hash windows
-        self.hashes: List[MPI.Win] = []
+        self.hashes: List[List[MPI.Win]] = []
 
         # timings
         self.time: Dict[str, List[float]] = {"mbe": [], "purge": []}
@@ -169,7 +174,7 @@ class ExpCls(
         self.max_inc: List[TargetType] = []
 
         # number of tuples
-        self.n_tuples: Dict[str, List[int]] = {"theo": [], "calc": [], "inc": []}
+        self.n_tuples: Dict[str, List[List[int]]] = {"theo": [], "calc": [], "inc": []}
 
         # screening
         self.screen_start: int = mbe.screen_start
@@ -241,7 +246,7 @@ class ExpCls(
                 logger.info(
                     mbe_header(
                         i,
-                        self.n_tuples["calc"][i - self.min_order],
+                        sum(self.n_tuples["calc"][i - self.min_order]),
                         1.0 if i < self.screen_start else self.screen_perc,
                     )
                 )
@@ -264,49 +269,58 @@ class ExpCls(
         for self.order in range(self.start_order, self.max_order + 1):
             # theoretical and actual number of tuples at current order
             if len(self.n_tuples["inc"]) == self.order - self.min_order:
-                self.n_tuples["theo"].append(
-                    n_tuples(
-                        self.exp_space[0][self.exp_space[0] < self.nocc],
-                        self.exp_space[0][self.nocc <= self.exp_space[0]],
-                        self.ref_nelec,
-                        self.ref_nhole,
-                        -1,
-                        self.order,
+                self.n_tuples["theo"].append([])
+                self.n_tuples["calc"].append([])
+                self.n_tuples["inc"].append([])
+                for tup_nocc in range(self.order + 1):
+                    self.n_tuples["theo"][-1].append(
+                        n_tuples(
+                            self.exp_space[0][self.exp_space[0] < self.nocc],
+                            self.exp_space[0][self.nocc <= self.exp_space[0]],
+                            self.ref_nelec,
+                            self.ref_nhole,
+                            -1,
+                            self.order,
+                            tup_nocc,
+                        )
                     )
-                )
-                self.n_tuples["calc"].append(
-                    n_tuples(
-                        self.exp_space[-1][self.exp_space[-1] < self.nocc],
-                        self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                        self.ref_nelec,
-                        self.ref_nhole,
-                        self.vanish_exc,
-                        self.order,
+                    self.n_tuples["calc"][-1].append(
+                        n_tuples(
+                            self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                            self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                            self.ref_nelec,
+                            self.ref_nhole,
+                            self.vanish_exc,
+                            self.order,
+                            tup_nocc,
+                        )
                     )
-                )
-                self.n_tuples["inc"].append(self.n_tuples["calc"][-1])
-                if self.rst:
-                    write_file(
-                        self.order,
-                        np.asarray(self.n_tuples["theo"][-1]),
-                        "mbe_n_tuples_theo",
-                    )
-                    write_file(
-                        self.order,
-                        np.asarray(self.n_tuples["calc"][-1]),
-                        "mbe_n_tuples_calc",
-                    )
-                    write_file(
-                        self.order,
-                        np.asarray(self.n_tuples["inc"][-1]),
-                        "mbe_n_tuples_inc",
-                    )
+                    self.n_tuples["inc"][-1].append(self.n_tuples["calc"][-1][-1])
+                    if self.rst:
+                        write_file(
+                            np.asarray(self.n_tuples["theo"][-1][-1]),
+                            "mbe_n_tuples_theo",
+                            order=self.order,
+                            nocc=tup_nocc,
+                        )
+                        write_file(
+                            np.asarray(self.n_tuples["calc"][-1][-1]),
+                            "mbe_n_tuples_calc",
+                            order=self.order,
+                            nocc=tup_nocc,
+                        )
+                        write_file(
+                            np.asarray(self.n_tuples["inc"][-1][-1]),
+                            "mbe_n_tuples_inc",
+                            order=self.order,
+                            nocc=tup_nocc,
+                        )
 
             # print mbe header
             logger.info(
                 mbe_header(
                     self.order,
-                    self.n_tuples["calc"][-1],
+                    sum(self.n_tuples["calc"][-1]),
                     1.0 if self.order < self.screen_start else self.screen_perc,
                 )
             )
@@ -346,42 +360,61 @@ class ExpCls(
             # write restart files
             if self.rst:
                 if self.screen_orbs.size > 0:
-                    for k in range(self.order - self.min_order + 1):
-                        hashes = open_shared_win(
-                            self.hashes[k], np.int64, (self.n_tuples["inc"][k],)
-                        )
-                        write_file(k + self.min_order, hashes, "mbe_hashes")
-                        inc = self._open_shared_inc(
-                            self.incs[k], self.n_tuples["inc"][k], k
-                        )
-                        self._write_inc_file(k + self.min_order, inc)
-                        write_file(
-                            k + self.min_order,
-                            np.asarray(self.n_tuples["inc"][k]),
-                            "mbe_n_tuples_inc",
-                        )
+                    for order in range(1, self.order + 1):
+                        k = order - 1
+                        for tup_nocc in range(order + 1):
+                            l = tup_nocc
+                            hashes = open_shared_win(
+                                self.hashes[k][l],
+                                np.int64,
+                                (self.n_tuples["inc"][k][l],),
+                            )
+                            write_file(hashes, "mbe_hashes", order=order, nocc=tup_nocc)
+                            inc = self._open_shared_inc(
+                                self.incs[k][l],
+                                self.n_tuples["inc"][k][l],
+                                order,
+                                tup_nocc,
+                            )
+                            self._write_inc_file(inc, order, tup_nocc)
+                            write_file(
+                                np.asarray(self.n_tuples["inc"][k][l]),
+                                "mbe_n_tuples_inc",
+                                order=order,
+                                nocc=tup_nocc,
+                            )
                 else:
-                    hashes = open_shared_win(
-                        self.hashes[-1], np.int64, (self.n_tuples["inc"][-1],)
-                    )
-                    write_file(self.order, hashes, "mbe_hashes")
-                    inc = self._open_shared_inc(
-                        self.incs[-1],
-                        self.n_tuples["inc"][-1],
-                        self.order - self.min_order,
-                    )
-                    self._write_inc_file(self.order, inc)
-                    write_file(
-                        self.order,
-                        np.asarray(self.n_tuples["inc"][-1]),
-                        "mbe_n_tuples_inc",
-                    )
+                    for tup_nocc in range(self.order + 1):
+                        l = tup_nocc
+                        hashes = open_shared_win(
+                            self.hashes[-1][l], np.int64, (self.n_tuples["inc"][-1][l],)
+                        )
+                        write_file(
+                            hashes, "mbe_hashes", order=self.order, nocc=tup_nocc
+                        )
+                        inc = self._open_shared_inc(
+                            self.incs[-1][l],
+                            self.n_tuples["inc"][-1][l],
+                            self.order,
+                            tup_nocc,
+                        )
+                        self._write_inc_file(inc, self.order, l)
+                        write_file(
+                            np.asarray(self.n_tuples["inc"][-1][l]),
+                            "mbe_n_tuples_inc",
+                            order=self.order,
+                            nocc=tup_nocc,
+                        )
                 self._write_target_file(
-                    self.order, self.mbe_tot_prop[-1], "mbe_tot_prop"
+                    self.mbe_tot_prop[-1], "mbe_tot_prop", self.order
                 )
-                write_file(self.order, np.asarray(self.time["mbe"][-1]), "mbe_time_mbe")
                 write_file(
-                    self.order, np.asarray(self.time["purge"][-1]), "mbe_time_purge"
+                    np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", order=self.order
+                )
+                write_file(
+                    np.asarray(self.time["purge"][-1]),
+                    "mbe_time_purge",
+                    order=self.order,
                 )
 
             # convergence check
@@ -421,16 +454,19 @@ class ExpCls(
 
                 # actual number of tuples at current order
                 if len(self.n_tuples["inc"]) == self.order - self.min_order:
-                    self.n_tuples["inc"].append(
-                        n_tuples(
-                            self.exp_space[-1][self.exp_space[-1] < self.nocc],
-                            self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                            self.ref_nelec,
-                            self.ref_nhole,
-                            self.vanish_exc,
-                            self.order,
+                    self.n_tuples["inc"].append([])
+                    for tup_nocc in range(self.order + 1):
+                        self.n_tuples["inc"][-1].append(
+                            n_tuples(
+                                self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                                self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                                self.ref_nelec,
+                                self.ref_nhole,
+                                self.vanish_exc,
+                                self.order,
+                                tup_nocc,
+                            )
                         )
-                    )
 
                 # main mbe function
                 self._mbe(
@@ -554,7 +590,9 @@ class ExpCls(
         self.hf_prop = self._hf_prop(mbe.mpi)
 
         # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+        self.ref_prop = self._init_target_inst(
+            0.0, self.ref_space.size, self.ref_occ.size
+        )
         if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
             self.ref_prop = self._ref_prop(mbe.mpi)
 
@@ -666,16 +704,15 @@ class ExpCls(
         if mpi.global_master:
             for i in range(len(files)):
                 if "mbe_n_tuples" in files[i]:
-                    if "theo" in files[i]:
-                        self.n_tuples["theo"].append(
-                            np.load(os.path.join(RST, files[i])).tolist()
+                    file_split = files[i].split("_")
+                    n_tuples_type = file_split[3]
+                    order = int(file_split[4])
+                    if len(self.n_tuples[n_tuples_type]) < order - self.min_order + 1:
+                        self.n_tuples[n_tuples_type].append(
+                            [np.load(os.path.join(RST, files[i])).tolist()]
                         )
-                    if "inc" in files[i]:
-                        self.n_tuples["inc"].append(
-                            np.load(os.path.join(RST, files[i])).tolist()
-                        )
-                    if "calc" in files[i]:
-                        self.n_tuples["calc"].append(
+                    else:
+                        self.n_tuples[n_tuples_type][-1].append(
                             np.load(os.path.join(RST, files[i])).tolist()
                         )
             mpi.global_comm.bcast(self.n_tuples, root=0)
@@ -686,15 +723,21 @@ class ExpCls(
         for i in range(len(files)):
             # read hashes
             if "mbe_hashes" in files[i]:
-                n_tuples = self.n_tuples["inc"][len(self.hashes)]
-                self.hashes.append(
-                    MPI.Win.Allocate_shared(
-                        8 * n_tuples if mpi.local_master else 0,
-                        8,
-                        comm=mpi.local_comm,  # type: ignore
-                    )
+                read_order = int(files[i].split("_")[2])
+                order = len(self.hashes)
+                if order < read_order:
+                    self.hashes.append([])
+                    order += 1
+                k = order - 1
+                tup_nocc = len(self.hashes[-1])
+                n_tuples = self.n_tuples["inc"][k][tup_nocc]
+                hashes_mpi_win = MPI.Win.Allocate_shared(
+                    8 * n_tuples if mpi.local_master else 0,
+                    8,
+                    comm=mpi.local_comm,  # type: ignore
                 )
-                hashes = open_shared_win(self.hashes[-1], np.int64, (n_tuples,))
+                self.hashes[-1].append(hashes_mpi_win)
+                hashes = open_shared_win(self.hashes[-1][-1], np.int64, (n_tuples,))
                 if mpi.global_master:
                     hashes[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -703,13 +746,21 @@ class ExpCls(
 
             # read increments
             elif "mbe_inc" in files[i]:
-                n_tuples = self.n_tuples["inc"][len(self.incs)]
-                self.incs.append(
-                    self._allocate_shared_inc(
-                        n_tuples, mpi.local_master, mpi.local_comm
-                    )
+                read_order = int(files[i].split("_")[2])
+                order = len(self.incs)
+                if order < read_order:
+                    self.incs.append([])
+                    order += 1
+                k = order - 1
+                tup_nocc = len(self.incs[-1])
+                n_tuples = self.n_tuples["inc"][k][tup_nocc]
+                inc_mpi_win = self._allocate_shared_inc(
+                    n_tuples, mpi.local_master, mpi.local_comm, order, tup_nocc
                 )
-                inc = self._open_shared_inc(self.incs[-1], n_tuples, len(self.incs) - 1)
+                self.incs[-1].append(inc_mpi_win)
+                inc = self._open_shared_inc(
+                    self.incs[-1][-1], n_tuples, order, tup_nocc
+                )
                 if mpi.global_master:
                     inc[:] = self._read_inc_file(files[i])
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -776,11 +827,11 @@ class ExpCls(
         """
         if mpi.global_master:
             # read restart files
-            rst_read = is_file(self.order, "mbe_idx") and is_file(self.order, "mbe_tup")
+            rst_read = is_file("mbe_idx", self.order) and is_file("mbe_tup", self.order)
             # start indices
-            tup_idx = read_file(self.order, "mbe_idx").item() if rst_read else 0
+            tup_idx = read_file("mbe_idx", self.order).item() if rst_read else 0
             # start tuples
-            tup = read_file(self.order, "mbe_tup") if rst_read else None
+            tup = read_file("mbe_tup", self.order) if rst_read else None
             # wake up slaves
             msg = {
                 "task": "mbe",
@@ -824,28 +875,9 @@ class ExpCls(
             mean_inc = self.mean_inc[-1]
             max_inc = self.max_inc[-1]
         else:
-            min_inc = self._init_target_inst(1.0e12, self.norb)
-            mean_inc = self._init_target_inst(0.0, self.norb)
-            max_inc = self._init_target_inst(0.0, self.norb)
-
-        # init pair_corr statistics
-        if (
-            self.ref_space.size == 0
-            and self.order == 2
-            and self.base_method is None
-            and self.target not in ["rdm12", "genfock"]
-        ):
-            pair_corr: Optional[List[np.ndarray]] = [
-                np.zeros(
-                    self.n_tuples["inc"][self.order - self.min_order], dtype=np.float64
-                ),
-                np.zeros(
-                    [self.n_tuples["inc"][self.order - self.min_order], 2],
-                    dtype=np.int32,
-                ),
-            ]
-        else:
-            pair_corr = None
+            min_inc = self._init_target_inst(1.0e12, self.norb, self.nocc)
+            mean_inc = self._init_target_inst(0.0, self.norb, self.nocc)
+            max_inc = self._init_target_inst(0.0, self.norb, self.nocc)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -860,10 +892,11 @@ class ExpCls(
             if mpi.global_master:
                 screen = self.screen
 
+        # get total number of tuples for this order
+        n_tuples = sum(self.n_tuples["inc"][-1])
+
         # set rst_write
-        rst_write = (
-            self.rst and mpi.global_size < self.rst_freq < self.n_tuples["inc"][-1]
-        )
+        rst_write = self.rst and mpi.global_size < self.rst_freq < n_tuples
 
         # start tuples
         tup_occ: Optional[np.ndarray]
@@ -907,23 +940,26 @@ class ExpCls(
 
                 # reduce hashes & increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
-                    hashes[-1][:] = mpi_reduce(
-                        mpi.master_comm, hashes[-1], root=0, op=MPI.SUM
-                    )
-                    if not mpi.global_master:
-                        hashes[-1][:].fill(0)
-                    inc[-1][:] = self._mpi_reduce_inc(mpi.master_comm, inc[-1], MPI.SUM)
-                    if not mpi.global_master:
-                        inc[-1][:].fill(0.0)
+                    for tup_nocc in range(self.order + 1):
+                        hashes[-1][tup_nocc][:] = mpi_reduce(
+                            mpi.master_comm, hashes[-1][tup_nocc], root=0, op=MPI.SUM
+                        )
+                        if not mpi.global_master:
+                            hashes[-1][tup_nocc][:].fill(0)
+                        inc[-1][tup_nocc][:] = self._mpi_reduce_inc(
+                            mpi.master_comm, inc[-1][tup_nocc], MPI.SUM
+                        )
+                        if not mpi.global_master:
+                            inc[-1][tup_nocc][:].fill(0.0)
 
                 # reduce increment statistics onto global master
                 min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
                 mean_inc = self._mpi_reduce_target(mpi.global_comm, mean_inc, MPI.SUM)
                 max_inc = self._mpi_reduce_target(mpi.global_comm, max_inc, MPI.MAX)
                 if not mpi.global_master:
-                    min_inc = self._init_target_inst(1.0e12, self.norb)
-                    mean_inc = self._init_target_inst(0.0, self.norb)
-                    max_inc = self._init_target_inst(0.0, self.norb)
+                    min_inc = self._init_target_inst(1.0e12, self.norb, self.nocc)
+                    mean_inc = self._init_target_inst(0.0, self.norb, self.nocc)
+                    max_inc = self._init_target_inst(0.0, self.norb, self.nocc)
 
                 # reduce screen onto global master
                 screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
@@ -940,30 +976,34 @@ class ExpCls(
                 elif tup_idx == mbe_idx:
                     mpi.global_comm.Send(tup, dest=0, tag=101)
                 # update rst_write
-                rst_write = (
-                    mbe_idx + self.rst_freq < self.n_tuples["inc"][-1] - mpi.global_size
-                )
+                rst_write = mbe_idx + self.rst_freq < n_tuples - mpi.global_size
 
                 if mpi.global_master:
                     # write restart files
-                    self._write_target_file(self.order, min_inc, "mbe_min_inc")
-                    self._write_target_file(self.order, mean_inc, "mbe_mean_inc")
-                    self._write_target_file(self.order, max_inc, "mbe_max_inc")
-                    write_file(self.order, screen, "mbe_screen")
-                    write_file(self.order, np.asarray(mbe_idx), "mbe_idx")
-                    write_file(self.order, mbe_tup, "mbe_tup")
-                    write_file(self.order, hashes[-1], "mbe_hashes")
-                    self._write_inc_file(self.order, inc[-1])
+                    self._write_target_file(min_inc, "mbe_min_inc", self.order)
+                    self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
+                    self._write_target_file(max_inc, "mbe_max_inc", self.order)
+                    write_file(screen, "mbe_screen", order=self.order)
+                    write_file(np.asarray(mbe_idx), "mbe_idx", order=self.order)
+                    write_file(mbe_tup, "mbe_tup", order=self.order)
+                    for tup_nocc in range(self.order + 1):
+                        write_file(
+                            hashes[-1][tup_nocc],
+                            "mbe_hashes",
+                            order=self.order,
+                            nocc=tup_nocc,
+                        )
+                        self._write_inc_file(inc[-1][tup_nocc], self.order, tup_nocc)
                     self.time["mbe"][-1] += MPI.Wtime() - time
                     write_file(
-                        self.order, np.asarray(self.time["mbe"][-1]), "mbe_time_mbe"
+                        np.asarray(self.time["mbe"][-1]),
+                        "mbe_time_mbe",
+                        order=self.order,
                     )
                     # re-init time
                     time = MPI.Wtime()
                     # print status
-                    logger.info(
-                        mbe_status(self.order, mbe_idx / self.n_tuples["inc"][-1])
-                    )
+                    logger.info(mbe_status(self.order, mbe_idx / n_tuples))
 
             # pi-pruning
             if self.pi_prune:
@@ -990,9 +1030,15 @@ class ExpCls(
             if self.order > self.min_order:
                 inc_tup -= self._sum(inc, hashes, tup)
 
+            # get number of occupied orbitals in tuple
+            nocc_tup = max(nelec_tup - self.ref_nelec)
+
+            # get index in hash and increment arrays
+            idx = tup_idx - sum(self.n_tuples["inc"][-1][:nocc_tup])
+
             # add hash and increment
-            hashes[-1][tup_idx] = hash_1d(tup)
-            inc[-1][tup_idx] = inc_tup
+            hashes[-1][nocc_tup][idx] = hash_1d(tup)
+            inc[-1][nocc_tup][idx] = inc_tup
 
             # screening procedure
             screen[tup] = self._screen(inc_tup, screen, tup, self.screen_func)
@@ -1005,15 +1051,6 @@ class ExpCls(
                 inc_tup, min_inc, mean_inc, max_inc, cas_idx
             )
 
-            # update pair_corr statistics
-            if pair_corr is not None:
-                inc_arr = np.asarray(inc_tup)
-                if self.target in ["energy", "excitation"]:
-                    pair_corr[0][tup_idx] = inc_arr
-                elif self.target in ["dipole", "trans"]:
-                    pair_corr[0][tup_idx] = inc_arr[np.argmax(np.abs(inc_arr))]
-                pair_corr[1][tup_idx] = tup
-
         # mpi barrier
         mpi.global_comm.Barrier()
 
@@ -1021,15 +1058,21 @@ class ExpCls(
         if mpi.global_master:
             logger.info(mbe_status(self.order, 1.0))
 
-        # allreduce hashes & increments among local masters
         if mpi.local_master:
-            hashes[-1][:] = mpi_allreduce(mpi.master_comm, hashes[-1], op=MPI.SUM)
-            inc[-1][:] = self._mpi_allreduce_inc(mpi.master_comm, inc[-1], op=MPI.SUM)
+            for tup_nocc in range(self.order + 1):
+                # allreduce hashes & increments among local masters
+                hashes[-1][tup_nocc][:] = mpi_allreduce(
+                    mpi.master_comm, hashes[-1][tup_nocc], op=MPI.SUM
+                )
+                inc[-1][tup_nocc][:] = self._mpi_allreduce_inc(
+                    mpi.master_comm, inc[-1][tup_nocc], op=MPI.SUM
+                )
 
-        # sort hashes and increments
-        if mpi.local_master:
-            inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
-            hashes[-1][:].sort()
+                # sort hashes and increments
+                inc[-1][tup_nocc][:] = inc[-1][tup_nocc][
+                    np.argsort(hashes[-1][tup_nocc])
+                ]
+                hashes[-1][tup_nocc][:].sort()
 
         # increment statistics
         min_inc = self._mpi_reduce_target(mpi.global_comm, min_inc, MPI.MIN)
@@ -1038,25 +1081,24 @@ class ExpCls(
         if mpi.global_master:
             # total current-order increment
             tot = self._total_inc(inc[-1], mean_inc)
-            if self.n_tuples["inc"][-1] != 0:
-                mean_inc /= self.n_tuples["inc"][-1]
-
-        # pair_corr statistics
-        if pair_corr is not None:
-            pair_corr = [
-                mpi_reduce(mpi.global_comm, pair_corr[0], root=0, op=MPI.SUM),
-                mpi_reduce(mpi.global_comm, pair_corr[1], root=0, op=MPI.SUM),
-            ]
+            if n_tuples != 0:
+                mean_inc /= n_tuples
 
         # write restart files & save timings
         if mpi.global_master:
             if self.rst:
-                self._write_target_file(self.order, min_inc, "mbe_min_inc")
-                self._write_target_file(self.order, mean_inc, "mbe_mean_inc")
-                self._write_target_file(self.order, max_inc, "mbe_max_inc")
-                write_file(self.order, np.asarray(self.n_tuples["inc"][-1]), "mbe_idx")
-                write_file(self.order, hashes[-1], "mbe_hashes")
-                self._write_inc_file(self.order, inc[-1])
+                self._write_target_file(min_inc, "mbe_min_inc", self.order)
+                self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
+                self._write_target_file(max_inc, "mbe_max_inc", self.order)
+                write_file(np.asarray(n_tuples), "mbe_idx", order=self.order)
+                for tup_nocc in range(self.order + 1):
+                    write_file(
+                        hashes[-1][tup_nocc],
+                        "mbe_hashes",
+                        order=self.order,
+                        nocc=tup_nocc,
+                    )
+                    self._write_inc_file(inc[-1][tup_nocc], self.order, tup_nocc)
             self.time["mbe"][-1] += MPI.Wtime() - time
 
         # allreduce screen
@@ -1079,31 +1121,11 @@ class ExpCls(
         # write restart files
         if mpi.global_master:
             if self.rst:
-                write_file(self.order, tot_screen, "mbe_screen")
-                write_file(self.order + 1, self.exp_space[-1], "exp_space")
+                write_file(tot_screen, "mbe_screen", order=self.order)
+                write_file(self.exp_space[-1], "exp_space", order=self.order + 1)
 
         # mpi barrier
         mpi.local_comm.Barrier()
-
-        if mpi.global_master and pair_corr is not None:
-            pair_corr[1] = pair_corr[1][np.argsort(np.abs(pair_corr[0]))[::-1]]
-            pair_corr[0] = pair_corr[0][np.argsort(np.abs(pair_corr[0]))[::-1]]
-            logger.debug("\n " + "-" * 74)
-            logger.debug(f'{"pair correlation information":^75s}')
-            logger.debug(" " + "-" * 74)
-            logger.debug(
-                " orbital tuple  |  absolute corr.  |  relative corr.  |  "
-                "cumulative corr."
-            )
-            logger.debug(" " + "-" * 74)
-            for i in range(pair_corr[0].size):
-                logger.debug(
-                    f"   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |"
-                    f"    {pair_corr[0][i]:.3e}    |"
-                    f"        {pair_corr[0][i] / pair_corr[0][0]:.2f}      |"
-                    f"        {np.sum(pair_corr[0][:i+1]) / np.sum(pair_corr[0]):.2f}"
-                )
-            logger.debug(" " + "-" * 74 + "\n")
 
         # append window to hashes
         if len(self.hashes) == len(self.n_tuples["inc"]):
@@ -1162,106 +1184,110 @@ class ExpCls(
         exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
 
         # loop over previous orders
-        for k in range(self.min_order, self.order + 1):
-            # load k-th order hashes and increments
-            hashes = open_shared_win(
-                self.hashes[k - self.min_order],
-                np.int64,
-                (self.n_tuples["inc"][k - self.min_order],),
-            )
-            inc = self._open_shared_inc(
-                self.incs[k - self.min_order],
-                self.n_tuples["inc"][k - self.min_order],
-                k - self.min_order,
-            )
-
-            # mpi barrier
-            mpi.local_comm.barrier()
-
-            # init list for storing hashes at order k
-            hashes_lst: List[int] = []
-
-            # init list for storing increments at order k
-            inc_lst: List[IncType] = []
-
-            # loop until no tuples left
-            for tup_idx, tup in enumerate(
-                tuples(
-                    exp_occ,
-                    exp_virt,
-                    self.ref_nelec,
-                    self.ref_nhole,
-                    self.vanish_exc,
-                    k,
+        for order in range(1, self.order + 1):
+            k = order - 1
+            # loop over number of occupied orbitals
+            for tup_nocc in range(order + 1):
+                l = tup_nocc
+                # load k-th order hashes and increments
+                hashes = open_shared_win(
+                    self.hashes[k][l],
+                    np.int64,
+                    (self.n_tuples["inc"][k][l],),
                 )
-            ):
-                # distribute tuples
-                if tup_idx % mpi.global_size != mpi.global_rank:
+                inc = self._open_shared_inc(
+                    self.incs[k][l], self.n_tuples["inc"][k][l], order, tup_nocc
+                )
+
+                # check if hashes and increments are available
+                if hashes.size == 0:
                     continue
 
-                # compute index
-                idx = hash_lookup(hashes, hash_1d(tup))
+                # mpi barrier
+                mpi.local_comm.barrier()
 
-                # add inc_tup and its hash to lists of increments/hashes
-                if idx is not None:
-                    inc_lst.append(inc[idx])
-                    hashes_lst.append(hash_1d(tup))
+                # init list for storing hashes at order k
+                hashes_lst: List[int] = []
 
-            # recast hashes_lst and inc_lst as np.array and TargetType
-            hashes_arr = np.array(hashes_lst, dtype=np.int64)
-            inc_arr = self._flatten_inc(inc_lst, k - self.min_order)
+                # init list for storing increments at order k
+                inc_lst: List[IncType] = []
 
-            # deallocate k-th order hashes and increments
-            self.hashes[k - self.min_order].Free()
-            self._free_inc(self.incs[k - self.min_order])
+                # loop until no tuples left
+                for tup_idx, tup in enumerate(
+                    tuples_with_nocc(exp_occ, exp_virt, order, tup_nocc)
+                ):
+                    # distribute tuples
+                    if tup_idx % mpi.global_size != mpi.global_rank:
+                        continue
 
-            # number of hashes for every rank
-            recv_counts = np.array(mpi.global_comm.allgather(hashes_arr.size))
+                    # compute index
+                    idx = hash_lookup(hashes, hash_1d(tup))
 
-            # update n_tuples
-            self.n_tuples["inc"][k - self.min_order] = int(np.sum(recv_counts))
+                    # add inc_tup and its hash to lists of increments/hashes
+                    if idx is not None:
+                        inc_lst.append(inc[idx])
+                        hashes_lst.append(hash_1d(tup))
 
-            # init hashes for present order
-            hashes_win = MPI.Win.Allocate_shared(
-                8 * self.n_tuples["inc"][k - self.min_order] if mpi.local_master else 0,
-                8,
-                comm=mpi.local_comm,  # type: ignore
-            )
-            self.hashes[k - self.min_order] = hashes_win
-            hashes = open_shared_win(
-                hashes_win, np.int64, (self.n_tuples["inc"][k - self.min_order],)
-            )
+                # recast hashes_lst and inc_lst as np.array and TargetType
+                hashes_arr = np.array(hashes_lst, dtype=np.int64)
+                inc_arr = self._flatten_inc(inc_lst, k)
 
-            # gatherv hashes on global master
-            hashes[:] = mpi_gatherv(mpi.global_comm, hashes_arr, hashes, recv_counts)
+                # deallocate k-th order hashes and increments
+                self.hashes[k][l].Free()
+                self._free_inc(self.incs[k][l])
 
-            # bcast hashes among local masters
-            if mpi.local_master:
-                hashes[:] = mpi_bcast(mpi.master_comm, hashes)
+                # number of hashes for every rank
+                recv_counts = np.array(mpi.global_comm.allgather(hashes_arr.size))
 
-            # init increments for present order
-            self.incs[k - self.min_order] = self._allocate_shared_inc(
-                self.n_tuples["inc"][k - self.min_order],
-                mpi.local_master,
-                mpi.local_comm,
-            )
-            inc = self._open_shared_inc(
-                self.incs[k - self.min_order],
-                self.n_tuples["inc"][k - self.min_order],
-                k - self.min_order,
-            )
+                # update n_tuples
+                self.n_tuples["inc"][k][l] = int(np.sum(recv_counts))
 
-            # gatherv increments on global master
-            inc[:] = self._mpi_gatherv_inc(mpi.global_comm, inc_arr, inc)
+                # init hashes for present order
+                hashes_win = MPI.Win.Allocate_shared(
+                    8 * self.n_tuples["inc"][k][l] if mpi.local_master else 0,
+                    8,
+                    comm=mpi.local_comm,  # type: ignore
+                )
+                self.hashes[k][l] = hashes_win
+                hashes = open_shared_win(
+                    hashes_win, np.int64, (self.n_tuples["inc"][k][l],)
+                )
 
-            # bcast increments among local masters
-            if mpi.local_master:
-                inc[:] = self._mpi_bcast_inc(mpi.master_comm, inc)
+                # gatherv hashes on global master
+                hashes[:] = mpi_gatherv(
+                    mpi.global_comm, hashes_arr, hashes, recv_counts
+                )
 
-            # sort hashes and increments
-            if mpi.local_master:
-                inc[:] = inc[np.argsort(hashes)]
-                hashes[:].sort()
+                # bcast hashes among local masters
+                if mpi.local_master:
+                    hashes[:] = mpi_bcast(mpi.master_comm, hashes)
+
+                # init increments for present order
+                self.incs[k][l] = self._allocate_shared_inc(
+                    self.n_tuples["inc"][k][l],
+                    mpi.local_master,
+                    mpi.local_comm,
+                    order,
+                    tup_nocc,
+                )
+                inc = self._open_shared_inc(
+                    self.incs[k][l],
+                    self.n_tuples["inc"][k][l],
+                    order,
+                    tup_nocc,
+                )
+
+                # gatherv increments on global master
+                inc[:] = self._mpi_gatherv_inc(mpi.global_comm, inc_arr, inc)
+
+                # bcast increments among local masters
+                if mpi.local_master:
+                    inc[:] = self._mpi_bcast_inc(mpi.master_comm, inc)
+
+                # sort hashes and increments
+                if mpi.local_master:
+                    inc[:] = inc[np.argsort(hashes)]
+                    hashes[:].sort()
 
         # mpi barrier
         mpi.global_comm.barrier()
@@ -1338,7 +1364,7 @@ class ExpCls(
 
     @abstractmethod
     def _sum(
-        self, inc: List[IncType], hashes: List[np.ndarray], tup: np.ndarray
+        self, inc: List[List[IncType]], hashes: List[List[np.ndarray]], tup: np.ndarray
     ) -> TargetType:
         """
         this function performs a recursive summation and returns the final increment
@@ -1347,7 +1373,7 @@ class ExpCls(
 
     @staticmethod
     @abstractmethod
-    def _write_target_file(order: Optional[int], prop: TargetType, string: str) -> None:
+    def _write_target_file(prop: TargetType, string: str, order: int) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
@@ -1361,7 +1387,9 @@ class ExpCls(
         """
 
     @abstractmethod
-    def _init_target_inst(self, value: float, norb: int) -> TargetType:
+    def _init_target_inst(
+        self, value: float, tup_norb: int, tup_nocc: int
+    ) -> TargetType:
         """
         this function initializes an instance of the target type
         """
@@ -1381,38 +1409,52 @@ class ExpCls(
         local_master: bool,
         local_comm: MPI.Comm,
         rst_read: bool,
-    ) -> Tuple[List[np.ndarray], MPI.Win]:
+    ) -> Tuple[List[List[np.ndarray]], List[MPI.Win]]:
         """
         this function loads all previous-order hashes and initializes the current-order
         hashes
         """
         # load hashes for previous orders
-        hashes: List[np.ndarray] = []
-        for k in range(self.order - self.min_order):
-            hashes.append(
-                open_shared_win(self.hashes[k], np.int64, (self.n_tuples["inc"][k],))
-            )
+        hashes: List[List[np.ndarray]] = []
+        for order in range(1, self.order):
+            k = order - 1
+            hashes.append([])
+            for tup_nocc in range(order + 1):
+                l = tup_nocc
+                hashes[k].append(
+                    open_shared_win(
+                        self.hashes[k][l], np.int64, (self.n_tuples["inc"][k][l],)
+                    )
+                )
 
         # init hashes for present order
-        if rst_read:
-            hashes_win = self.hashes[-1]
-        else:
-            hashes_win = MPI.Win.Allocate_shared(
-                8 * self.n_tuples["inc"][-1] if local_master else 0,
-                8,
-                comm=local_comm,  # type: ignore
+        hashes_win: List[MPI.Win] = []
+        hashes.append([])
+        for tup_nocc in range(self.order + 1):
+            l = tup_nocc
+            if rst_read:
+                hashes_win.append(self.hashes[-1][l])
+            else:
+                hashes_win.append(
+                    MPI.Win.Allocate_shared(
+                        8 * self.n_tuples["inc"][-1][l] if local_master else 0,
+                        8,
+                        comm=local_comm,  # type: ignore
+                    )
+                )
+            hashes[-1].append(
+                open_shared_win(
+                    hashes_win[-1], np.int64, (self.n_tuples["inc"][-1][l],)
+                )
             )
-        hashes.append(
-            open_shared_win(hashes_win, np.int64, (self.n_tuples["inc"][-1],))
-        )
-        if local_master and not global_master:
-            hashes[-1][:].fill(0)
+            if local_master and not global_master:
+                hashes[-1][l][:].fill(0)
 
         return hashes, hashes_win
 
     @staticmethod
     @abstractmethod
-    def _write_inc_file(order: Optional[int], inc: IncType) -> None:
+    def _write_inc_file(inc: IncType, order: int, nocc: int) -> None:
         """
         this function defines how to write increment restart files
         """
@@ -1430,45 +1472,66 @@ class ExpCls(
         local_master: bool,
         local_comm: MPI.Comm,
         rst_read: bool,
-    ) -> Tuple[List[IncType], MPIWinType]:
+    ) -> Tuple[List[List[IncType]], List[MPIWinType]]:
         """
         this function loads all previous-order increments and initializes the
         current-order increments
         """
-        inc: List[IncType] = []
-
         # load increments for previous orders
-        for k in range(self.order - self.min_order):
-            inc.append(self._open_shared_inc(self.incs[k], self.n_tuples["inc"][k], k))
+        inc: List[List[IncType]] = []
+        for order in range(1, self.order):
+            k = order - 1
+            inc.append([])
+            for tup_nocc in range(order + 1):
+                l = tup_nocc
+                inc[k].append(
+                    self._open_shared_inc(
+                        self.incs[k][l], self.n_tuples["inc"][k][l], order, tup_nocc
+                    )
+                )
 
         # init increments for present order
-        if rst_read:
-            inc_win = self.incs[-1]
-        else:
-            inc_win = self._allocate_shared_inc(
-                self.n_tuples["inc"][-1], local_master, local_comm
+        inc_win: List[MPIWinType] = []
+        inc.append([])
+        for tup_nocc in range(self.order + 1):
+            l = tup_nocc
+            if rst_read:
+                inc_win.append(self.incs[-1][l])
+            else:
+                inc_win.append(
+                    self._allocate_shared_inc(
+                        self.n_tuples["inc"][-1][l],
+                        local_master,
+                        local_comm,
+                        self.order,
+                        tup_nocc,
+                    )
+                )
+            inc[-1].append(
+                self._open_shared_inc(
+                    inc_win[-1],
+                    self.n_tuples["inc"][-1][l],
+                    self.order,
+                    tup_nocc,
+                )
             )
-        inc.append(
-            self._open_shared_inc(
-                inc_win, self.n_tuples["inc"][-1], self.order - self.min_order
-            )
-        )
-
-        if (local_master and not global_master) or (global_master and not rst_read):
-            inc[-1][:].fill(0.0)
+            if (local_master and not global_master) or (global_master and not rst_read):
+                inc[-1][l][:].fill(0)
 
         return inc, inc_win
 
     @abstractmethod
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
+        self, size: int, allocate: bool, comm: MPI.Comm, tup_norb: int, tup_nocc
     ) -> MPIWinType:
         """
         this function allocates a shared increment window
         """
 
     @abstractmethod
-    def _open_shared_inc(self, window: MPIWinType, n_tuples: int, idx: int) -> IncType:
+    def _open_shared_inc(
+        self, window: MPIWinType, n_tuples: int, tup_orb: int, tup_nocc: int
+    ) -> IncType:
         """
         this function opens a shared increment window
         """
@@ -1541,7 +1604,7 @@ class ExpCls(
 
     @staticmethod
     @abstractmethod
-    def _total_inc(inc: IncType, mean_inc: TargetType) -> TargetType:
+    def _total_inc(inc: List[IncType], mean_inc: TargetType) -> TargetType:
         """
         this function calculates the total current-order increment
         """
@@ -1603,7 +1666,10 @@ class SingleTargetExpCls(
         self.occup = get_occup(self.norb, self.nelec)
 
     def _sum(
-        self, inc: List[np.ndarray], hashes: List[np.ndarray], tup: np.ndarray
+        self,
+        inc: List[List[np.ndarray]],
+        hashes: List[List[np.ndarray]],
+        tup: np.ndarray,
     ) -> SingleTargetType:
         """
         this function performs a recursive summation and returns the final increment
@@ -1618,21 +1684,20 @@ class SingleTargetExpCls(
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
-            # loop over subtuples
-            for tup_sub in tuples(
-                tup_occ,
-                tup_virt,
-                self.ref_nelec,
-                self.ref_nhole,
-                self.vanish_exc,
-                k,
-            ):
-                # compute index
-                idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
+            # loop over number of occupied orbitals
+            for l in range(k + 1):
+                # check if hashes are available
+                if hashes[k - self.min_order][l].size > 0:
+                    # loop over subtuples
+                    for tup_sub in tuples_with_nocc(tup_occ, tup_virt, k, l):
+                        # compute index
+                        idx = hash_lookup(
+                            hashes[k - self.min_order][l], hash_1d(tup_sub)
+                        )
 
-                # sum up order increments
-                if idx is not None:
-                    res[k - self.min_order] += inc[k - self.min_order][idx]
+                        # sum up order increments
+                        if idx is not None:
+                            res[k - self.min_order] += inc[k - self.min_order][l][idx]
 
         return np.sum(res, axis=0)
 
@@ -1649,11 +1714,11 @@ class SingleTargetExpCls(
         """
 
     @staticmethod
-    def _write_inc_file(order: Optional[int], inc: np.ndarray) -> None:
+    def _write_inc_file(inc: np.ndarray, order: int, nocc: int) -> None:
         """
         this function defines writes the increment restart files
         """
-        write_file(order, inc, "mbe_inc")
+        write_file(inc, "mbe_inc", order=order, nocc=nocc)
 
     @staticmethod
     def _read_inc_file(file: str) -> np.ndarray:
@@ -1664,7 +1729,7 @@ class SingleTargetExpCls(
 
     @abstractmethod
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
+        self, size: int, allocate: bool, comm: MPI.Comm, *args: int
     ) -> MPI.Win:
         """
         this function allocates a shared increment window
