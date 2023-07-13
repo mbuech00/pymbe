@@ -638,7 +638,7 @@ class GenFockExpCls(
                 comm=comm,  # type: ignore
             ),
             MPI.Win.Allocate_shared(
-                8 * size * (gen_fock_norb) * self.full_norb if allocate else 0,
+                8 * size * gen_fock_norb * self.full_norb if allocate else 0,
                 8,
                 comm=comm,  # type: ignore
             ),

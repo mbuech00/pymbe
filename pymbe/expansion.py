@@ -436,6 +436,9 @@ class ExpCls(
         # wake up slaves
         mpi.global_comm.bcast({"task": "exit"}, root=0)
 
+        # free integrals
+        self._free_ints()
+
     def driver_slave(self, mpi: MPICls) -> None:
         """
         this function is the main pymbe slave function
@@ -492,6 +495,8 @@ class ExpCls(
                 self._purge(mpi)
 
             elif msg["task"] == "exit":
+                # free integrals
+                self._free_ints()
                 slave = False
 
     def print_results(self, mol: Optional[gto.Mole], mpi: MPICls) -> str:
@@ -1295,6 +1300,25 @@ class ExpCls(
         # save timing
         if mpi.global_master:
             self.time["purge"].append(MPI.Wtime() - time)
+
+        return
+
+    def _free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        # load integrals
+        hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
+        eri = open_shared_win(
+            self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
+        )
+        vhf = open_shared_win(self.vhf, np.float64, (self.nocc, self.norb, self.norb))
+
+        # free integrals
+        hcore.Free()
+        eri.Free()
+        vhf.Free()
 
         return
 
