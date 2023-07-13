@@ -1308,17 +1308,10 @@ class ExpCls(
         this function deallocates integrals in shared memory after the calculation is
         done
         """
-        # load integrals
-        hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
-        eri = open_shared_win(
-            self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
-        )
-        vhf = open_shared_win(self.vhf, np.float64, (self.nocc, self.norb, self.norb))
-
         # free integrals
-        hcore.Free()
-        eri.Free()
-        vhf.Free()
+        self.hcore.Free()
+        self.eri.Free()
+        self.vhf.Free()
 
         return
 
