@@ -27,10 +27,10 @@ from pyscf.cc import (
 )
 from typing import TYPE_CHECKING, cast
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, write_file, get_nelec, get_nhole, get_nexc, assertion
-from pymbe.parallel import mpi_reduce, open_shared_win
+from pymbe.parallel import mpi_reduce, open_shared_win, mpi_bcast
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from typing import List, Optional, Tuple, Union
 
     from pymbe.pymbe import MBE
+    from pymbe.parallel import MPICls
 
 
 # get logger
@@ -57,7 +58,9 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         super().__init__(mbe, cast(np.ndarray, mbe.base_prop))
 
         # additional integrals
-        self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
+        self.dipole_ints, self.dipole_ints_win = self._add_int_wins(
+            mbe.dipole_ints, mbe.mpi
+        )
 
         # initialize dependent attributes
         self._init_dep_attrs(mbe)
@@ -102,11 +105,55 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
             "Dipole moment (in au)",
         )
 
+    def _add_int_wins(
+        self, dipole_ints_in: Optional[np.ndarray], mpi: MPICls
+    ) -> Tuple[np.ndarray, MPI.Win]:
+        """
+        this function creates shared memory windows for additional integrals on every
+        node
+        """
+        # allocate dipole integrals in shared mem
+        dipole_ints_win = MPI.Win.Allocate_shared(
+            8 * 3 * self.norb**2 if mpi.local_master else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+
+        # open dipole integrals in shared memory
+        dipole_ints = open_shared_win(
+            dipole_ints_win, np.float64, (3, self.norb, self.norb)
+        )
+
+        # set dipole integrals on global master
+        if mpi.global_master:
+            dipole_ints[:] = cast(np.ndarray, dipole_ints_in)
+
+        # mpi_bcast dipole integrals
+        if mpi.num_masters > 1 and mpi.local_master:
+            dipole_ints[:] = mpi_bcast(mpi.master_comm, dipole_ints)
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        return dipole_ints, dipole_ints_win
+
     def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
         """
         this function calculates the hartree-fock electronic dipole moment
         """
         return np.einsum("p,xpp->x", self.occup, self.dipole_ints)
+
+    def free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        super().free_ints()
+
+        # free additional integrals
+        self.dipole_ints_win.Free()
+
+        return
 
     def _inc(
         self,

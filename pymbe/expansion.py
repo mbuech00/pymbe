@@ -136,10 +136,14 @@ class ExpCls(
         self._state_occup()
 
         # integrals
-        hcore_win, eri_win, vhf_win = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
-        self.hcore: MPI.Win = hcore_win
-        self.eri: MPI.Win = eri_win
-        self.vhf: MPI.Win = vhf_win
+        (
+            self.hcore,
+            self.eri,
+            self.vhf,
+            self.hcore_win,
+            self.eri_win,
+            self.vhf_win,
+        ) = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
 
         # orbital representation
         self.orb_type: str = mbe.orb_type
@@ -436,9 +440,6 @@ class ExpCls(
         # wake up slaves
         mpi.global_comm.bcast({"task": "exit"}, root=0)
 
-        # free integrals
-        self._free_ints()
-
     def driver_slave(self, mpi: MPICls) -> None:
         """
         this function is the main pymbe slave function
@@ -495,8 +496,6 @@ class ExpCls(
                 self._purge(mpi)
 
             elif msg["task"] == "exit":
-                # free integrals
-                self._free_ints()
                 slave = False
 
     def print_results(self, mol: Optional[gto.Mole], mpi: MPICls) -> str:
@@ -528,7 +527,7 @@ class ExpCls(
         hcore_in: Optional[np.ndarray],
         eri_in: Optional[np.ndarray],
         mpi: MPICls,
-    ) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, MPI.Win, MPI.Win, MPI.Win]:
         """
         this function creates shared memory windows for integrals on every node
         """
@@ -585,7 +584,7 @@ class ExpCls(
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return hcore_win, eri_win, vhf_win
+        return hcore, eri, vhf, hcore_win, eri_win, vhf_win
 
     def _init_dep_attrs(self, mbe: MBE) -> None:
         """
@@ -614,21 +613,8 @@ class ExpCls(
         """
         # calculate reference space property on global master
         if mpi.global_master:
-            # load hcore
-            hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
-
-            # load eri
-            eri = open_shared_win(
-                self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
-            )
-
-            # load vhf
-            vhf = open_shared_win(
-                self.vhf, np.float64, (self.nocc, self.norb, self.norb)
-            )
-
             # compute hartree-fock property
-            hf_prop = self._calc_hf_prop(hcore, eri, vhf)
+            hf_prop = self._calc_hf_prop(self.hcore, self.eri, self.vhf)
 
             # bcast ref_prop to slaves
             mpi.global_comm.bcast(hf_prop, root=0)
@@ -653,19 +639,6 @@ class ExpCls(
         """
         # calculate reference space property on global master
         if mpi.global_master:
-            # load hcore
-            hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
-
-            # load eri
-            eri = open_shared_win(
-                self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
-            )
-
-            # load vhf
-            vhf = open_shared_win(
-                self.vhf, np.float64, (self.nocc, self.norb, self.norb)
-            )
-
             # core_idx and cas_idx
             core_idx, cas_idx = core_cas(
                 self.nocc, self.ref_space, np.array([], dtype=np.int64)
@@ -673,10 +646,10 @@ class ExpCls(
 
             # get cas_space h2e
             cas_idx_tril = idx_tril(cas_idx)
-            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+            h2e_cas = self.eri[cas_idx_tril[:, None], cas_idx_tril]
 
             # compute e_core and h1e_cas
-            e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+            e_core, h1e_cas = e_core_h1e(self.hcore, self.vhf, core_idx, cas_idx)
 
             # compute reference space property
             ref_prop, _ = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
@@ -847,17 +820,6 @@ class ExpCls(
             }
             mpi.global_comm.bcast(msg, root=0)
 
-        # load hcore
-        hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
-
-        # load eri
-        eri = open_shared_win(
-            self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
-        )
-
-        # load vhf
-        vhf = open_shared_win(self.vhf, np.float64, (self.nocc, self.norb, self.norb))
-
         # load and initialize hashes
         hashes, hashes_win = self._load_hashes(
             mpi.global_master, mpi.local_master, mpi.local_comm, rst_read
@@ -1023,10 +985,10 @@ class ExpCls(
             cas_idx_tril = idx_tril(cas_idx)
 
             # get h2e_cas
-            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+            h2e_cas = self.eri[cas_idx_tril[:, None], cas_idx_tril]
 
             # compute e_core and h1e_cas
-            e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+            e_core, h1e_cas = e_core_h1e(self.hcore, self.vhf, core_idx, cas_idx)
 
             # calculate increment
             inc_tup, nelec_tup = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
@@ -1303,15 +1265,15 @@ class ExpCls(
 
         return
 
-    def _free_ints(self) -> None:
+    def free_ints(self) -> None:
         """
         this function deallocates integrals in shared memory after the calculation is
         done
         """
         # free integrals
-        self.hcore.Free()
-        self.eri.Free()
-        self.vhf.Free()
+        self.hcore_win.Free()
+        self.eri_win.Free()
+        self.vhf_win.Free()
 
         return
 

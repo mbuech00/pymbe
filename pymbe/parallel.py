@@ -131,13 +131,8 @@ def system_dist(mbe: MBE) -> MBE:
             "exp_space": mbe.exp_space,
             "base_prop": mbe.base_prop,
             "orbsym_linear": mbe.orbsym_linear,
-            "dipole_ints": mbe.dipole_ints,
             "full_norb": mbe.full_norb,
             "full_nocc": mbe.full_nocc,
-            "inact_fock": mbe.inact_fock,
-            "eri_goaa": mbe.eri_goaa,
-            "eri_gaao": mbe.eri_gaao,
-            "eri_gaaa": mbe.eri_gaaa,
         }
 
         # bcast to slaves

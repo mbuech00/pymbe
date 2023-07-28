@@ -110,7 +110,8 @@ def exp(mbe: MBE, dipole_quantities: Tuple[np.ndarray, np.ndarray]):
 def test_ref_prop(
     mbe: MBE,
     exp: DipoleExpCls,
-    ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win],
+    ints: Tuple[np.ndarray, np.ndarray],
+    vhf: np.ndarray,
     orbsym: np.ndarray,
     method: str,
     base_method: Optional[str],
@@ -125,7 +126,8 @@ def test_ref_prop(
     exp.cc_backend = cc_backend
     exp.orbsym = orbsym
     exp.fci_state_root = root
-    exp.hcore, exp.eri, exp.vhf = ints_win
+    exp.hcore, exp.eri = ints
+    exp.vhf = vhf
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
     exp.base_method = base_method
 

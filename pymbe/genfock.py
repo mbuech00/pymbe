@@ -20,7 +20,7 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List
+from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List, Optional
 
 from pymbe.expansion import (
     ExpCls,
@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from typing import List, Union
 
     from pymbe.pymbe import MBE
+    from pymbe.parallel import MPICls
 
 
 # get logger
@@ -93,10 +94,18 @@ class GenFockExpCls(
         self.full_nocc = cast(int, mbe.full_nocc)
 
         # additional integrals
-        self.inact_fock = cast(np.ndarray, mbe.inact_fock)
-        self.eri_goaa = cast(np.ndarray, mbe.eri_goaa)
-        self.eri_gaao = cast(np.ndarray, mbe.eri_gaao)
-        self.eri_gaaa = cast(np.ndarray, mbe.eri_gaaa)
+        (
+            self.inact_fock,
+            self.eri_goaa,
+            self.eri_gaao,
+            self.eri_gaaa,
+            self.inact_fock_win,
+            self.eri_goaa_win,
+            self.eri_gaao_win,
+            self.eri_gaaa_win,
+        ) = self._add_int_wins(
+            mbe.inact_fock, mbe.eri_goaa, mbe.eri_gaao, mbe.eri_gaaa, mbe.mpi
+        )
 
         # additional settings
         self.no_singles = mbe.no_singles
@@ -154,6 +163,101 @@ class GenFockExpCls(
         """
         raise NotImplementedError
 
+    def _add_int_wins(
+        self,
+        inact_fock_in: Optional[np.ndarray],
+        eri_goaa_in: Optional[np.ndarray],
+        eri_gaao_in: Optional[np.ndarray],
+        eri_gaaa_in: Optional[np.ndarray],
+        mpi: MPICls,
+    ) -> Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        MPI.Win,
+        MPI.Win,
+        MPI.Win,
+        MPI.Win,
+    ]:
+        """
+        this function creates shared memory windows for additional integrals on every
+        node
+        """
+        # allocate additional integrals in shared mem
+        inact_fock_win = MPI.Win.Allocate_shared(
+            8 * self.full_norb * (self.full_nocc + self.norb)
+            if mpi.local_master
+            else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+        eri_goaa_win = MPI.Win.Allocate_shared(
+            8 * self.full_norb * self.full_nocc * self.norb**2
+            if mpi.local_master
+            else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+        eri_gaao_win = MPI.Win.Allocate_shared(
+            8 * self.full_norb * self.norb**2 * self.full_nocc
+            if mpi.local_master
+            else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+        eri_gaaa_win = MPI.Win.Allocate_shared(
+            8 * self.full_norb * self.norb**3 if mpi.local_master else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+
+        # open additional integrals in shared memory
+        inact_fock = open_shared_win(
+            inact_fock_win, np.float64, (self.full_norb, self.full_nocc + self.norb)
+        )
+        eri_goaa = open_shared_win(
+            eri_goaa_win,
+            np.float64,
+            (self.full_norb, self.full_nocc, self.norb, self.norb),
+        )
+        eri_gaao = open_shared_win(
+            eri_gaao_win,
+            np.float64,
+            (self.full_norb, self.norb, self.norb, self.full_nocc),
+        )
+        eri_gaaa = open_shared_win(
+            eri_gaaa_win, np.float64, (self.full_norb, self.norb, self.norb, self.norb)
+        )
+
+        # set set additional integrals on global master
+        if mpi.global_master:
+            inact_fock[:] = cast(np.ndarray, inact_fock_in)
+            eri_goaa[:] = cast(np.ndarray, eri_goaa_in)
+            eri_gaao[:] = cast(np.ndarray, eri_gaao_in)
+            eri_gaaa[:] = cast(np.ndarray, eri_gaaa_in)
+
+        # mpi_bcast additional integrals
+        if mpi.num_masters > 1 and mpi.local_master:
+            inact_fock[:] = mpi_bcast(mpi.master_comm, inact_fock)
+            eri_goaa[:] = mpi_bcast(mpi.master_comm, eri_goaa)
+            eri_gaao[:] = mpi_bcast(mpi.master_comm, eri_gaao)
+            eri_gaaa[:] = mpi_bcast(mpi.master_comm, eri_gaaa)
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        return (
+            inact_fock,
+            eri_goaa,
+            eri_gaao,
+            eri_gaaa,
+            inact_fock_win,
+            eri_goaa_win,
+            eri_gaao_win,
+            eri_gaaa_win,
+        )
+
     def _calc_hf_prop(
         self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
     ) -> GenFockCls:
@@ -207,6 +311,21 @@ class GenFockExpCls(
         )
 
         return GenFockCls(hf_energy, hf_rdm1, hf_gen_fock)
+
+    def free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        super(GenFockExpCls, self).free_ints()
+
+        # free additional integrals
+        self.inact_fock_win.Free()
+        self.eri_goaa_win.Free()
+        self.eri_gaao_win.Free()
+        self.eri_gaaa_win.Free()
+
+        return
 
     def _inc(
         self,
@@ -897,57 +1016,50 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
             hop = None
 
         else:
-            if spin_cas == 0:
-                link_index = fci.cistring.gen_linkstr_index_trilidx(
-                    range(cas_idx.size), nelec[0]
-                )
-                na = link_index.shape[0]
-                t1_addrs = np.array(
-                    [
-                        fci.cistring.str2addr(cas_idx.size, nelec[0], x)
-                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
-                    ]
-                )
-                h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+            # get link indices
+            link_indexa = fci.cistring.gen_linkstr_index_trilidx(
+                range(cas_idx.size), nelec[0]
+            )
+            link_indexb = fci.cistring.gen_linkstr_index_trilidx(
+                range(cas_idx.size), nelec[1]
+            )
 
-                def hop(c):
-                    hc = solver.contract_2e(
-                        h2e_abs, c.reshape(na, na), cas_idx.size, nelec, link_index
-                    )
-                    hc[t1_addrs, 0] = 0.0
-                    hc[0, t1_addrs] = 0.0
-                    return hc.ravel()
+            # get indices of singly excited determinants with respect to alpha and
+            # beta orbitals
+            t1_addrs_a = np.array(
+                [
+                    fci.cistring.str2addr(cas_idx.size, nelec[0], x)
+                    for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
+                ]
+            )
+            t1_addrs_b = np.array(
+                [
+                    fci.cistring.str2addr(cas_idx.size, nelec[1], x)
+                    for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
+                ]
+            )
+            t1_idx = np.concatenate((t1_addrs_a, t1_addrs_b * link_indexa.shape[0]))
 
-            else:
-                link_indexa = fci.cistring.gen_linkstr_index_trilidx(
-                    range(cas_idx.size), nelec[0]
+            # get symmetry-allowed indices
+            sym_idx = np.hstack(
+                fci.direct_spin1_symm.sym_allowed_indices(
+                    nelec, self.orbsym[cas_idx], self.fci_state_sym
                 )
-                link_indexb = fci.cistring.gen_linkstr_index_trilidx(
-                    range(cas_idx.size), nelec[1]
-                )
-                t1_addrs_a = np.array(
-                    [
-                        fci.cistring.str2addr(cas_idx.size, nelec[0], x)
-                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
-                    ]
-                )
-                t1_addrs_b = np.array(
-                    [
-                        fci.cistring.str2addr(cas_idx.size, nelec[1], x)
-                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
-                    ]
-                )
-                h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+            )
 
-                def hop(c):
-                    hc = solver.contract_2e(
-                        h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
-                    )
-                    if t1_addrs_a.size > 0:
-                        hc[t1_addrs_a] = 0.0
-                    if t1_addrs_b.size > 0:
-                        hc[t1_addrs_b * na] = 0.0
-                    return hc.ravel()
+            # get indices of symmetry-allowed singly excited determinants
+            t1_sym_idx = np.where(np.isin(sym_idx, t1_idx))[0]
+
+            # absorb one-electron contribution into two-electron integrals
+            h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+
+            # define hamilton operation
+            def hop(c):
+                hc = solver.contract_2e(
+                    h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
+                ).ravel()
+                hc[t1_sym_idx] = 0.0
+                return hc
 
         # settings
         solver.conv_tol = CONV_TOL
@@ -1179,57 +1291,50 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
                 hop = None
 
             else:
-                if solver_info["spin"] == 0:
-                    link_index = fci.cistring.gen_linkstr_index_trilidx(
-                        range(cas_idx.size), nelec[0]
-                    )
-                    na = link_index.shape[0]
-                    t1_addrs = np.array(
-                        [
-                            fci.cistring.str2addr(cas_idx.size, nelec[0], x)
-                            for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
-                        ]
-                    )
-                    h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+                # get link indices
+                link_indexa = fci.cistring.gen_linkstr_index_trilidx(
+                    range(cas_idx.size), nelec[0]
+                )
+                link_indexb = fci.cistring.gen_linkstr_index_trilidx(
+                    range(cas_idx.size), nelec[1]
+                )
 
-                    def hop(c):
-                        hc = solver.contract_2e(
-                            h2e_abs, c.reshape(na, na), cas_idx.size, nelec, link_index
-                        )
-                        hc[t1_addrs, 0] = 0.0
-                        hc[0, t1_addrs] = 0.0
-                        return hc.ravel()
+                # get indices of singly excited determinants with respect to alpha and
+                # beta orbitals
+                t1_addrs_a = np.array(
+                    [
+                        fci.cistring.str2addr(cas_idx.size, nelec[0], x)
+                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
+                    ]
+                )
+                t1_addrs_b = np.array(
+                    [
+                        fci.cistring.str2addr(cas_idx.size, nelec[1], x)
+                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
+                    ]
+                )
+                t1_idx = np.concatenate((t1_addrs_a, t1_addrs_b * link_indexa.shape[0]))
 
-                else:
-                    link_indexa = fci.cistring.gen_linkstr_index_trilidx(
-                        range(cas_idx.size), nelec[0]
+                # get symmetry-allowed indices
+                sym_idx = np.hstack(
+                    fci.direct_spin1_symm.sym_allowed_indices(
+                        nelec, self.orbsym[cas_idx], self.fci_state_sym
                     )
-                    link_indexb = fci.cistring.gen_linkstr_index_trilidx(
-                        range(cas_idx.size), nelec[1]
-                    )
-                    t1_addrs_a = np.array(
-                        [
-                            fci.cistring.str2addr(cas_idx.size, nelec[0], x)
-                            for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
-                        ]
-                    )
-                    t1_addrs_b = np.array(
-                        [
-                            fci.cistring.str2addr(cas_idx.size, nelec[1], x)
-                            for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
-                        ]
-                    )
-                    h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+                )
 
-                    def hop(c):
-                        hc = solver.contract_2e(
-                            h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
-                        )
-                        if t1_addrs_a.size > 0:
-                            hc[t1_addrs_a] = 0.0
-                        if t1_addrs_b.size > 0:
-                            hc[t1_addrs_b * na] = 0.0
-                        return hc.ravel()
+                # get indices of symmetry-allowed singly excited determinants
+                t1_sym_idx = np.where(np.isin(sym_idx, t1_idx))[0]
+
+                # absorb one-electron contribution into two-electron integrals
+                h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
+
+                # define hamilton operation
+                def hop(c):
+                    hc = solver.contract_2e(
+                        h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
+                    ).ravel()
+                    hc[t1_sym_idx] = 0.0
+                    return hc
 
             # get roots
             roots = [states[state]["root"] for state in solver_info["states"]]

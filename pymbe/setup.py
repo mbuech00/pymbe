@@ -730,9 +730,9 @@ def sanity_check(mbe: MBE) -> None:
             "be an int > 0",
         )
         assertion(
-            isinstance(mbe.full_nocc, int) and mbe.full_nocc > 0,
+            isinstance(mbe.full_nocc, int) and mbe.full_nocc >= 0,
             "number of occupied orbitals in the full system (full_nocc keyword "
-            "argument) must be an int > 0",
+            "argument) must be an int >= 0",
         )
         assertion(
             isinstance(mbe.inact_fock, np.ndarray)

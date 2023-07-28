@@ -200,6 +200,9 @@ class MBE:
         # calculate total electronic property
         prop = self.final_prop(prop_type="electronic")
 
+        # free integrals
+        self.exp.free_ints()
+
         return prop
 
     def dump_flags(self) -> None:
