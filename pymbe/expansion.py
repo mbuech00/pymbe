@@ -57,6 +57,7 @@ from pymbe.tools import (
     get_occup,
     get_vhf,
     e_core_h1e,
+    cf_prefactor,
 )
 from pymbe.parallel import (
     mpi_reduce,
@@ -192,8 +193,12 @@ class ExpCls(
         self.rst_freq: int = mbe.rst_freq
         self.restarted: bool = mbe.restarted
 
+        # closed form solution
+        self.closed_form = self.screen_perc == 0.0
+
         # order
         self.order: int = 0
+        self.start_order: int = 1
         self.min_order: int = 1
 
         if mbe.max_order is not None:
@@ -258,16 +263,17 @@ class ExpCls(
                 # print mbe end
                 logger.info(mbe_end(i, self.time["mbe"][i - self.min_order]))
 
-                # print mbe results
-                logger.info(self._mbe_results(i))
+                if not self.closed_form:
+                    # print mbe results
+                    logger.info(self._mbe_results(i))
 
-                # print screening results
-                self.screen_orbs = np.setdiff1d(
-                    self.exp_space[i - self.min_order],
-                    self.exp_space[i - self.min_order + 1],
-                )
-                if 0 < self.screen_orbs.size:
-                    logger.info(screen_results(i, self.screen_orbs, self.exp_space))
+                    # print screening results
+                    self.screen_orbs = np.setdiff1d(
+                        self.exp_space[i - self.min_order],
+                        self.exp_space[i - self.min_order + 1],
+                    )
+                    if 0 < self.screen_orbs.size:
+                        logger.info(screen_results(i, self.screen_orbs, self.exp_space))
 
         # begin or resume mbe expansion depending
         for self.order in range(self.start_order, self.max_order + 1):
@@ -330,107 +336,130 @@ class ExpCls(
             )
 
             # main mbe function
-            self._mbe(mpi)
+            if not self.closed_form:
+                self._mbe(mpi)
+            else:
+                self._mbe_cf(mpi)
 
             # print mbe end
             logger.info(mbe_end(self.order, self.time["mbe"][-1]))
 
-            # print mbe results
-            logger.info(self._mbe_results(self.order))
+            # screening and purging
+            if not self.closed_form:
+                # print mbe results
+                logger.info(self._mbe_results(self.order))
 
-            # update screen_orbs
-            if self.order > self.min_order:
-                self.screen_orbs = np.setdiff1d(self.exp_space[-2], self.exp_space[-1])
+                # update screen_orbs
+                if self.order > self.min_order:
+                    self.screen_orbs = np.setdiff1d(
+                        self.exp_space[-2], self.exp_space[-1]
+                    )
 
-            # print screening results
-            if 0 < self.screen_orbs.size:
-                logger.info(
-                    screen_results(self.order, self.screen_orbs, self.exp_space)
-                )
+                # print screening results
+                if 0 < self.screen_orbs.size:
+                    logger.info(
+                        screen_results(self.order, self.screen_orbs, self.exp_space)
+                    )
 
-            # print header
-            logger.info(purge_header(self.order))
+                # print header
+                logger.info(purge_header(self.order))
 
-            # main purging function
-            self._purge(mpi)
+                # main purging function
+                self._purge(mpi)
 
-            # print purging results
-            if self.order + 1 <= self.exp_space[-1].size:
-                logger.info(purge_results(self.n_tuples, self.min_order, self.order))
+                # print purging results
+                if self.order + 1 <= self.exp_space[-1].size:
+                    logger.info(
+                        purge_results(self.n_tuples, self.min_order, self.order)
+                    )
 
-            # print purge end
-            logger.info(purge_end(self.order, self.time["purge"][-1]))
+                # print purge end
+                logger.info(purge_end(self.order, self.time["purge"][-1]))
 
-            # write restart files
-            if self.rst:
-                if self.screen_orbs.size > 0:
-                    for order in range(1, self.order + 1):
-                        k = order - 1
-                        for tup_nocc in range(order + 1):
+                # write restart files
+                if self.rst:
+                    if self.screen_orbs.size > 0:
+                        for order in range(1, self.order + 1):
+                            k = order - 1
+                            for tup_nocc in range(order + 1):
+                                l = tup_nocc
+                                hashes = open_shared_win(
+                                    self.hashes[k][l],
+                                    np.int64,
+                                    (self.n_tuples["inc"][k][l],),
+                                )
+                                write_file(
+                                    hashes, "mbe_hashes", order=order, nocc=tup_nocc
+                                )
+                                inc = self._open_shared_inc(
+                                    self.incs[k][l],
+                                    self.n_tuples["inc"][k][l],
+                                    order,
+                                    tup_nocc,
+                                )
+                                self._write_inc_file(inc, order, tup_nocc)
+                                write_file(
+                                    np.asarray(self.n_tuples["inc"][k][l]),
+                                    "mbe_n_tuples_inc",
+                                    order=order,
+                                    nocc=tup_nocc,
+                                )
+                    else:
+                        for tup_nocc in range(self.order + 1):
                             l = tup_nocc
                             hashes = open_shared_win(
-                                self.hashes[k][l],
+                                self.hashes[-1][l],
                                 np.int64,
-                                (self.n_tuples["inc"][k][l],),
+                                (self.n_tuples["inc"][-1][l],),
                             )
-                            write_file(hashes, "mbe_hashes", order=order, nocc=tup_nocc)
+                            write_file(
+                                hashes, "mbe_hashes", order=self.order, nocc=tup_nocc
+                            )
                             inc = self._open_shared_inc(
-                                self.incs[k][l],
-                                self.n_tuples["inc"][k][l],
-                                order,
+                                self.incs[-1][l],
+                                self.n_tuples["inc"][-1][l],
+                                self.order,
                                 tup_nocc,
                             )
-                            self._write_inc_file(inc, order, tup_nocc)
+                            self._write_inc_file(inc, self.order, l)
                             write_file(
-                                np.asarray(self.n_tuples["inc"][k][l]),
+                                np.asarray(self.n_tuples["inc"][-1][l]),
                                 "mbe_n_tuples_inc",
-                                order=order,
+                                order=self.order,
                                 nocc=tup_nocc,
                             )
-                else:
-                    for tup_nocc in range(self.order + 1):
-                        l = tup_nocc
-                        hashes = open_shared_win(
-                            self.hashes[-1][l], np.int64, (self.n_tuples["inc"][-1][l],)
-                        )
-                        write_file(
-                            hashes, "mbe_hashes", order=self.order, nocc=tup_nocc
-                        )
-                        inc = self._open_shared_inc(
-                            self.incs[-1][l],
-                            self.n_tuples["inc"][-1][l],
-                            self.order,
-                            tup_nocc,
-                        )
-                        self._write_inc_file(inc, self.order, l)
-                        write_file(
-                            np.asarray(self.n_tuples["inc"][-1][l]),
-                            "mbe_n_tuples_inc",
-                            order=self.order,
-                            nocc=tup_nocc,
-                        )
-                self._write_target_file(
-                    self.mbe_tot_prop[-1], "mbe_tot_prop", self.order
-                )
-                write_file(
-                    np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", order=self.order
-                )
-                write_file(
-                    np.asarray(self.time["purge"][-1]),
-                    "mbe_time_purge",
-                    order=self.order,
-                )
+                    self._write_target_file(
+                        self.mbe_tot_prop[-1], "mbe_tot_prop", self.order
+                    )
+                    write_file(
+                        np.asarray(self.time["mbe"][-1]),
+                        "mbe_time_mbe",
+                        order=self.order,
+                    )
+                    write_file(
+                        np.asarray(self.time["purge"][-1]),
+                        "mbe_time_purge",
+                        order=self.order,
+                    )
 
             # convergence check
             if self.exp_space[-1].size < self.order + 1 or self.order == self.max_order:
                 # final order
                 self.final_order = self.order
 
-                # total timing
-                self.time["total"] = [
-                    mbe + purge
-                    for mbe, purge in zip(self.time["mbe"], self.time["purge"])
-                ]
+                if not self.closed_form:
+                    # total timing
+                    self.time["total"] = [
+                        mbe + purge
+                        for mbe, purge in zip(self.time["mbe"], self.time["purge"])
+                    ]
+
+                else:
+                    # total timing
+                    self.time["total"] = self.time["mbe"]
+
+                    # calculate final properties
+                    self._tot_prop_cf()
 
                 # final results
                 logger.info("\n\n")
@@ -472,20 +501,28 @@ class ExpCls(
                             )
                         )
 
-                # main mbe function
-                self._mbe(
-                    mpi,
-                    rst_read=msg["rst_read"],
-                    tup_idx=msg["tup_idx"],
-                    tup=msg["tup"],
-                )
-
-                # update screen_orbs
-                if self.order == self.min_order:
-                    self.screen_orbs = np.array([], dtype=np.int64)
+                if not self.closed_form:
+                    # main mbe function
+                    self._mbe(
+                        mpi,
+                        rst_read=msg["rst_read"],
+                        tup_idx=msg["tup_idx"],
+                        tup=msg["tup"],
+                    )
+                    # update screen_orbs
+                    if self.order == self.min_order:
+                        self.screen_orbs = np.array([], dtype=np.int64)
+                    else:
+                        self.screen_orbs = np.setdiff1d(
+                            self.exp_space[-2], self.exp_space[-1]
+                        )
                 else:
-                    self.screen_orbs = np.setdiff1d(
-                        self.exp_space[-2], self.exp_space[-1]
+                    # main mbe function
+                    self._mbe_cf(
+                        mpi,
+                        rst_read=msg["rst_read"],
+                        tup_idx=msg["tup_idx"],
+                        tup=msg["tup"],
                     )
 
             elif msg["task"] == "purge":
@@ -497,6 +534,18 @@ class ExpCls(
 
             elif msg["task"] == "exit":
                 slave = False
+
+    def free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        # free integrals
+        self.hcore_win.Free()
+        self.eri_win.Free()
+        self.vhf_win.Free()
+
+        return
 
     def print_results(self, mol: Optional[gto.Mole], mpi: MPICls) -> str:
         """
@@ -602,10 +651,7 @@ class ExpCls(
 
         # attributes from restarted calculation
         if self.restarted:
-            start_order = self._restart_main(mbe.mpi)
-        else:
-            start_order = self.min_order
-        self.start_order: int = start_order
+            self._restart_main(mbe.mpi)
 
     def _hf_prop(self, mpi: MPICls) -> TargetType:
         """
@@ -663,7 +709,7 @@ class ExpCls(
 
         return ref_prop
 
-    def _restart_main(self, mpi: MPICls) -> int:
+    def _restart_main(self, mpi: MPICls) -> None:
         """
         this function reads in all expansion restart files and returns the start order
         """
@@ -780,6 +826,10 @@ class ExpCls(
                         np.load(os.path.join(RST, files[i])).tolist()
                     )
 
+                # read start order
+                elif "mbe_start_order" in files[i]:
+                    self.start_order = np.load(os.path.join(RST, files[i])).item()
+
         # bcast exp_space and screen
         if mpi.global_master:
             mpi.global_comm.bcast(self.exp_space, root=0)
@@ -791,7 +841,7 @@ class ExpCls(
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return self.min_order + len(self.mbe_tot_prop)
+        return
 
     def _mbe(
         self,
@@ -1090,6 +1140,7 @@ class ExpCls(
             if self.rst:
                 write_file(tot_screen, "mbe_screen", order=self.order)
                 write_file(self.exp_space[-1], "exp_space", order=self.order + 1)
+                write_file(np.asarray(self.order), "mbe_start_order")
 
         # mpi barrier
         mpi.local_comm.Barrier()
@@ -1121,6 +1172,195 @@ class ExpCls(
                 self.mean_inc.append(mean_inc)
                 self.min_inc.append(min_inc)
                 self.max_inc.append(max_inc)
+
+        return
+
+    def _mbe_cf(
+        self,
+        mpi: MPICls,
+        rst_read: bool = False,
+        tup_idx: int = 0,
+        tup: Optional[np.ndarray] = None,
+    ) -> None:
+        """
+        this function is the mbe main function
+        """
+        if mpi.global_master:
+            # read restart files
+            rst_read = is_file("mbe_idx", self.order) and is_file("mbe_tup", self.order)
+            # start indices
+            tup_idx = read_file("mbe_idx", self.order).item() if rst_read else 0
+            # start tuples
+            tup = read_file("mbe_tup", self.order) if rst_read else None
+            # wake up slaves
+            msg = {
+                "task": "mbe",
+                "order": self.order,
+                "rst_read": rst_read,
+                "tup_idx": tup_idx,
+                "tup": tup,
+            }
+            mpi.global_comm.bcast(msg, root=0)
+
+        # initialize total property
+        if mpi.global_master and rst_read:
+            mbe_tot_prop = self.mbe_tot_prop.pop()
+        else:
+            mbe_tot_prop = self._init_target_inst(0.0, self.norb, self.nocc)
+
+        # init time
+        if mpi.global_master:
+            if not rst_read:
+                self.time["mbe"].append(0.0)
+            time = MPI.Wtime()
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        # occupied and virtual expansion spaces
+        exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
+        exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
+
+        # get total number of tuples for this order
+        n_tuples = sum(self.n_tuples["inc"][-1])
+
+        # set rst_write
+        rst_write = self.rst and mpi.global_size < self.rst_freq < n_tuples
+
+        # start tuples
+        tup_occ: Optional[np.ndarray]
+        tup_virt: Optional[np.ndarray]
+        if tup is not None:
+            tup_occ = tup[tup < self.nocc]
+            tup_virt = tup[self.nocc <= tup]
+            if tup_occ.size == 0:
+                tup_occ = None
+            if tup_virt.size == 0:
+                tup_virt = None
+        else:
+            tup_occ = tup_virt = None
+        order_start, occ_start, virt_start = start_idx(
+            exp_occ, exp_virt, tup_occ, tup_virt
+        )
+
+        # loop until no tuples left
+        for tup_idx, tup in enumerate(
+            tuples(
+                exp_occ,
+                exp_virt,
+                self.ref_nelec,
+                self.ref_nhole,
+                self.vanish_exc,
+                self.order,
+                order_start,
+                occ_start,
+                virt_start,
+            ),
+            tup_idx,
+        ):
+            # distribute tuples
+            if tup_idx % mpi.global_size != mpi.global_rank:
+                continue
+
+            # write restart files and re-init time
+            if rst_write and tup_idx % self.rst_freq < mpi.global_size:
+                # mpi barrier
+                mpi.local_comm.Barrier()
+
+                # reduce mbe_tot_prop onto global master
+                mbe_tot_prop = self._mpi_reduce_target(
+                    mpi.global_comm, mbe_tot_prop, op=MPI.SUM
+                )
+                if not mpi.global_master:
+                    mbe_tot_prop = self._init_target_inst(0.0, self.norb, self.nocc)
+
+                # reduce mbe_idx onto global master
+                mbe_idx = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
+                # send tup corresponding to mbe_idx to master
+                if mpi.global_master:
+                    if tup_idx == mbe_idx:
+                        mbe_tup = tup
+                    else:
+                        mbe_tup = np.empty(self.order, dtype=np.int64)
+                        mpi.global_comm.Recv(mbe_tup, source=MPI.ANY_SOURCE, tag=101)
+                elif tup_idx == mbe_idx:
+                    mpi.global_comm.Send(tup, dest=0, tag=101)
+                # update rst_write
+                rst_write = mbe_idx + self.rst_freq < n_tuples - mpi.global_size
+
+                if mpi.global_master:
+                    # write restart files
+                    write_file(np.asarray(mbe_idx), "mbe_idx", order=self.order)
+                    write_file(mbe_tup, "mbe_tup", order=self.order)
+                    self._write_target_file(
+                        mbe_tot_prop, "mbe_tot_prop", order=self.order
+                    )
+                    self.time["mbe"][-1] += MPI.Wtime() - time
+                    write_file(
+                        np.asarray(self.time["mbe"][-1]),
+                        "mbe_time_mbe",
+                        order=self.order,
+                    )
+                    # re-init time
+                    time = MPI.Wtime()
+                    # print status
+                    logger.info(mbe_status(self.order, mbe_idx / n_tuples))
+
+            # pi-pruning
+            if self.pi_prune:
+                if not pi_prune(self.pi_orbs, self.pi_hashes, tup):
+                    continue
+
+            # get core and cas indices
+            core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
+
+            # get h2e indices
+            cas_idx_tril = idx_tril(cas_idx)
+
+            # get h2e_cas
+            h2e_cas = self.eri[cas_idx_tril[:, None], cas_idx_tril]
+
+            # compute e_core and h1e_cas
+            e_core, h1e_cas = e_core_h1e(self.hcore, self.vhf, core_idx, cas_idx)
+
+            # calculate property
+            prop_tup, nelec_tup = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+
+            # debug print
+            logger.debug(self._mbe_debug(nelec_tup, prop_tup, cas_idx, tup))
+
+            # add total property
+            mbe_tot_prop = self._add_prop(prop_tup, mbe_tot_prop, cas_idx)
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        # print final status
+        if mpi.global_master:
+            logger.info(mbe_status(self.order, 1.0))
+
+        # reduce mbe_tot_prop onto global master
+        mbe_tot_prop = self._mpi_reduce_target(
+            mpi.global_comm, mbe_tot_prop, op=MPI.SUM
+        )
+
+        # update expansion space wrt screened orbitals
+        if self.order < self.screen_start:
+            self.exp_space.append(self.exp_space[-1])
+        else:
+            self.exp_space.append(np.array([], dtype=np.int64))
+
+        if mpi.global_master:
+            # write restart files
+            if self.rst:
+                write_file(np.asarray(n_tuples), "mbe_idx", order=self.order)
+                self._write_target_file(mbe_tot_prop, "mbe_tot_prop", order=self.order)
+                write_file(self.exp_space[-1], "exp_space", order=self.order + 1)
+                write_file(np.asarray(self.order + 1), "mbe_start_order")
+            # append total property
+            self.mbe_tot_prop.append(mbe_tot_prop)
+            # save timings
+            self.time["mbe"][-1] += MPI.Wtime() - time
 
         return
 
@@ -1265,15 +1505,16 @@ class ExpCls(
 
         return
 
-    def free_ints(self) -> None:
+    def _tot_prop_cf(self) -> None:
         """
-        this function deallocates integrals in shared memory after the calculation is
-        done
+        this function calculates the total property in closed form
         """
-        # free integrals
-        self.hcore_win.Free()
-        self.eri_win.Free()
-        self.vhf_win.Free()
+        for order in range(self.order, 0, -1):
+            for contrib_order in range(order - 1, 0, -1):
+                self.mbe_tot_prop[order - self.min_order] += (
+                    cf_prefactor(contrib_order, order, self.max_order)
+                    * self.mbe_tot_prop[contrib_order - self.min_order]
+                )
 
         return
 
@@ -1581,6 +1822,14 @@ class ExpCls(
         this function updates the increment statistics
         """
 
+    @abstractmethod
+    def _add_prop(
+        self, prop_tup: TargetType, tot_prop: TargetType, cas_idx: np.ndarray
+    ) -> TargetType:
+        """
+        this function adds a tuple property to the property of the full space
+        """
+
     @staticmethod
     @abstractmethod
     def _total_inc(inc: List[IncType], mean_inc: TargetType) -> TargetType:
@@ -1768,7 +2017,7 @@ class SingleTargetExpCls(
         min_inc: SingleTargetType,
         mean_inc: SingleTargetType,
         max_inc: SingleTargetType,
-        cas_idx: np.ndarray,
+        *args: np.ndarray,
     ) -> Tuple[SingleTargetType, SingleTargetType, SingleTargetType]:
         """
         this function updates the increment statistics
@@ -1778,3 +2027,14 @@ class SingleTargetExpCls(
         max_inc = np.maximum(max_inc, np.abs(inc_tup))
 
         return min_inc, mean_inc, max_inc
+
+    def _add_prop(
+        self,
+        prop_tup: SingleTargetType,
+        tot_prop: SingleTargetType,
+        *args: np.ndarray,
+    ) -> SingleTargetType:
+        """
+        this function adds a tuple property to the property of the full space
+        """
+        return tot_prop + prop_tup

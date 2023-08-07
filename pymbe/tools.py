@@ -19,7 +19,7 @@ import re
 import sys
 import logging
 import numpy as np
-import scipy.special as sc
+from math import comb
 from mpi4py import MPI
 from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby
@@ -465,6 +465,31 @@ class GenFockCls:
         else:
             return NotImplemented
 
+    def __mul__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements multiplication for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            return GenFockCls(
+                other * self.energy, other * self.rdm1, other * self.gen_fock
+            )
+        else:
+            return NotImplemented
+
+    __rmul__ = __mul__
+
+    def __imul__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements inplace multiplication for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.energy *= other
+            self.rdm1 *= other
+            self.gen_fock *= other
+            return self
+        else:
+            return NotImplemented
+
     def __truediv__(self, other: Union[int, float]) -> GenFockCls:
         """
         this function implements division for the GenFockCls objects
@@ -812,17 +837,17 @@ def start_idx(
         order_start = 0
         occ_start = virt_start = 0
     elif tup_occ is not None and tup_virt is not None:
-        order_start = int(tup_occ.size)
-        occ_start = int(_comb_idx(occ_space, tup_occ))
-        virt_start = int(_comb_idx(virt_space, tup_virt))
+        order_start = tup_occ.size
+        occ_start = _comb_idx(occ_space, tup_occ)
+        virt_start = _comb_idx(virt_space, tup_virt)
     elif tup_occ is not None and tup_virt is None:
-        order_start = int(tup_occ.size)
-        occ_start = int(_comb_idx(occ_space, tup_occ))
+        order_start = tup_occ.size
+        occ_start = _comb_idx(occ_space, tup_occ)
         virt_start = 0
     elif tup_occ is None and tup_virt is not None:
         order_start = 0
         occ_start = 0
-        virt_start = int(_comb_idx(virt_space, tup_virt))
+        virt_start = _comb_idx(virt_space, tup_virt)
     return order_start, occ_start, virt_start
 
 
@@ -878,7 +903,7 @@ def tuples_and_virt_with_nocc(
             yield np.array(tup_occ, dtype=np.int64), np.array([], dtype=np.int64)
 
 
-def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
+def _comb_idx(space: np.ndarray, tup: np.ndarray) -> int:
     """
     this function return the index of a given (ordered) combination returned from
     itertools.combinations
@@ -893,14 +918,12 @@ def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
     return idx
 
 
-def _idx(space: np.ndarray, idx: int, order: int) -> float:
+def _idx(space: np.ndarray, idx: int, order: int) -> int:
     """
     this function return the start index of element space[idx] in position (order+1)
     from the right in a given combination
     """
-    return sum(
-        (sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx])
-    )
+    return sum((comb(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
 
 def n_tuples(
@@ -916,15 +939,13 @@ def n_tuples(
     this function returns the total number of tuples of a given order
     """
     # init n_tuples
-    n = 0.0
+    n = 0
 
     # check if tuple is valid for chosen method
     if _valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
-        n += sc.binom(occ_space.size, tup_nocc) * sc.binom(
-            virt_space.size, order - tup_nocc
-        )
+        n += comb(occ_space.size, tup_nocc) * comb(virt_space.size, order - tup_nocc)
 
-    return int(n)
+    return n
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -1200,3 +1221,12 @@ def e_core_h1e(
     h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
 
     return e_core, h1e_cas
+
+
+def cf_prefactor(contrib_order: int, order: int, max_order: int) -> int:
+    """
+    this function calculates the prefactor for the closed form MBE
+    """
+    return (-1) ** (order - contrib_order) * comb(
+        max_order - contrib_order - 1, order - contrib_order
+    )

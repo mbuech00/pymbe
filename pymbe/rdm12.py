@@ -513,6 +513,15 @@ class RDMExpCls(
 
         return min_inc, mean_inc, max_inc
 
+    def _add_prop(
+        self, prop_tup: RDMCls, tot_prop: RDMCls, cas_idx: np.ndarray
+    ) -> RDMCls:
+        """
+        this function adds a tuple property to the property of the full space
+        """
+        tot_prop[cas_idx] += prop_tup
+        return tot_prop
+
     @staticmethod
     def _total_inc(inc: List[packedRDMCls], mean_inc: RDMCls) -> RDMCls:
         """

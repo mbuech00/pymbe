@@ -902,6 +902,20 @@ class GenFockExpCls(
 
         return min_inc, mean_inc, max_inc
 
+    def _add_prop(
+        self, prop_tup: GenFockCls, tot_prop: GenFockCls, cas_idx: np.ndarray
+    ) -> GenFockCls:
+        """
+        this function adds a tuple property to the property of the full space
+        """
+        # get indices for generalized Fock matrix
+        gen_fock_idx = np.concatenate(
+            (np.arange(self.nocc), cas_idx[self.nocc <= cas_idx])
+        )
+
+        tot_prop[cas_idx, gen_fock_idx] += prop_tup
+        return tot_prop
+
     @staticmethod
     def _total_inc(inc: List[packedGenFockCls], mean_inc: GenFockCls) -> GenFockCls:
         """
@@ -915,7 +929,7 @@ class GenFockExpCls(
 
     def _mbe_results(self, order: int) -> str:
         """
-        this function prints mbe results statistics for an generalized Fock matrix
+        this function prints mbe results statistics for a generalized Fock matrix
         calculation
         """
         # calculate total inc
