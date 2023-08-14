@@ -161,7 +161,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         solver.max_space = 25
         solver.davidson_only = True
         solver.pspace_size = 0
-        if self.verbose >= 3:
+        if self.verbose >= 4:
             solver.verbose = 10
         solver.wfnsym = self.fci_state_sym
         solver.orbsym = self.orbsym[cas_idx]

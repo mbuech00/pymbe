@@ -27,7 +27,6 @@ from subprocess import Popen, PIPE
 from typing import TYPE_CHECKING, overload
 
 from pymbe.logger import logger
-from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
     from typing import Tuple, List, Generator, Union, Optional, Dict, Set
@@ -233,19 +232,6 @@ class packedRDMCls:
         cls.rdm2_size = []
         cls.pack_rdm2 = []
         cls.unpack_rdm2 = []
-
-    @classmethod
-    def open_shared_RDM(
-        cls, inc_win: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
-    ) -> packedRDMCls:
-        """
-        this factory function initializes a packedRDMCls object in shared memory
-        """
-        # open shared windows
-        rdm1 = open_shared_win(inc_win[0], np.float64, (n_tuples, cls.rdm1_size[idx]))
-        rdm2 = open_shared_win(inc_win[1], np.float64, (n_tuples, cls.rdm2_size[idx]))
-
-        return cls(rdm1, rdm2, idx)
 
     @classmethod
     def get_pack_idx(cls, norb) -> None:
@@ -541,7 +527,7 @@ def logger_config(verbose: int) -> None:
     this function configures the pymbe logger
     """
     # corresponding logging level
-    verbose_level = {0: 30, 1: 20, 2: 15, 3: 10}
+    verbose_level = {0: 30, 1: 20, 2: 15, 3: 10, 4: 5}
 
     # set level for logger
     logger.setLevel(verbose_level[verbose])

@@ -245,36 +245,6 @@ def mpi_allreduce(
     return recv_buff
 
 
-def mpi_gatherv(
-    comm: MPI.Comm,
-    send_buff: np.ndarray,
-    recv_buff: np.ndarray,
-    counts: np.ndarray,
-    root: int = 0,
-) -> np.ndarray:
-    """
-    this function performs a gatherv operation using point-to-point operations
-    inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-    """
-    # rank and size
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
-    if rank == root:
-        recv_tile: np.ndarray = np.ndarray(
-            recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff
-        )
-        recv_tile[: send_buff.size] = send_buff
-        # recv from all slaves
-        for slave in range(1, size):
-            slave_idx = np.sum(counts[:slave])
-            comm.Recv(recv_tile[slave_idx : slave_idx + counts[slave]], source=slave)
-    else:
-        comm.Send(send_buff, dest=root)
-
-    return recv_buff
-
-
 def open_shared_win(window: MPI.Win, dtype: type, shape: Tuple[int, ...]) -> np.ndarray:
     """
     this function returns the numpy array to a MPI window

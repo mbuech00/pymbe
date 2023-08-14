@@ -19,7 +19,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
-from typing import TYPE_CHECKING, TypedDict, Tuple, List
+from typing import TYPE_CHECKING, TypedDict, Tuple, List, Dict
 
 from pymbe.expansion import (
     ExpCls,
@@ -45,13 +45,7 @@ from pymbe.tools import (
     idx_tril,
     write_file_mult,
 )
-from pymbe.parallel import (
-    mpi_reduce,
-    mpi_allreduce,
-    mpi_bcast,
-    mpi_gatherv,
-    open_shared_win,
-)
+from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 
 if TYPE_CHECKING:
     import matplotlib
@@ -562,6 +556,23 @@ class GenFockExpCls(
             ),
         )
 
+    def _init_inc_arr_from_lst(self, inc_lst: List[GenFockCls]) -> GenFockArrayCls:
+        """
+        this function creates an increment array from a list of increments
+        """
+        # initialize arrays
+        energy = np.empty(len(inc_lst), dtype=np.float64)
+        gen_fock = np.empty(
+            (len(inc_lst), self.full_nocc + self.norb, self.full_norb), dtype=np.float64
+        )
+
+        # fill arrays
+        for i, inc in enumerate(inc_lst):
+            energy[i] = inc.energy
+            gen_fock[i] = inc.gen_fock
+
+        return GenFockArrayCls(energy, gen_fock)
+
     @staticmethod
     def _mpi_bcast_inc(comm: MPI.Comm, inc: GenFockArrayCls) -> GenFockArrayCls:
         """
@@ -598,25 +609,32 @@ class GenFockExpCls(
 
     @staticmethod
     def _mpi_gatherv_inc(
-        comm: MPI.Comm, send_inc: GenFockArrayCls, recv_inc: GenFockArrayCls
-    ) -> GenFockArrayCls:
+        comm: MPI.Comm, send_inc: GenFockArrayCls, recv_inc: Optional[GenFockArrayCls]
+    ) -> None:
         """
         this function performs a MPI gatherv operation on the increments
         """
-        # number of increments for every rank
-        recv_counts = {
-            "energy": np.array(comm.allgather(send_inc.energy.size)),
-            "gen_fock": np.array(comm.allgather(send_inc.gen_fock.size)),
+        # size of arrays on every rank
+        counts_dict = {
+            "energy": np.array(comm.gather(send_inc.energy.size)),
+            "gen_fock": np.array(comm.gather(send_inc.gen_fock.size)),
         }
 
-        return GenFockArrayCls(
-            mpi_gatherv(comm, send_inc.energy, recv_inc.energy, recv_counts["energy"]),
-            mpi_gatherv(
-                comm,
-                send_inc.gen_fock.ravel(),
-                recv_inc.gen_fock,
-                recv_counts["gen_fock"],
-            ),
+        # receiving arrays
+        recv_inc_dict: Dict[str, Optional[np.ndarray]] = {}
+        if recv_inc is not None:
+            recv_inc_dict["energy"] = recv_inc.energy
+            recv_inc_dict["gen_fock"] = recv_inc.gen_fock
+        else:
+            recv_inc_dict["energy"] = recv_inc_dict["gen_fock"] = None
+
+        comm.Gatherv(
+            send_inc.energy, (recv_inc_dict["energy"], counts_dict["energy"]), root=0
+        )
+        comm.Gatherv(
+            send_inc.gen_fock.ravel(),
+            (recv_inc_dict["gen_fock"], counts_dict["gen_fock"]),
+            root=0,
         )
 
     @staticmethod
@@ -825,7 +843,7 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         solver.max_space = 25
         solver.davidson_only = True
         solver.pspace_size = 0
-        if self.verbose >= 3:
+        if self.verbose >= 4:
             solver.verbose = 10
         solver.wfnsym = self.fci_state_sym
         solver.orbsym = self.orbsym[cas_idx]
@@ -1088,7 +1106,7 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
             solver.max_space = 25
             solver.davidson_only = True
             solver.pspace_size = 0
-            if self.verbose >= 3:
+            if self.verbose >= 4:
                 solver.verbose = 10
             solver.wfnsym = solver_info["sym"]
             solver.orbsym = self.orbsym[cas_idx]

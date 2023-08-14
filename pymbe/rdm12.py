@@ -18,7 +18,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto, scf, fci, cc
-from typing import TYPE_CHECKING, TypedDict, Tuple, List
+from typing import TYPE_CHECKING, TypedDict, Tuple, List, Dict
 
 from pymbe.expansion import (
     ExpCls,
@@ -43,7 +43,7 @@ from pymbe.tools import (
     core_cas,
     write_file_mult,
 )
-from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
+from pymbe.parallel import open_shared_win, mpi_reduce, mpi_allreduce, mpi_bcast
 
 if TYPE_CHECKING:
     import matplotlib
@@ -416,7 +416,30 @@ class RDMExpCls(
         """
         this function opens a shared increment window
         """
-        return packedRDMCls.open_shared_RDM(window, n_tuples, idx)
+        # open shared windows
+        rdm1 = open_shared_win(
+            window[0], np.float64, (n_tuples, packedRDMCls.rdm1_size[idx])
+        )
+        rdm2 = open_shared_win(
+            window[1], np.float64, (n_tuples, packedRDMCls.rdm2_size[idx])
+        )
+
+        return packedRDMCls(rdm1, rdm2, idx)
+
+    def _init_inc_arr_from_lst(self, inc_lst: List[RDMCls]) -> packedRDMCls:
+        """
+        this function creates an increment array from a list of increments
+        """
+        # initialize arrays
+        rdm1 = np.empty((len(inc_lst), packedRDMCls.rdm1_size[-1]), dtype=np.float64)
+        rdm2 = np.empty((len(inc_lst), packedRDMCls.rdm2_size[-1]), dtype=np.float64)
+
+        # fill arrays
+        for i, inc in enumerate(inc_lst):
+            rdm1[i] = inc.rdm1[packedRDMCls.pack_rdm1[-1]]
+            rdm2[i] = inc.rdm2[packedRDMCls.pack_rdm2[-1]]
+
+        return packedRDMCls(rdm1, rdm2)
 
     @staticmethod
     def _mpi_bcast_inc(comm: MPI.Comm, inc: packedRDMCls) -> packedRDMCls:
@@ -452,24 +475,30 @@ class RDMExpCls(
 
     @staticmethod
     def _mpi_gatherv_inc(
-        comm: MPI.Comm, send_inc: packedRDMCls, recv_inc: packedRDMCls
-    ) -> packedRDMCls:
+        comm: MPI.Comm, send_inc: packedRDMCls, recv_inc: Optional[packedRDMCls]
+    ) -> None:
         """
         this function performs a MPI gatherv operation on the increments
         """
-        # number of increments for every rank
-        recv_counts = {
-            "rdm1": np.array(comm.allgather(send_inc.rdm1.size)),
-            "rdm2": np.array(comm.allgather(send_inc.rdm2.size)),
+        # size of arrays on every rank
+        counts_dict = {
+            "rdm1": np.array(comm.gather(send_inc.rdm1.size)),
+            "rdm2": np.array(comm.gather(send_inc.rdm2.size)),
         }
 
-        return packedRDMCls(
-            mpi_gatherv(
-                comm, send_inc.rdm1.ravel(), recv_inc.rdm1, recv_counts["rdm1"]
-            ),
-            mpi_gatherv(
-                comm, send_inc.rdm2.ravel(), recv_inc.rdm2, recv_counts["rdm2"]
-            ),
+        # receiving arrays
+        recv_inc_dict: Dict[str, Optional[np.ndarray]] = {}
+        if recv_inc is not None:
+            recv_inc_dict["rdm1"] = recv_inc.rdm1
+            recv_inc_dict["rdm2"] = recv_inc.rdm2
+        else:
+            recv_inc_dict["rdm1"] = recv_inc_dict["rdm2"] = None
+
+        comm.Gatherv(
+            send_inc.rdm1.ravel(), (recv_inc_dict["rdm1"], counts_dict["rdm1"]), root=0
+        )
+        comm.Gatherv(
+            send_inc.rdm2.ravel(), (recv_inc_dict["rdm2"], counts_dict["rdm2"]), root=0
         )
 
     @staticmethod
@@ -673,7 +702,7 @@ class ssRDMExpCls(RDMExpCls[int, np.ndarray]):
         solver.max_space = 25
         solver.davidson_only = True
         solver.pspace_size = 0
-        if self.verbose >= 3:
+        if self.verbose >= 4:
             solver.verbose = 10
         solver.wfnsym = self.fci_state_sym
         solver.orbsym = self.orbsym[cas_idx]
@@ -930,7 +959,7 @@ class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
             solver.max_space = 25
             solver.davidson_only = True
             solver.pspace_size = 0
-            if self.verbose >= 3:
+            if self.verbose >= 4:
                 solver.verbose = 10
             solver.wfnsym = solver_info["sym"]
             solver.orbsym = self.orbsym[cas_idx]
