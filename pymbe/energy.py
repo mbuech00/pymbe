@@ -66,12 +66,17 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         this function returns the final energy
         """
-        return self._prop_conv(
-            nuc_prop,
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb, self.nocc),
-        )[-1]
+        if len(self.mbe_tot_prop) > 0:
+            tot_energy = self.mbe_tot_prop[-1]
+        else:
+            tot_energy = self._init_target_inst(0.0)
+        tot_energy += self.ref_prop
+        tot_energy += self.base_prop
+        if prop_type in ["electronic", "total"]:
+            tot_energy += self.hf_prop
+        tot_energy += nuc_prop
+
+        return tot_energy
 
     def plot_results(
         self, y_axis: str, nuc_prop: float = 0.0

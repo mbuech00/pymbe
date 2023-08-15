@@ -87,7 +87,10 @@ class RDMExpCls(
         """
         this function returns the final 1- and 2-particle reduced density matrices
         """
-        tot_rdm12 = self.mbe_tot_prop[-1].copy()
+        if len(self.mbe_tot_prop) > 0:
+            tot_rdm12 = self.mbe_tot_prop[-1].copy()
+        else:
+            tot_rdm12 = self._init_target_inst(0.0, self.norb)
         tot_rdm12[self.ref_space] += self.ref_prop
         tot_rdm12 += self.base_prop
         if prop_type in ["electronic", "total"]:

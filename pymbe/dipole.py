@@ -71,12 +71,17 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         this function returns the final dipole moment
         """
-        return self._prop_conv(
-            nuc_prop,
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb, self.nocc),
-        )[-1, :]
+        if len(self.mbe_tot_prop) > 0:
+            tot_dipole = -self.mbe_tot_prop[-1].copy()
+        else:
+            tot_dipole = self._init_target_inst(0.0)
+        tot_dipole -= self.base_prop
+        tot_dipole -= self.ref_prop
+        if prop_type in ["electronic", "total"]:
+            tot_dipole -= self.hf_prop
+        tot_dipole += nuc_prop
+
+        return tot_dipole
 
     def plot_results(
         self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)

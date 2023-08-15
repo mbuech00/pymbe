@@ -124,7 +124,10 @@ class GenFockExpCls(
         """
         this function returns the final generalized Fock matrix elements
         """
-        tot_targets = self.mbe_tot_prop[-1].copy()
+        if len(self.mbe_tot_prop) > 0:
+            tot_targets = self.mbe_tot_prop[-1].copy() 
+        else:
+            tot_targets = self._init_target_inst(0.0, self.norb, self.nocc)
         tot_targets += self.base_prop
         tot_targets[
             self.ref_space,
