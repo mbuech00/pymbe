@@ -1614,7 +1614,7 @@ class ExpCls(
                                     )
 
                                 # fit relative factor
-                                if np.count_nonzero(rel_factor < 0.5) > 1:
+                                if np.count_nonzero(rel_factor < 0.5) > 2:
                                     (opt_half, opt_slope), cov = optimize.curve_fit(
                                         rel_factor_fit,
                                         orders,
