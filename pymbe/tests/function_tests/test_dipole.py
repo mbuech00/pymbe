@@ -196,9 +196,6 @@ def test_fci_kernel(
     if system == "h2o":
         occup = hf.mo_occ
 
-    elif system == "hubbard":
-        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
-
     core_idx, cas_idx, _ = indices
 
     h1e_cas, h2e_cas = ints_cas

@@ -117,6 +117,7 @@ def test_kernel(
 
     elif system == "hubbard":
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+        exp.hf_guess = False
 
     core_idx, cas_idx, _ = indices
 
@@ -161,6 +162,7 @@ def test_fci_kernel(
 
     elif system == "hubbard":
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+        exp.hf_guess = False
 
     core_idx, cas_idx, _ = indices
 

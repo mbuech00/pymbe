@@ -173,9 +173,25 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
             # collect results
             if solver.nroots == 1:
-                return e, c
+                energy, civec = e, c
             else:
-                return e[-1], c[-1]
+                energy, civec = e[-1], c[-1]
+
+            # check if root describes the correct state
+            if self.hf_guess:
+                while abs(civec[0, 0]) < 0.71 and np.abs(civec).argmax() != 0:
+                    # calculate additional root
+                    solver.nroots += 1
+
+                    # perform calc
+                    e, c = solver.kernel(
+                        h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0
+                    )
+
+                    # collect results
+                    energy, civec = e[-1], c[-1]
+
+            return energy, civec
 
         # perform calc
         _, civec = _fci_interface()
@@ -185,6 +201,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
             # fix spin by applying level shift
+            solver.nroots = self.fci_state_root + 1
             sz = np.abs(nelec[0] - nelec[1]) * 0.5
             solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
 
