@@ -69,6 +69,7 @@ class TransExpCls(DipoleExpCls):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        *args: np.ndarray,
     ) -> np.ndarray:
         """
         this function calculates the current-order contribution to the increment
@@ -76,7 +77,7 @@ class TransExpCls(DipoleExpCls):
         """
         # perform main calc
         trans = self._kernel(
-            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, *args
         )
 
         trans -= self.ref_prop
@@ -91,6 +92,7 @@ class TransExpCls(DipoleExpCls):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        _sum_tup: np.ndarray,
     ) -> np.ndarray:
         """
         this function returns the results of a fci calculation

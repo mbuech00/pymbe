@@ -63,6 +63,7 @@ class ExcExpCls(EnergyExpCls):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        sum_tup: float,
     ) -> float:
         """
         this function returns the results of a fci calculation

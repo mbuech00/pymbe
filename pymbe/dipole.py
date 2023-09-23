@@ -97,6 +97,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        *args: np.ndarray,
     ) -> np.ndarray:
         """
         this function calculates the current-order contribution to the increment
@@ -104,7 +105,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         # perform main calc
         dipole = self._kernel(
-            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, *args
         )
 
         # perform base calc
@@ -122,9 +123,10 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
-        core_idx: np.ndarray,
+        _core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        _sum_tup: np.ndarray,
     ) -> np.ndarray:
         """
         this function returns the results of a fci calculation
@@ -176,20 +178,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
                 energy, civec = e, c
             else:
                 energy, civec = e[-1], c[-1]
-
-            # check if root describes the correct state
-            if self.hf_guess:
-                while abs(civec[0, 0]) < 0.71 and np.abs(civec).argmax() != 0:
-                    # calculate additional root
-                    solver.nroots += 1
-
-                    # perform calc
-                    e, c = solver.kernel(
-                        h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0
-                    )
-
-                    # collect results
-                    energy, civec = e[-1], c[-1]
 
             return energy, civec
 

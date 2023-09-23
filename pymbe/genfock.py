@@ -172,6 +172,7 @@ class GenFockExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        *args: GenFockCls,
     ) -> GenFockCls:
         """
         this function calculates the current-order contribution to the increment
@@ -179,7 +180,7 @@ class GenFockExpCls(
         """
         # perform main calc
         gen_fock = self._kernel(
-            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, *args
         )
 
         # perform base calc
@@ -764,6 +765,7 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        _sum_tup: GenFockCls,
     ) -> GenFockCls:
         """
         this function returns the results of a fci calculation
@@ -963,7 +965,8 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
         h2e: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        nelec: np.ndarray,
+        _nelec: np.ndarray,
+        _sum_tup: GenFockCls,
     ) -> GenFockCls:
         """
         this function returns the results of a fci calculation

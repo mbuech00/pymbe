@@ -169,6 +169,8 @@ def test_fci_kernel(
         ]
     )
 
-    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res = exp._fci_kernel(
+        0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, np.zeros(3, dtype=np.float64)
+    )
 
     assert res == pytest.approx(ref)

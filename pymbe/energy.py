@@ -111,6 +111,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        *args: float,
     ) -> float:
         """
         this function calculates the current-order contribution to the increment
@@ -118,7 +119,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         # perform main calc
         energy = self._kernel(
-            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, *args
         )
 
         # perform base calc
@@ -136,9 +137,10 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
-        core_idx: np.ndarray,
+        _core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        sum_tup: float,
     ) -> float:
         """
         this function returns the results of a fci calculation
@@ -189,20 +191,52 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                 energy, civec = e, c
             else:
                 energy, civec = e[-1], c[-1]
+            energy -= self.hf_prop
 
-            # check if root describes the correct state
             if self.hf_guess:
-                while abs(civec[0, 0]) < 0.71 and np.abs(civec).argmax() != 0:
-                    # calculate additional root
-                    solver.nroots += 1
+                if sum_tup == 0.0:
+                    # check if HF determinant dominates wavefunction
+                    while abs(civec[0, 0]) < 0.75 and np.abs(civec).argmax() != 0:
+                        # calculate additional root
+                        solver.nroots += 1
 
-                    # perform calc
-                    e, c = solver.kernel(
-                        h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0
-                    )
+                        # perform calc
+                        e, c = solver.kernel(
+                            h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=civec
+                        )
 
-                    # collect results
-                    energy, civec = e[-1], c[-1]
+                        # collect results
+                        energy, civec = e[-1] - self.hf_prop, c[-1]
+
+                else:
+                    # check whether HF determinant dominates wavefunction and whether
+                    # higher state could be closer
+                    if abs(civec[0, 0]) < 0.75 and energy < sum_tup:
+                        # while higher state could be closer
+                        while energy < sum_tup:
+                            # save lower state
+                            lower_energy, lower_civec = energy, civec
+
+                            # calculate additional root
+                            solver.nroots += 1
+
+                            # perform calc
+                            e, c = solver.kernel(
+                                h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=civec
+                            )
+
+                            # collect results
+                            energy, civec = e[-1] - self.hf_prop, c[-1]
+
+                            # stop looking for higher states if HF determinant
+                            # dominates wavefunction
+                            if abs(civec[0, 0]) > 0.75:
+                                break
+
+                        else:
+                            # lower state is closer
+                            if abs(lower_energy - sum_tup) < energy - sum_tup:
+                                energy, civec = lower_energy, lower_civec
 
             return energy, civec
 
@@ -239,7 +273,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                 f"cas_sym = {self.orbsym[cas_idx]}"
             )
 
-        return energy - self.hf_prop
+        return energy
 
     def _cc_kernel(
         self,

@@ -1232,21 +1232,29 @@ class ExpCls(
                 # compute e_core and h1e_cas
                 e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
+                # get sum of subtuple increments
+                sum_tup = self._sum(inc, hashes, tup)
+
                 # get nelec_tup
                 nelec_tup = get_nelec(self.occup, cas_idx)
 
                 # calculate CASCI property
                 target_tup = self._inc(
-                    e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_tup
+                    e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_tup, sum_tup
                 )
 
                 # increment calculation counter
                 n_calc += 1
 
                 # loop over equivalent increment sets
-                for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
+                for n_set, (tup, eqv_set) in enumerate(
+                    zip(eqv_inc_lex_tup, eqv_inc_set)
+                ):
                     # calculate increment
-                    inc_tup = target_tup - self._sum(inc, hashes, tup)
+                    if n_set == 0:
+                        inc_tup = target_tup - sum_tup
+                    else:
+                        inc_tup = target_tup - self._sum(inc, hashes, tup)
 
                     # add hash and increment
                     hashes_lst.append(hash_1d(tup))
@@ -2101,6 +2109,7 @@ class ExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        *args: TargetType,
     ) -> TargetType:
         """
         this function calculates the current-order contribution to the increment
@@ -2116,6 +2125,7 @@ class ExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        *args: TargetType,
     ) -> TargetType:
         """
         this function return the result property from a given method
@@ -2124,7 +2134,8 @@ class ExpCls(
             res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
 
         elif method == "fci":
-            res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec)
+            sum_tup = args[0] if args else self._init_target_inst(0.0, cas_idx.size)
+            res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec, sum_tup)
 
         return res
 
@@ -2137,6 +2148,7 @@ class ExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
+        sum_tup: TargetType,
     ) -> TargetType:
         """
         this function returns the results of a fci calculation
