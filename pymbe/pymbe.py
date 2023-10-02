@@ -25,10 +25,10 @@ from pymbe.parallel import MPICls
 from pymbe.setup import (
     restart_read_kw,
     restart_read_system,
-    settings,
-    main as setup_main,
+    general_setup,
+    calc_setup,
+    ref_space_update,
 )
-from pymbe.output import DIVIDER
 from pymbe.energy import EnergyExpCls
 from pymbe.excitation import ExcExpCls
 from pymbe.dipole import DipoleExpCls
@@ -71,6 +71,7 @@ class MBE:
         eri: Optional[np.ndarray] = None,
         ref_space: np.ndarray = np.array([], dtype=np.int64),
         exp_space: Optional[np.ndarray] = None,
+        ref_thres: float = 0.0,
         base_method: Optional[str] = None,
         base_prop: Optional[
             Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
@@ -276,6 +277,7 @@ class MBE:
                         [i for i in range(self.norb) if i not in self.ref_space],
                         dtype=np.int64,
                     )
+                self.ref_thres = ref_thres
 
                 # base model
                 self.base_method = base_method
@@ -339,10 +341,6 @@ class MBE:
                 # exclude single excitations
                 self.no_singles = no_singles
 
-                # create restart folder
-                if self.rst:
-                    os.mkdir(RST)
-
             else:
                 # read keywords
                 self = restart_read_kw(self)
@@ -362,96 +360,77 @@ class MBE:
         this function is the main pymbe kernel
         """
         # general settings
-        settings()
-
-        # calculation setup
-        self = setup_main(self)
-
-        # initialize exp object
-        if self.target == "energy":
-            self.exp = EnergyExpCls(self)
-        elif self.target == "excitation":
-            self.exp = ExcExpCls(self)
-        elif self.target == "dipole":
-            self.exp = DipoleExpCls(self)
-        elif self.target == "trans":
-            self.exp = TransExpCls(self)
-        elif (
-            self.target == "rdm12"
-            and isinstance(self.nelec, np.ndarray)
-            and isinstance(self.fci_state_sym, int)
-            and isinstance(self.fci_state_root, int)
-        ):
-            self.exp = ssRDMExpCls(self)
-        elif (
-            self.target == "rdm12"
-            and isinstance(self.nelec, list)
-            and isinstance(self.fci_state_sym, list)
-            and isinstance(self.fci_state_root, list)
-        ):
-            self.exp = saRDMExpCls(self)
-        elif (
-            self.target == "genfock"
-            and isinstance(self.nelec, np.ndarray)
-            and isinstance(self.fci_state_sym, int)
-            and isinstance(self.fci_state_root, int)
-        ):
-            self.exp = ssGenFockExpCls(self)
-        elif (
-            self.target == "genfock"
-            and isinstance(self.nelec, list)
-            and isinstance(self.fci_state_sym, list)
-            and isinstance(self.fci_state_root, list)
-        ):
-            self.exp = saGenFockExpCls(self)
-
-        # dump flags
         if self.mpi.global_master:
-            self.dump_flags()
+            general_setup(self)
 
-        if self.mpi.global_master:
-            # main master driver
-            self.exp.driver_master(self.mpi)
+        # initialize convergence boolean
+        converged = False
 
-            # delete restart file
-            if self.rst:
-                shutil.rmtree(RST)
+        # start loop over reference spaces
+        while not converged:
+            # calculation setup
+            self = calc_setup(self)
 
-        else:
-            # main slave driver
-            self.exp.driver_slave(self.mpi)
+            # initialize exp object
+            if self.target == "energy":
+                self.exp = EnergyExpCls(self)
+            elif self.target == "excitation":
+                self.exp = ExcExpCls(self)
+            elif self.target == "dipole":
+                self.exp = DipoleExpCls(self)
+            elif self.target == "trans":
+                self.exp = TransExpCls(self)
+            elif (
+                self.target == "rdm12"
+                and isinstance(self.nelec, np.ndarray)
+                and isinstance(self.fci_state_sym, int)
+                and isinstance(self.fci_state_root, int)
+            ):
+                self.exp = ssRDMExpCls(self)
+            elif (
+                self.target == "rdm12"
+                and isinstance(self.nelec, list)
+                and isinstance(self.fci_state_sym, list)
+                and isinstance(self.fci_state_root, list)
+            ):
+                self.exp = saRDMExpCls(self)
+            elif (
+                self.target == "genfock"
+                and isinstance(self.nelec, np.ndarray)
+                and isinstance(self.fci_state_sym, int)
+                and isinstance(self.fci_state_root, int)
+            ):
+                self.exp = ssGenFockExpCls(self)
+            elif (
+                self.target == "genfock"
+                and isinstance(self.nelec, list)
+                and isinstance(self.fci_state_sym, list)
+                and isinstance(self.fci_state_root, list)
+            ):
+                self.exp = saGenFockExpCls(self)
+
+            if self.mpi.global_master:
+                # main master driver
+                converged = self.exp.driver_master(self.mpi)
+
+                # delete restart folder
+                if self.rst:
+                    shutil.rmtree(RST)
+
+                if not converged:
+                    # update reference space
+                    self.ref_space, self.exp_space = ref_space_update(
+                        self.exp.tup_sq_overlaps, self.ref_space, self.exp_space
+                    )
+
+            else:
+                # main slave driver
+                converged = self.exp.driver_slave(self.mpi)
 
         # calculate total electronic property
         prop = self.final_prop(prop_type="electronic")
 
         return prop
-
-    def dump_flags(self) -> None:
-        """
-        this function dumps all input flags
-        """
-        # dump flags
-        logger.info("\n" + DIVIDER + "\n")
-        for key, value in vars(self).items():
-            if key in [
-                "mol",
-                "hcore",
-                "eri",
-                "mpi",
-                "exp",
-                "dipole_ints",
-                "inact_fock",
-                "eri_goaa",
-                "eri_gaao",
-                "eri_gaaa",
-            ]:
-                logger.debug(" " + key + " = " + str(value))
-            else:
-                logger.info(" " + key + " = " + str(value))
-        logger.debug("")
-        for key, value in vars(self.mpi).items():
-            logger.debug(" " + key + " = " + str(value))
-        logger.info("\n" + DIVIDER)
 
     def results(self) -> str:
         """
@@ -459,7 +438,6 @@ class MBE:
         """
         if self.mpi.global_master:
             output_str = self.exp.print_results(self.mpi)
-
         else:
             output_str = ""
 

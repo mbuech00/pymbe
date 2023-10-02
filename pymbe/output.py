@@ -28,51 +28,42 @@ if TYPE_CHECKING:
 
 
 # output parameters
-HEADER = f"{('-' * 45):^87}"
 DIVIDER = " " + "-" * 92
 FILL = " " + "|" * 92
 BAR_LENGTH = 50
 
 
-def main_header(mpi: Optional[MPICls] = None, method: Optional[str] = None) -> str:
+def main_header(mpi: MPICls) -> str:
     """
     this function prints the main pymbe header
     """
-    string: str = (
-        "\n\n   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo\n"
-    )
+    string: str = "\n\n"
+    string += "   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo\n"
     string += "   `888   `Y88.             `88.       .888' `888'   `Y8b `888'     `8\n"
-    string += "    888   .d88' oooo    ooo  888b     d'888   888     888  888\n"
-    string += "    888ooo88P'   `88.  .8'   8 Y88. .P  888   888oooo888'  888oooo8\n"
-    string += "    888           `88..8'    8  `888'   888   888    `88b  888    \"\n"
+    string += "    888   .d88' oooo    ooo  888b     d'888   888     888  888        \n"
+    string += "    888ooo88P'   `88.  .8'   8 Y88. .P  888   888oooo888'  888oooo8   \n"
+    string += "    888           `88..8'    8  `888'   888   888    `88b  888    \"  \n"
     string += "    888            `888'     8    Y     888   888    .88P  888       o\n"
     string += "   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8\n"
-    string += "                .o..P'\n"
-    string += "                `Y8P'\n\n\n"
+    string += "                .o..P'                                                \n"
+    string += "                `Y8P'                                                 \n"
+    string += "\n\n"
     # date & time
     string += (
-        f"   -- date & time   : {datetime.now().strftime('%Y-%m-%d & %H:%M:%S'):s}\n"
+        f"   -- date & time    : {datetime.now().strftime('%Y-%m-%d & %H:%M:%S'):s}\n"
     )
 
     # git hash
-    string += f"   -- git version   : {git_version():s}\n"
+    string += f"   -- git version    : {git_version():s}\n"
 
     # mpi info
     if mpi is not None:
-        string += "   -- local masters :\n"
+        string += "   -- local masters  :\n"
         for master_idx in range(mpi.num_masters):
             string += (
-                f"   #### rank / node : {mpi.master_global_ranks[master_idx]:>6d} / "
+                f"   #### rank / node  : {mpi.master_global_ranks[master_idx]:>6d} / "
                 f"{mpi.master_global_hosts[master_idx]:s}\n"
             )
-
-    string += "\n\n"
-
-    # method
-    if method is not None:
-        string += HEADER + "\n"
-        string += f"{method.upper() + ' expansion':^87s}\n"
-        string += HEADER
 
     return string
 
@@ -264,5 +255,32 @@ def purge_end(order: int, time: float) -> str:
         f" STATUS-{order:d}:  order k = {order:d} purging done in {time_str(time):s}\n"
     )
     string += DIVIDER
+
+    return string
+
+
+def ref_space_results(orbs: np.ndarray, ref_space: np.ndarray) -> str:
+    """
+    this function prints the MOs added to the reference space
+    """
+    # set string
+    string: str = FILL + "\n"
+    string += DIVIDER + "\n"
+    string += (
+        f" STATUS:  MOs added to the reference space: "
+        + ", ".join(str(orb) for orb in orbs)
+        + "\n"
+    )
+    string += DIVIDER + "\n"
+    string += (
+        f" STATUS:  New reference space: "
+        + "["
+        + ", ".join(str(orb) for orb in ref_space)
+        + "]"
+        + "\n"
+    )
+    string += DIVIDER + "\n"
+    string += f" STATUS:  Restarting calculation...\n"
+    string += DIVIDER + "\n\n\n\n"
 
     return string

@@ -35,6 +35,8 @@ test_cases_ref_prop = [
         "pyscf",
         1,
         np.array([0.0, 0.0, 0.72582795], dtype=np.float64),
+        (1.0, 1.0),
+        (0.9856854425080487, 0.4710257978333213),
     ),
 ]
 
@@ -43,7 +45,13 @@ test_cases_kernel = [
 ]
 
 test_cases_fci_kernel = [
-    ("h2o", 1, np.array([0.0, 0.0, 4.37279173e-02], dtype=np.float64)),
+    (
+        "h2o",
+        1,
+        np.array([0.0, 0.0, 4.37279173e-02], dtype=np.float64),
+        (1.0, 1.0),
+        (0.9979706719230536, 0.4951968133086011),
+    ),
 ]
 
 
@@ -60,7 +68,8 @@ def exp(mbe: MBE, dipole_quantities: Tuple[np.ndarray, np.ndarray]):
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, cc_backend, root, ref_res",
+    argnames="system, method, base_method, cc_backend, root, ref_res, ref_civec_sum, "
+    "ref_civec_amax",
     argvalues=test_cases_ref_prop,
     ids=[
         "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
@@ -77,6 +86,8 @@ def test_ref_prop(
     cc_backend: str,
     root: int,
     ref_res: np.ndarray,
+    ref_civec_sum: Tuple[float, float],
+    ref_civec_amax: Tuple[float, float],
 ) -> None:
     """
     this function tests ref_prop
@@ -87,11 +98,21 @@ def test_ref_prop(
     exp.fci_state_root = root
     exp.hcore, exp.eri, exp.vhf = ints_win
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
+    exp.ref_nelec = np.array(
+        [
+            np.count_nonzero(exp.occup[exp.ref_space] > 0.0),
+            np.count_nonzero(exp.occup[exp.ref_space] > 1.0),
+        ],
+    )
     exp.base_method = base_method
 
-    res = exp._ref_prop(mbe.mpi)
+    res, civec = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum[0])
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax[0])
+    assert np.sum(civec[1] ** 2) == pytest.approx(ref_civec_sum[1])
+    assert np.amax(civec[1] ** 2) == pytest.approx(ref_civec_amax[1])
 
 
 @pytest.mark.parametrize(
@@ -130,13 +151,15 @@ def test_kernel(
         ]
     )
 
-    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res = exp._kernel(
+        method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, ref_guess=False
+    )
 
     assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(
-    argnames="system, root, ref",
+    argnames="system, root, ref, ref_civec_sum, ref_civec_amax",
     argvalues=test_cases_fci_kernel,
     ids=[case[0] for case in test_cases_fci_kernel],
     indirect=["system"],
@@ -149,6 +172,8 @@ def test_fci_kernel(
     orbsym: np.ndarray,
     root: int,
     ref: np.ndarray,
+    ref_civec_sum: Tuple[float, float],
+    ref_civec_amax: Tuple[float, float],
 ) -> None:
     """
     this function tests _fci_kernel
@@ -169,8 +194,10 @@ def test_fci_kernel(
         ]
     )
 
-    res = exp._fci_kernel(
-        0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, np.zeros(3, dtype=np.float64)
-    )
+    res, civec = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, False)
 
     assert res == pytest.approx(ref)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum[0])
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax[0])
+    assert np.sum(civec[1] ** 2) == pytest.approx(ref_civec_sum[1])
+    assert np.amax(civec[1] ** 2) == pytest.approx(ref_civec_amax[1])

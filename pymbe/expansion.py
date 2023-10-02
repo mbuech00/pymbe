@@ -16,15 +16,16 @@ __status__ = "Development"
 
 import os
 import numpy as np
+from json import load, dump
 from scipy import optimize
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
 from numpy.polynomial.polynomial import Polynomial
-from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union
+from pyscf import gto, scf, cc, fci
+from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union, Dict
 
 from pymbe.logger import logger
 from pymbe.output import (
-    main_header,
     mbe_header,
     mbe_status,
     mbe_end,
@@ -70,12 +71,15 @@ from pymbe.tools import (
     apply_symm_op,
     reduce_symm_eqv_orbs,
     get_eqv_inc_orbs,
+    init_wfn,
+    hop_no_singles,
+    get_subspace_det_addr,
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Optional, Callable
 
     from pymbe.pymbe import MBE
     from pymbe.parallel import MPICls
@@ -153,6 +157,7 @@ class ExpCls(
         self.fci_state_root: StateIntType = cast(StateIntType, mbe.fci_state_root)
         if hasattr(mbe, "fci_state_weights"):
             self.fci_state_weights = mbe.fci_state_weights
+        self.tup_sq_overlaps: Dict[float, np.ndarray] = {}
         self._state_occup()
 
         # optional system parameters for generalized Fock matrix
@@ -188,6 +193,7 @@ class ExpCls(
         self.ref_nelec = get_nelec(self.occup, self.ref_space)
         self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
         self.exp_space = [mbe.exp_space]
+        self.ref_thres = mbe.ref_thres
 
         # base model
         self.base_method = mbe.base_method
@@ -317,20 +323,25 @@ class ExpCls(
         self.hf_prop: TargetType = self._hf_prop(mbe.mpi)
 
         # reference space property
-        self.ref_prop: TargetType = self._init_target_inst(0.0, self.ref_space.size)
+        self.ref_prop: TargetType
+        self.ref_civec: np.ndarray
         if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+            self.ref_prop, self.ref_civec = self._ref_prop(mbe.mpi)
+        else:
+            self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+            self.ref_civec = init_wfn(self.ref_space.size, self.ref_nelec, 1)
+            self.ref_civec[0, 0, 0] = 1.0
 
         # attributes from restarted calculation
         if self.restarted:
             self._restart_main(mbe.mpi)
 
-    def driver_master(self, mpi: MPICls) -> None:
+    def driver_master(self, mpi: MPICls) -> bool:
         """
         this function is the main pymbe master function
         """
-        # print expansion headers
-        logger.info(main_header(mpi=mpi, method=self.method))
+        # initialize convergence boolean
+        converged = False
 
         # begin mbe expansion depending
         for self.order in range(self.min_order, self.max_order + 1):
@@ -434,8 +445,15 @@ class ExpCls(
             if not self.restarted or self.order > self.start_order:
                 self._purge_restart()
 
+            # check if overlap is larger than threshold for any tuple
+            if len(self.tup_sq_overlaps) != 0:
+                break
+
             # convergence check
             if self.exp_space[-1].size < self.order + 1 or self.order == self.max_order:
+                # convergence boolean
+                converged = True
+
                 # final order
                 self.final_order = self.order
 
@@ -453,7 +471,12 @@ class ExpCls(
         # wake up slaves
         mpi.global_comm.bcast({"task": "exit"}, root=0)
 
-    def driver_slave(self, mpi: MPICls) -> None:
+        # bcast convergence boolean
+        mpi.global_comm.bcast(converged, root=0)
+
+        return converged
+
+    def driver_slave(self, mpi: MPICls) -> bool:
         """
         this function is the main pymbe slave function
         """
@@ -499,17 +522,20 @@ class ExpCls(
                 self._purge(mpi)
 
             elif msg["task"] == "exit":
+                # receive convergence boolean
+                converged = mpi.global_comm.bcast(None, root=0)
+
+                # leave loop
                 slave = False
+
+        return converged
 
     def print_results(self, mpi: MPICls) -> str:
         """
         this function handles printing of results
         """
-        # print header
-        string = main_header(mpi, self.method) + "\n\n"
-
         # print timings
-        string += (
+        string = (
             timings_prt(
                 self.method, self.min_order, self.final_order, self.n_tuples, self.time
             )
@@ -635,7 +661,7 @@ class ExpCls(
         this function calculates the hartree-fock property
         """
 
-    def _ref_prop(self, mpi: MPICls) -> TargetType:
+    def _ref_prop(self, mpi: MPICls) -> Tuple[TargetType, np.ndarray]:
         """
         this function returns reference space properties
         """
@@ -666,20 +692,62 @@ class ExpCls(
             # compute e_core and h1e_cas
             e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
-            # get nelec_cas
-            nelec_cas = get_nelec(self.occup, cas_idx)
+            # perform main calc
+            if self.method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
+                ref_prop = self._cc_kernel(
+                    self.method,
+                    core_idx,
+                    cas_idx,
+                    self.ref_nelec,
+                    h1e_cas,
+                    h2e_cas,
+                    False,
+                )
+                ref_civec = init_wfn(cas_idx.size, self.ref_nelec, 1)
+                ref_civec[0, 0, 0] = 1.0
+            elif self.method == "fci":
+                ref_prop, civec = self._fci_kernel(
+                    e_core,
+                    h1e_cas,
+                    h2e_cas,
+                    core_idx,
+                    cas_idx,
+                    self.ref_nelec,
+                    False,
+                )
+                ref_civec = np.stack(civec)
 
-            # compute reference space property
-            ref_prop = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_cas)
+            # perform base calc
+            if self.base_method is not None:
+                ref_prop -= self._cc_kernel(
+                    self.base_method,
+                    core_idx,
+                    cas_idx,
+                    self.ref_nelec,
+                    h1e_cas,
+                    h2e_cas,
+                    False,
+                )
 
-            # bcast ref_prop to slaves
+            # log results
+            logger.info(self._ref_results(ref_prop))
+
+            # bcast ref_prop and ref_civec to slaves
             mpi.global_comm.bcast(ref_prop, root=0)
+            mpi.global_comm.bcast(ref_civec, root=0)
 
         else:
-            # receive ref_prop from master
+            # receive ref_prop and ref_civec from master
             ref_prop = mpi.global_comm.bcast(None, root=0)
+            ref_civec = mpi.global_comm.bcast(None, root=0)
 
-        return ref_prop
+        return ref_prop, ref_civec
+
+    @abstractmethod
+    def _ref_results(self, ref_prop: TargetType) -> str:
+        """
+        this function prints reference space results for a target calculation
+        """
 
     def _restart_main(self, mpi: MPICls) -> None:
         """
@@ -781,6 +849,11 @@ class ExpCls(
                 # read orbital contributions
                 elif "mbe_orb_contrib" in files[i]:
                     self.orb_contrib.append(np.load(os.path.join(RST, files[i])))
+
+                # read squared overlaps and respective tuples
+                elif "tup_sq_overlaps" in files[i]:
+                    with open("tup_sq_overlaps", "r") as f:
+                        self.tup_sq_overlaps = load(f)
 
                 # read timings
                 elif "mbe_time_mbe" in files[i]:
@@ -1152,6 +1225,21 @@ class ExpCls(
                         if not mpi.global_master:
                             screen = self._init_screen()
 
+                    # gather maximum squared overlaps on global master
+                    if mpi.global_master:
+                        sq_overlaps = cast(
+                            List[Dict[float, np.ndarray]],
+                            mpi.global_comm.gather(self.tup_sq_overlaps, root=0),
+                        )
+                        self.tup_sq_overlaps = {
+                            sq_overlap: tup
+                            for d in sq_overlaps
+                            for sq_overlap, tup in d.items()
+                        }
+                    else:
+                        mpi.global_comm.gather(self.tup_sq_overlaps, root=0)
+                        self.tup_sq_overlaps = {}
+
                     # update rst_write
                     rst_write = (
                         tup_idx + self.rst_freq
@@ -1170,6 +1258,8 @@ class ExpCls(
                         write_file(tup, "mbe_tup", self.order)
                         write_file(hashes[-1], "mbe_hashes", self.order)
                         self._write_inc_file(inc[-1], self.order)
+                        with open(os.path.join(RST, "tup_sq_overlaps.rst"), "w") as f:
+                            dump(self.tup_sq_overlaps, f)
                         self.time["mbe"][-1] += MPI.Wtime() - time
                         write_file(
                             np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order
@@ -1232,29 +1322,21 @@ class ExpCls(
                 # compute e_core and h1e_cas
                 e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
-                # get sum of subtuple increments
-                sum_tup = self._sum(inc, hashes, tup)
-
                 # get nelec_tup
                 nelec_tup = get_nelec(self.occup, cas_idx)
 
                 # calculate CASCI property
                 target_tup = self._inc(
-                    e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_tup, sum_tup
+                    e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec_tup
                 )
 
                 # increment calculation counter
                 n_calc += 1
 
                 # loop over equivalent increment sets
-                for n_set, (tup, eqv_set) in enumerate(
-                    zip(eqv_inc_lex_tup, eqv_inc_set)
-                ):
+                for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
                     # calculate increment
-                    if n_set == 0:
-                        inc_tup = target_tup - sum_tup
-                    else:
-                        inc_tup = target_tup - self._sum(inc, hashes, tup)
+                    inc_tup = target_tup - self._sum(inc, hashes, tup)
 
                     # add hash and increment
                     hashes_lst.append(hash_1d(tup))
@@ -1339,6 +1421,18 @@ class ExpCls(
                     screen_array,
                     op=screen_mpi_func[screen_func],
                 )
+
+        # gather maximum squared overlaps on global master
+        if mpi.global_master:
+            sq_overlaps = cast(
+                List[Dict[float, np.ndarray]],
+                mpi.global_comm.gather(self.tup_sq_overlaps, root=0),
+            )
+            self.tup_sq_overlaps = {
+                sq_overlap: tup for d in sq_overlaps for sq_overlap, tup in d.items()
+            }
+        else:
+            mpi.global_comm.gather(self.tup_sq_overlaps, root=0)
 
         # append window to hashes
         if len(self.hashes) == len(self.n_tuples["inc"]):
@@ -2109,7 +2203,6 @@ class ExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-        *args: TargetType,
     ) -> TargetType:
         """
         this function calculates the current-order contribution to the increment
@@ -2125,7 +2218,7 @@ class ExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-        *args: TargetType,
+        ref_guess: bool = True,
     ) -> TargetType:
         """
         this function return the result property from a given method
@@ -2134,8 +2227,9 @@ class ExpCls(
             res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
 
         elif method == "fci":
-            sum_tup = args[0] if args else self._init_target_inst(0.0, cas_idx.size)
-            res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec, sum_tup)
+            res, _ = self._fci_kernel(
+                e_core, h1e, h2e, core_idx, cas_idx, nelec, ref_guess
+            )
 
         return res
 
@@ -2148,11 +2242,213 @@ class ExpCls(
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-        sum_tup: TargetType,
-    ) -> TargetType:
+        ref_guess: bool,
+    ) -> Tuple[TargetType, List[np.ndarray]]:
         """
         this function returns the results of a fci calculation
         """
+
+    def _fci_driver(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        spin: int,
+        wfnsym: int,
+        roots: List[int],
+        ref_guess: bool,
+        conv_tol: float = CONV_TOL,
+    ) -> Tuple[
+        List[float],
+        List[np.ndarray],
+        Union[fci.direct_spin0_symm.FCI, fci.direct_spin0_symm.FCI],
+    ]:
+        """
+        this function is the general fci driver function for all calculations
+        """
+        # init fci solver
+        solver: Union[fci.direct_spin0_symm.FCI, fci.direct_spin0_symm.FCI]
+        if spin == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # settings
+        solver.conv_tol = conv_tol
+        solver.lindep = min(1.0e-14, solver.conv_tol * 1.0e-1)
+        solver.max_memory = MAX_MEM
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        if self.verbose >= 4:
+            solver.verbose = 10
+        solver.wfnsym = wfnsym
+        solver.orbsym = self.orbsym[cas_idx]
+        solver.nroots = max(roots) + 1
+
+        # create special function for hamiltonian operation when singles are omitted
+        hop: Optional[Callable[[np.ndarray], np.ndarray]] = None
+        if self.no_singles:
+            hop = hop_no_singles(solver, cas_idx.size, nelec, spin, h1e, h2e)
+
+        # starting guess
+        ci0: Union[List[np.ndarray], None]
+        ref_space_addr: Tuple[np.ndarray, np.ndarray]
+        if ref_guess:
+            # get addresses of reference space determinants in wavefunction
+            ref_space_addr = get_subspace_det_addr(
+                cas_idx, nelec, self.ref_space, self.ref_nelec
+            )
+
+            # reference space starting guess
+            ci0 = []
+            for civec in self.ref_civec:
+                ci0.append(init_wfn(cas_idx.size, nelec, 1).squeeze(axis=0))
+                ci0[-1][ref_space_addr[0].reshape(-1, 1), ref_space_addr[1]] = civec
+        else:
+            # hf starting guess
+            if self.hf_guess:
+                ci0 = [init_wfn(cas_idx.size, nelec, 1).squeeze(axis=0)]
+                ci0[0][0, 0] = 1.0
+            else:
+                ci0 = None
+
+        # interface
+        def _fci_interface(
+            roots: List[int],
+        ) -> Tuple[List[float], List[np.ndarray], List[bool]]:
+            """
+            this function provides an interface to solver.kernel
+            """
+            # perform calc
+            e, c = solver.kernel(
+                h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0, hop=hop
+            )
+
+            # collect results
+            if solver.nroots == 1:
+                e, c, converged = [e], [c], [solver.converged]
+            else:
+                converged = solver.converged
+
+            # check if reference space determinants should be used to choose states
+            if ref_guess:
+                # get coefficients of reference space determinants for every state
+                inc_ref_civecs = np.stack(c)[
+                    :, ref_space_addr[0].reshape(-1, 1), ref_space_addr[1]
+                ]
+
+                # determine squared overlaps and incremental norm of coefficients of
+                # the states
+                sq_overlaps = (
+                    np.einsum("Iij,Jij->IJ", self.ref_civec.conj(), inc_ref_civecs) ** 2
+                )
+                norm_states = np.sum(sq_overlaps, axis=1)
+
+                # determine maximum squared overlap and respective root index for every
+                # state
+                max_sq_overlaps = np.empty(self.ref_civec.shape[0], dtype=np.float64)
+                root_idx = np.empty(self.ref_civec.shape[0], dtype=np.int64)
+                for _ in range(self.ref_civec.shape[0]):
+                    idx = np.unravel_index(np.argmax(sq_overlaps), sq_overlaps.shape)
+                    max_sq_overlaps[idx[0]] = sq_overlaps[idx]
+                    root_idx[idx[0]] = idx[1]
+                    sq_overlaps[idx[0], :] = 0.0
+                    sq_overlaps[:, idx[1]] = 0.0
+
+                # increase the number of roots until the root with the maximum squared
+                # overlap has been found for every state
+                while np.any(max_sq_overlaps <= 1 - norm_states):
+                    # calculate additional root
+                    solver.nroots += 1
+
+                    # perform calc
+                    e, c = solver.kernel(
+                        h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=c
+                    )
+                    converged = solver.converged
+
+                    # get coefficients of reference space determinants
+                    inc_ref_civec = c[-1][
+                        ref_space_addr[0].reshape(-1, 1), ref_space_addr[1]
+                    ]
+
+                    # get squared overlap with reference space wavefunctions
+                    sq_overlaps = (
+                        np.einsum("Iij,ij->I", self.ref_civec.conj(), inc_ref_civec)
+                        ** 2
+                    )
+                    norm_states += sq_overlaps
+
+                    # check whether squared overlap is larger than current maximum
+                    # squared overlap for any state
+                    larger_sq_overlap = np.where(sq_overlaps > max_sq_overlaps)[0]
+
+                    # save state with the highest squared overlap
+                    if larger_sq_overlap.size > 0:
+                        idx = larger_sq_overlap[
+                            np.argmax(sq_overlaps[larger_sq_overlap])
+                        ]
+                        max_sq_overlaps[idx] = sq_overlaps[idx]
+                        root_idx[idx] = solver.nroots - 1
+
+                # check whether any maximum squared overlap is below threshold
+                min_sq_overlap = np.min(max_sq_overlaps).astype(float)
+                if np.any(min_sq_overlap < self.ref_thres):
+                    self.tup_sq_overlaps[min_sq_overlap] = np.setdiff1d(
+                        cas_idx, self.ref_space
+                    )
+
+                # get root indices
+                roots = root_idx.tolist()
+
+            # collect results
+            return (
+                [e[root] for root in roots],
+                [c[root] for root in roots],
+                [converged[root] for root in roots],
+            )
+
+        # perform calc
+        energies, civecs, converged = _fci_interface(roots)
+
+        # multiplicity check
+        for root in range(len(civecs)):
+            _, mult = solver.spin_square(civecs[root], cas_idx.size, nelec)
+
+            if np.abs((spin + 1) - mult) > SPIN_TOL:
+                # fix spin by applying level shift
+                solver.nroots = max(roots) + 1
+                sz = np.abs(nelec[0] - nelec[1]) * 0.5
+                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+
+                # perform calc
+                energies, civecs, converged = _fci_interface(roots)
+
+                # verify correct spin
+                for root in range(len(civecs)):
+                    s, mult = solver.spin_square(civecs[root], cas_idx.size, nelec)
+                    if np.abs((spin + 1) - mult) > SPIN_TOL:
+                        raise RuntimeError(
+                            f"spin contamination for root entry = {root}\n"
+                            f"2*S + 1 = {mult:.6f}\n"
+                            f"cas_idx = {cas_idx}\n"
+                            f"cas_sym = {self.orbsym[cas_idx]}"
+                        )
+
+        # convergence check
+        for root in roots:
+            if not converged[root]:
+                raise RuntimeError(
+                    f"state {root} not converged\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}",
+                )
+
+        return energies, civecs, solver
 
     @abstractmethod
     def _cc_kernel(
@@ -2168,6 +2464,76 @@ class ExpCls(
         """
         this function returns the results of a cc calculation
         """
+
+    def _ccsd_driver_pyscf(
+        self,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        spin: int,
+        converge_amps: bool = False,
+    ) -> Tuple[
+        float,
+        Union[cc.ccsd.CCSD, cc.uccsd.UCCSD],
+        Union[cc.ccsd._ChemistsERIs, cc.uccsd._ChemistsERIs],
+    ]:
+        """
+        this function is the general cc driver function for all calculations
+        """
+        # init ccsd solver
+        mol_tmp = gto.Mole(verbose=0)
+        mol_tmp._built = True
+        mol_tmp.max_memory = MAX_MEM
+        mol_tmp.incore_anyway = True
+
+        if spin == 0:
+            hf = scf.RHF(mol_tmp)
+        else:
+            hf = scf.UHF(mol_tmp)
+
+        hf.get_hcore = lambda *args: h1e
+        hf._eri = h2e
+
+        if spin == 0:
+            ccsd = cc.ccsd.CCSD(
+                hf, mo_coeff=np.eye(cas_idx.size), mo_occ=self.occup[cas_idx]
+            )
+        else:
+            ccsd = cc.uccsd.UCCSD(
+                hf,
+                mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))),
+                mo_occ=np.array(
+                    (self.occup[cas_idx] > 0.0, self.occup[cas_idx] == 2.0),
+                    dtype=np.double,
+                ),
+            )
+
+        # settings
+        ccsd.conv_tol = CONV_TOL
+        if converge_amps:
+            ccsd.conv_tol_normt = ccsd.conv_tol
+        ccsd.max_cycle = 500
+        ccsd.async_io = False
+        ccsd.diis_start_cycle = 4
+        ccsd.diis_space = 12
+        ccsd.incore_complete = True
+        eris = ccsd.ao2mo()
+
+        # calculate ccsd energy
+        ccsd.kernel(eris=eris)
+
+        # convergence check
+        if not ccsd.converged:
+            raise RuntimeError(
+                f"CCSD error: no convergence, core_idx = {core_idx}, "
+                f"cas_idx = {cas_idx}"
+            )
+
+        # energy
+        energy = ccsd.e_corr
+
+        return energy, ccsd, eris
 
     @abstractmethod
     def _sum(
@@ -2390,8 +2756,7 @@ class ExpCls(
     @abstractmethod
     def _mbe_results(self, order: int) -> str:
         """
-        this function prints mbe results statistics for an energy or excitation energy
-        calculation
+        this function prints mbe results statistics for a target calculation
         """
 
     def _screen_remove_orb_contrib(

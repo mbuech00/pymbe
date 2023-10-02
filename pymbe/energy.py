@@ -17,10 +17,10 @@ __status__ = "Development"
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import ao2mo, gto, scf, fci, cc
+from pyscf import ao2mo
 from typing import TYPE_CHECKING
 
-from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import SingleTargetExpCls
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, write_file, idx_tril, get_nhole, get_nexc
 from pymbe.parallel import mpi_reduce, open_shared_win
@@ -29,7 +29,7 @@ from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import Optional, Tuple, Union, Dict
+    from typing import Optional, Tuple, Union, Dict, List
 
 
 class EnergyExpCls(SingleTargetExpCls[float]):
@@ -103,6 +103,21 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         return hf_energy
 
+    def _ref_results(self, ref_prop: float) -> str:
+        """
+        this function prints reference space results for a target calculation
+        """
+        header = (
+            f"reference space energy for root {self.fci_state_root} "
+            + f"(total increment = {ref_prop:.4e})"
+        )
+
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT:{header:^81}\n"
+        string += DIVIDER_OUTPUT
+
+        return string
+
     def _inc(
         self,
         e_core: float,
@@ -111,7 +126,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-        *args: float,
     ) -> float:
         """
         this function calculates the current-order contribution to the increment
@@ -119,7 +133,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         # perform main calc
         energy = self._kernel(
-            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, *args
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
         )
 
         # perform base calc
@@ -140,8 +154,8 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         _core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-        sum_tup: float,
-    ) -> float:
+        ref_guess: bool,
+    ) -> Tuple[float, List[np.ndarray]]:
         """
         this function returns the results of a fci calculation
         """
@@ -150,130 +164,20 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         if spin_cas != self.spin:
             raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
-        # init fci solver
-        if spin_cas == 0:
-            solver = fci.direct_spin0_symm.FCI()
-        else:
-            solver = fci.direct_spin1_symm.FCI()
+        # run fci calculation
+        energy, civec, _ = self._fci_driver(
+            e_core,
+            h1e,
+            h2e,
+            cas_idx,
+            nelec,
+            spin_cas,
+            self.fci_state_sym,
+            [self.fci_state_root],
+            ref_guess,
+        )
 
-        # settings
-        solver.conv_tol = CONV_TOL
-        solver.max_memory = MAX_MEM
-        solver.max_cycle = 5000
-        solver.max_space = 25
-        solver.davidson_only = True
-        solver.pspace_size = 0
-        if self.verbose >= 4:
-            solver.verbose = 10
-        solver.wfnsym = self.fci_state_sym
-        solver.orbsym = self.orbsym[cas_idx]
-        solver.nroots = self.fci_state_root + 1
-
-        # hf starting guess
-        if self.hf_guess:
-            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
-            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
-            ci0 = np.zeros((na, nb))
-            ci0[0, 0] = 1
-        else:
-            ci0 = None
-
-        # interface
-        def _fci_interface() -> Tuple[float, np.ndarray]:
-            """
-            this function provides an interface to solver.kernel
-            """
-            # perform calc
-            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
-
-            # collect results
-            if solver.nroots == 1:
-                energy, civec = e, c
-            else:
-                energy, civec = e[-1], c[-1]
-            energy -= self.hf_prop
-
-            if self.hf_guess:
-                if sum_tup == 0.0:
-                    # check if HF determinant dominates wavefunction
-                    while abs(civec[0, 0]) < 0.75 and np.abs(civec).argmax() != 0:
-                        # calculate additional root
-                        solver.nroots += 1
-
-                        # perform calc
-                        e, c = solver.kernel(
-                            h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=civec
-                        )
-
-                        # collect results
-                        energy, civec = e[-1] - self.hf_prop, c[-1]
-
-                else:
-                    # check whether HF determinant dominates wavefunction and whether
-                    # higher state could be closer
-                    if abs(civec[0, 0]) < 0.75 and energy < sum_tup:
-                        # while higher state could be closer
-                        while energy < sum_tup:
-                            # save lower state
-                            lower_energy, lower_civec = energy, civec
-
-                            # calculate additional root
-                            solver.nroots += 1
-
-                            # perform calc
-                            e, c = solver.kernel(
-                                h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=civec
-                            )
-
-                            # collect results
-                            energy, civec = e[-1] - self.hf_prop, c[-1]
-
-                            # stop looking for higher states if HF determinant
-                            # dominates wavefunction
-                            if abs(civec[0, 0]) > 0.75:
-                                break
-
-                        else:
-                            # lower state is closer
-                            if abs(lower_energy - sum_tup) < energy - sum_tup:
-                                energy, civec = lower_energy, lower_civec
-
-            return energy, civec
-
-        # perform calc
-        energy, civec = _fci_interface()
-
-        # multiplicity check
-        s, mult = solver.spin_square(civec, cas_idx.size, nelec)
-
-        if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-            # fix spin by applying level shift
-            solver.nroots = self.fci_state_root + 1
-            sz = np.abs(nelec[0] - nelec[1]) * 0.5
-            solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
-
-            # perform calc
-            energy, civec = _fci_interface()
-
-            # verify correct spin
-            s, mult = solver.spin_square(civec, cas_idx.size, nelec)
-            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-                raise RuntimeError(
-                    f"spin contamination for root = {self.fci_state_root}\n"
-                    f"2*S + 1 = {mult:.6f}\n"
-                    f"cas_idx = {cas_idx}\n"
-                    f"cas_sym = {self.orbsym[cas_idx]}"
-                )
-
-        # convergence check
-        if not (solver.converged if solver.nroots == 1 else solver.converged[-1]):
-            raise RuntimeError(
-                f"state {self.fci_state_root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}"
-            )
-
-        return energy
+        return energy[0] - self.hf_prop, civec
 
     def _cc_kernel(
         self,
@@ -291,58 +195,12 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         spin_cas = abs(nelec[0] - nelec[1])
         if spin_cas != self.spin:
             raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
-        singlet = spin_cas == 0
 
         if self.cc_backend == "pyscf":
-            # init ccsd solver
-            mol_tmp = gto.Mole(verbose=0)
-            mol_tmp._built = True
-            mol_tmp.max_memory = MAX_MEM
-            mol_tmp.incore_anyway = True
-
-            if singlet:
-                hf = scf.RHF(mol_tmp)
-            else:
-                hf = scf.UHF(mol_tmp)
-
-            hf.get_hcore = lambda *args: h1e
-            hf._eri = h2e
-
-            if singlet:
-                ccsd = cc.ccsd.CCSD(
-                    hf, mo_coeff=np.eye(cas_idx.size), mo_occ=self.occup[cas_idx]
-                )
-            else:
-                ccsd = cc.uccsd.UCCSD(
-                    hf,
-                    mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))),
-                    mo_occ=np.array(
-                        (self.occup[cas_idx] > 0.0, self.occup[cas_idx] == 2.0),
-                        dtype=np.double,
-                    ),
-                )
-
-            # settings
-            ccsd.conv_tol = CONV_TOL
-            ccsd.max_cycle = 500
-            ccsd.async_io = False
-            ccsd.diis_start_cycle = 4
-            ccsd.diis_space = 12
-            ccsd.incore_complete = True
-            eris = ccsd.ao2mo()
-
-            # calculate ccsd energy
-            ccsd.kernel(eris=eris)
-
-            # convergence check
-            if not ccsd.converged:
-                raise RuntimeError(
-                    f"CCSD error: no convergence, core_idx = {core_idx}, "
-                    f"cas_idx = {cas_idx}"
-                )
-
-            # e_corr
-            e_cc = ccsd.e_corr
+            # run ccsd calculation
+            e_cc, ccsd, _ = self._ccsd_driver_pyscf(
+                h1e, h2e, core_idx, cas_idx, spin_cas
+            )
 
             # calculate (t) correction
             if method == "ccsd(t)":
@@ -358,7 +216,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         elif self.cc_backend in ["ecc", "ncc"]:
             # calculate cc energy
-            cc_energy, success = mbecc_interface(
+            e_cc, success = mbecc_interface(
                 method,
                 self.cc_backend,
                 self.orb_type,
@@ -377,9 +235,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                     f"MBECC error: no convergence, core_idx = {core_idx}, "
                     f"cas_idx = {cas_idx}"
                 )
-
-            # e_corr
-            e_cc = cc_energy
 
         return e_cc
 

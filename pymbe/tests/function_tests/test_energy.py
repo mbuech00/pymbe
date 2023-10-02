@@ -56,16 +56,34 @@ test_cases_mbe = [
 ]
 
 test_cases_ref_prop = [
-    ("h2o", "fci", None, "pyscf", 0, -0.03769780809258805),
-    ("h2o", "ccsd", None, "pyscf", 0, -0.03733551374348559),
-    ("h2o", "fci", "ccsd", "pyscf", 0, -0.00036229313775759664),
-    ("h2o", "ccsd(t)", "ccsd", "pyscf", 0, -0.0003336954549769955),
-    ("h2o", "ccsd", None, "ecc", 0, -0.03733551374348559),
-    ("h2o", "fci", "ccsd", "ecc", 0, -0.0003622938195746786),
-    ("h2o", "ccsd(t)", "ccsd", "ecc", 0, -0.0003336954549769955),
-    ("h2o", "ccsd", None, "ncc", 0, -0.03733551374348559),
-    ("h2o", "fci", "ccsd", "ncc", 0, -0.0003622938195746786),
-    ("h2o", "ccsd(t)", "ccsd", "ncc", 0, -0.0003336954549769955),
+    ("h2o", "fci", None, "pyscf", 0, -0.03769780809258805, 1.0, 0.9856854425080487),
+    ("h2o", "ccsd", None, "pyscf", 0, -0.03733551374348559, 1.0, 1.0),
+    (
+        "h2o",
+        "fci",
+        "ccsd",
+        "pyscf",
+        0,
+        -0.00036229313775759664,
+        1.0,
+        0.9856854425080487,
+    ),
+    ("h2o", "ccsd(t)", "ccsd", "pyscf", 0, -0.0003336954549769955, 1.0, 1.0),
+    ("h2o", "ccsd", None, "ecc", 0, -0.03733551374348559, 1.0, 1.0),
+    ("h2o", "fci", "ccsd", "ecc", 0, -0.0003622938195746786, 1.0, 0.9856854425080487),
+    (
+        "h2o",
+        "ccsd(t)",
+        "ccsd",
+        "ecc",
+        0,
+        -0.0003336954549769955,
+        1.0,
+        1.0,
+    ),
+    ("h2o", "ccsd", None, "ncc", 0, -0.03733551374348559, 1.0, 1.0),
+    ("h2o", "fci", "ccsd", "ncc", 0, -0.0003622938195746786, 1.0, 0.9856854425080487),
+    ("h2o", "ccsd(t)", "ccsd", "ncc", 0, -0.0003336954549769955, 1.0, 1.0),
 ]
 
 test_cases_kernel = [
@@ -77,8 +95,8 @@ test_cases_kernel = [
 ]
 
 test_cases_fci_kernel = [
-    ("h2o", -0.00627368491326763),
-    ("hubbard", -2.875942809005066),
+    ("h2o", -0.00627368491326763, 1.0, 0.9979706719796727),
+    ("hubbard", -2.875942809005066, 1.0, 0.14031179591440068),
 ]
 
 test_cases_cc_kernel = [
@@ -377,7 +395,8 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, cc_backend, root, ref_res",
+    argnames="system, method, base_method, cc_backend, root, ref_res, ref_civec_sum, "
+    "ref_civec_amax",
     argvalues=test_cases_ref_prop,
     ids=[
         "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
@@ -394,6 +413,8 @@ def test_ref_prop(
     cc_backend: str,
     root: int,
     ref_res: float,
+    ref_civec_sum: float,
+    ref_civec_amax: float,
 ) -> None:
     """
     this function tests _ref_prop
@@ -404,11 +425,19 @@ def test_ref_prop(
     exp.fci_state_root = root
     exp.hcore, exp.eri, exp.vhf = ints_win
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
+    exp.ref_nelec = np.array(
+        [
+            np.count_nonzero(exp.occup[exp.ref_space] > 0.0),
+            np.count_nonzero(exp.occup[exp.ref_space] > 1.0),
+        ],
+    )
     exp.base_method = base_method
 
-    res = exp._ref_prop(mbe.mpi)
+    res, civec = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
 
 
 @pytest.mark.parametrize(
@@ -453,13 +482,15 @@ def test_kernel(
         ]
     )
 
-    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res = exp._kernel(
+        method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, ref_guess=False
+    )
 
     assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(
-    argnames="system, ref",
+    argnames="system, ref, ref_civec_sum, ref_civec_amax",
     argvalues=test_cases_fci_kernel,
     ids=[case[0] for case in test_cases_fci_kernel],
     indirect=["system"],
@@ -472,6 +503,8 @@ def test_fci_kernel(
     ints_cas: Tuple[np.ndarray, np.ndarray],
     orbsym: np.ndarray,
     ref: float,
+    ref_civec_sum: float,
+    ref_civec_amax: float,
 ) -> None:
     """
     this function tests _fci_kernel
@@ -496,9 +529,11 @@ def test_fci_kernel(
         ]
     )
 
-    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0.0)
+    res, civec = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, False)
 
     assert res == pytest.approx(ref)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
 
 
 @pytest.mark.parametrize(

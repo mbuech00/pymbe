@@ -91,6 +91,7 @@ def kw_dist(mbe: MBE) -> MBE:
             "fci_state_sym",
             "fci_state_root",
             "orb_type",
+            "ref_thres",
             "base_method",
             "screen_type",
             "screen_start",

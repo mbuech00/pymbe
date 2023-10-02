@@ -19,8 +19,7 @@ import re
 import operator
 import numpy as np
 import scipy.special as sc
-from mpi4py import MPI
-from pyscf import symm, ao2mo
+from pyscf import symm, ao2mo, fci
 from itertools import islice, combinations, groupby
 from bisect import insort
 from subprocess import Popen, PIPE
@@ -29,7 +28,7 @@ from typing import TYPE_CHECKING, overload
 from pymbe.logger import logger
 
 if TYPE_CHECKING:
-    from typing import Tuple, List, Generator, Union, Optional, Dict, Set
+    from typing import Tuple, List, Generator, Union, Optional, Dict, Set, Callable
 
 
 # restart folder
@@ -1395,3 +1394,111 @@ def e_core_h1e(
     h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
 
     return e_core, h1e_cas
+
+
+def hop_no_singles(
+    solver: Union[fci.direct_spin0_symm.FCI, fci.direct_spin1_symm.FCI],
+    norb: int,
+    nelec: np.ndarray,
+    spin: int,
+    h1e: np.ndarray,
+    h2e: np.ndarray,
+) -> Callable[[np.ndarray], np.ndarray]:
+    """
+    this function generates a special function for the hamiltonian operation where
+    singles are omitted
+    """
+    if spin == 0:
+        link_index = fci.cistring.gen_linkstr_index_trilidx(range(norb), nelec[0])
+        na = link_index.shape[0]
+        t1_addrs = np.array(
+            [
+                fci.cistring.str2addr(norb, nelec[0], x)
+                for x in fci.cistring.tn_strs(norb, nelec[0], 1)
+            ]
+        )
+        h2e_abs = solver.absorb_h1e(h1e, h2e, norb, nelec, 0.5)
+
+        def hop(c):
+            hc = solver.contract_2e(h2e_abs, c.reshape(na, na), norb, nelec, link_index)
+            hc[t1_addrs, 0] = 0.0
+            hc[0, t1_addrs] = 0.0
+            return hc.ravel()
+
+    else:
+        link_indexa = fci.cistring.gen_linkstr_index_trilidx(range(norb), nelec[0])
+        link_indexb = fci.cistring.gen_linkstr_index_trilidx(range(norb), nelec[1])
+        t1_addrs_a = np.array(
+            [
+                fci.cistring.str2addr(norb, nelec[0], x)
+                for x in fci.cistring.tn_strs(norb, nelec[0], 1)
+            ]
+        )
+        t1_addrs_b = np.array(
+            [
+                fci.cistring.str2addr(norb, nelec[1], x)
+                for x in fci.cistring.tn_strs(norb, nelec[1], 1)
+            ]
+        )
+        h2e_abs = solver.absorb_h1e(h1e, h2e, norb, nelec, 0.5)
+
+        def hop(c):
+            hc = solver.contract_2e(h2e_abs, c, norb, nelec, (link_indexa, link_indexb))
+            if t1_addrs_a.size > 0:
+                hc[t1_addrs_a] = 0.0
+            if t1_addrs_b.size > 0:
+                hc[t1_addrs_b * na] = 0.0
+            return hc.ravel()
+
+    return hop
+
+
+def get_subspace_det_addr(
+    cas: np.ndarray,
+    cas_nelec: np.ndarray,
+    subspace: np.ndarray,
+    subspace_nelec: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    this function determines the adresses of subspace determinants in a CAS wavefunction
+    """
+    # get indices of orbitals inside and outside subspace within cas
+    inside_idx = np.searchsorted(cas, subspace)
+    outside_idx = np.delete(np.arange(cas.size), inside_idx)
+
+    # get indices of occupied orbitals outside subspace (should be the same regardless
+    # of spin if subspace includes all singly occupied orbitals)
+    occ_outside_idx = outside_idx[outside_idx < cas_nelec[0]]
+
+    # write bitstring for occupied orbitals outside subspace
+    outside_str = 0
+    for i in occ_outside_idx:
+        outside_str = outside_str | (1 << i)
+
+    # make bitstrings for subspace determinants
+    strs_a = fci.cistring.make_strings(inside_idx, subspace_nelec[0])
+    strs_b = fci.cistring.make_strings(inside_idx, subspace_nelec[1])
+
+    # add occupied orbitals outside subspace
+    strs_a = [string | outside_str for string in strs_a]
+    strs_b = [string | outside_str for string in strs_b]
+
+    # get adresses
+    subspace_addr_a = fci.cistring.strs2addr(cas.size, cas_nelec[0], strs_a)
+    subspace_addr_b = fci.cistring.strs2addr(cas.size, cas_nelec[1], strs_b)
+
+    return subspace_addr_a, subspace_addr_b
+
+
+def init_wfn(norb: int, nelec: np.ndarray, length: int) -> np.ndarray:
+    """
+    this function initializes a wavefunction
+    """
+    # determine size of ci vector
+    na = fci.cistring.num_strings(norb, nelec[0])
+    nb = fci.cistring.num_strings(norb, nelec[1])
+
+    # initialize ci vector
+    civec = np.zeros((length, na, nb))
+
+    return civec

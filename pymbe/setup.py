@@ -24,46 +24,65 @@ from typing import TYPE_CHECKING
 from pymbe.logger import logger
 from pymbe.parallel import kw_dist, system_dist
 from pymbe.tools import RST, logger_config, ground_state_sym
+from pymbe.output import DIVIDER, main_header, ref_space_results
 
 
 if TYPE_CHECKING:
-    from pymbe.pymbe import MBE
+    from pymbe.pymbe import MBE, Dict, Tuple
 
 
-def main(mbe: MBE) -> MBE:
-    # check if global master
-    if mbe.mpi.global_master:
-        # configure logging on master
-        logger_config(mbe.verbose)
+def general_setup(mbe: MBE):
+    """
+    this function performs the general setup at the start of every calculation
+    """
+    # configure logging
+    logger_config(mbe.verbose)
 
-        # sanity check
-        sanity_check(mbe)
+    # sanity check
+    sanity_check(mbe)
 
-    # bcast keywords
-    mbe = kw_dist(mbe)
+    # print expansion headers
+    logger.info(main_header(mbe.mpi))
 
-    # write keywords
-    if not mbe.restarted and mbe.mpi.global_master and mbe.rst:
-        restart_write_kw(mbe)
+    # dump flags
+    for key, value in vars(mbe).items():
+        if key in [
+            "mol",
+            "hcore",
+            "eri",
+            "mpi",
+            "exp",
+            "dipole_ints",
+            "inact_fock",
+            "eri_goaa",
+            "eri_gaao",
+            "eri_gaaa",
+        ]:
+            logger.debug(f"   -- {key:<15}: {str(value)}")
+        else:
+            logger.info(f"   -- {key:<15}: {str(value)}")
+    logger.debug("")
+    for key, value in vars(mbe.mpi).items():
+        logger.debug(" " + key + " = " + str(value))
+    logger.info("")
+    logger.info("")
 
-    # bcast system quantities
-    mbe = system_dist(mbe)
-
-    # write system quantities
-    if not mbe.restarted and mbe.mpi.global_master and mbe.rst:
-        restart_write_system(mbe)
-
-    # configure logging on slaves
-    if not mbe.mpi.global_master:
-        logger_config(mbe.verbose)
-
-    return mbe
+    # method
+    logger.info(f"{('-' * 45):^87}")
+    logger.info(f"{mbe.method.upper() + ' expansion':^87s}")
+    logger.info(f"{('-' * 45):^87}")
 
 
 def sanity_check(mbe: MBE) -> None:
     """
     this function performs sanity checks of all mbe attributes
     """
+    # general settings
+    if not 3 <= sys.version_info[0]:
+        raise RuntimeError("PyMBE only runs under python3+")
+    if not int(os.environ.get("PYTHONHASHSEED", -1)) == 0:
+        raise ValueError("environment variable PYTHONHASHSEED must be set to zero")
+
     # expansion model
     if not isinstance(mbe.method, str):
         raise TypeError(
@@ -184,8 +203,7 @@ def sanity_check(mbe: MBE) -> None:
             isinstance(mbe.nelec, list)
             and any([state[0] != state[1] for state in mbe.nelec])
         )
-        and (mbe.method != "fci" or mbe.base_method is not None)
-    ):
+    ) and (mbe.method != "fci" or mbe.base_method is not None):
         if mbe.cc_backend != "pyscf":
             raise ValueError(
                 "the ecc and ncc backends (cc_backend keyword argument) are designed "
@@ -451,6 +469,15 @@ def sanity_check(mbe: MBE) -> None:
         raise ValueError(
             "reference space (ref_space keyword argument) and expansion space "
             "(exp_space keyword argument) must be mutually exclusive"
+        )
+    if (
+        not isinstance(mbe.ref_thres, float)
+        or mbe.ref_thres < 0.0
+        or mbe.ref_thres >= 1.0
+    ):
+        raise TypeError(
+            "reference space squared overlap threshold (ref_thres keyword argument) "
+            "must be a float >= 0.0 and < 1.0"
         )
 
     # base model
@@ -759,6 +786,33 @@ def sanity_check(mbe: MBE) -> None:
             )
 
 
+def calc_setup(mbe: MBE) -> MBE:
+    """
+    this function writes the restart files and distributes all the information between
+    processes
+    """
+    if mbe.mpi.global_master and mbe.rst and not mbe.restarted:
+        # create restart folder
+        os.mkdir(RST)
+
+        # write keywords
+        restart_write_kw(mbe)
+
+        # write system quantities
+        restart_write_system(mbe)
+
+    # bcast keywords
+    mbe = kw_dist(mbe)
+
+    # bcast system quantities
+    mbe = system_dist(mbe)
+
+    # configure logging
+    logger_config(mbe.verbose)
+
+    return mbe
+
+
 def restart_write_kw(mbe: MBE) -> None:
     """
     this function writes the keyword restart file
@@ -773,6 +827,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "fci_state_sym",
         "fci_state_root",
         "orb_type",
+        "ref_thres",
         "base_method",
         "screen_type",
         "screen_start",
@@ -879,15 +934,71 @@ def restart_read_system(mbe: MBE) -> MBE:
     return mbe
 
 
-def settings() -> None:
+def ref_space_update(
+    tup_sq_overlaps: Dict[float, np.ndarray],
+    ref_space: np.ndarray,
+    exp_space: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    this function sets and asserts some general settings
+    this function adds to orbitals to the reference space
     """
-    # only run with python3+
-    if not 3 <= sys.version_info[0]:
-        raise RuntimeError("PyMBE only runs under python3+")
+    # get squared overlap values
+    sq_overlaps = tup_sq_overlaps.keys()
 
-    # PYTHONHASHSEED = 0
-    pythonhashseed = os.environ.get("PYTHONHASHSEED", -1)
-    if not int(pythonhashseed) == 0:
-        raise ValueError("environment variable PYTHONHASHSEED must be set to zero")
+    # get minimum squared overlap
+    min_sq_overlap = min(sq_overlaps)
+
+    # get all squared overlap values that are close to minimum
+    min_sq_overlaps = [
+        sq_overlap for sq_overlap in sq_overlaps if sq_overlap < min_sq_overlap + 0.01
+    ]
+
+    # get list of tuples with minimum squared overlap values and remaining tuples
+    min_tups = [tup_sq_overlaps.pop(sq_overlap) for sq_overlap in min_sq_overlaps]
+    remain_tups = list(tup_sq_overlaps.values())
+
+    # get unique orbitals and counts in tuples with minimum squared overlap
+    if len(min_tups) == 1:
+        unique_min, counts_min = min_tups[0], np.ones_like(min_tups[0])
+    else:
+        tup_concat = np.concatenate(min_tups)
+        unique_min, counts_min = np.unique(tup_concat, return_counts=True)
+
+    # add overlapping orbitals between tuples with minimum squared overlap values
+    if np.any(counts_min > 1):
+        add_orbs = np.atleast_1d(unique_min[np.argmax(counts_min)])
+    # check if other tuples exist
+    elif len(remain_tups) > 0:
+        # get unique orbitals in remaining tuples
+        if len(remain_tups) == 1:
+            unique, counts = remain_tups[0], np.ones_like(remain_tups[0])
+        else:
+            tup_concat = np.concatenate(remain_tups)
+            unique, counts = np.unique(tup_concat, return_counts=True)
+
+        # extract orbitals that overlap with orbitals in tuples with minimum squared
+        # overlap values
+        intersect = np.isin(unique, unique_min)
+        unique, counts = unique[intersect], counts[intersect]
+
+        # add overlapping orbitals between tuples with minimum squared overlap values
+        # and remaining orbitals
+        if np.any(counts > 0):
+            add_orbs = np.atleast_1d(unique[np.argmax(counts)])
+        else:
+            add_orbs = unique_min
+    # add the full tuple with minium squared overlap values
+    else:
+        add_orbs = unique_min
+
+    # add orbitals to reference space
+    ref_space = np.append(ref_space, add_orbs)
+    ref_space.sort()
+
+    # remove orbitals from expansion space
+    exp_space = np.setdiff1d(exp_space, add_orbs)
+
+    # log results
+    logger.info(ref_space_results(add_orbs, ref_space))
+
+    return ref_space, exp_space
