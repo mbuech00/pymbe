@@ -852,7 +852,7 @@ class ExpCls(
 
                 # read squared overlaps and respective tuples
                 elif "tup_sq_overlaps" in files[i]:
-                    with open("tup_sq_overlaps", "r") as f:
+                    with open(os.path.join(RST, files[i]), "r") as f:
                         self.tup_sq_overlaps = load(f)
 
                 # read timings
@@ -2359,9 +2359,38 @@ class ExpCls(
                     sq_overlaps[idx[0], :] = 0.0
                     sq_overlaps[:, idx[1]] = 0.0
 
-                # increase the number of roots until the root with the maximum squared
-                # overlap has been found for every state
-                while np.any(max_sq_overlaps <= 1 - norm_states):
+                # define how long the number of roots is to be increased: either until
+                # the root with the maximum squared overlap has been found for every
+                # state or until all roots have been exhausted
+                if isinstance(solver, fci.direct_spin0_symm.FCI):
+                    # get total number of singlet states
+                    strsa = fci.cistring.gen_strings4orblist(
+                        range(cas_idx.size), nelec[0]
+                    )
+                    airreps = fci.direct_spin1_symm._gen_strs_irrep(
+                        strsa, self.orbsym[cas_idx]
+                    )
+                    sym_allowed = (airreps[:, None] ^ airreps) == wfnsym
+                    max_singlet_roots = (
+                        np.count_nonzero(sym_allowed)
+                        + np.count_nonzero(sym_allowed.diagonal())
+                    ) // 2
+
+                    # norm_states will not tend to 1 because higher spin states can also
+                    # overlap with reference state: check whether the maximum
+                    # number of singlet states has been found for this irrep
+                    def find_roots():
+                        return (
+                            np.any(max_sq_overlaps <= 1 - norm_states)
+                            and solver.nroots < max_singlet_roots
+                        )
+
+                else:
+                    # norm_states will tend to 1 as all states are calculated
+                    def find_roots():
+                        return np.any(max_sq_overlaps <= 1 - norm_states)
+
+                while find_roots():
                     # calculate additional root
                     solver.nroots += 1
 
