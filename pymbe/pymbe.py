@@ -71,7 +71,7 @@ class MBE:
         eri: Optional[np.ndarray] = None,
         ref_space: np.ndarray = np.array([], dtype=np.int64),
         exp_space: Optional[np.ndarray] = None,
-        ref_thres: float = 0.0,
+        ref_thres: Union[int, float] = 0,
         base_method: Optional[str] = None,
         base_prop: Optional[
             Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]

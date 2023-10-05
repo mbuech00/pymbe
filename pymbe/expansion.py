@@ -2426,7 +2426,16 @@ class ExpCls(
 
                 # check whether any maximum squared overlap is below threshold
                 min_sq_overlap = np.min(max_sq_overlaps).astype(float)
-                if np.any(min_sq_overlap < self.ref_thres):
+                if (
+                    isinstance(self.ref_thres, int)
+                    and (
+                        self.ref_space.size < self.ref_thres
+                        or np.any(min_sq_overlap < 0.95)
+                    )
+                ) or (
+                    isinstance(self.ref_thres, float)
+                    and np.any(min_sq_overlap < self.ref_thres)
+                ):
                     self.tup_sq_overlaps[min_sq_overlap] = np.setdiff1d(
                         cas_idx, self.ref_space
                     )

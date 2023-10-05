@@ -474,10 +474,10 @@ def sanity_check(mbe: MBE) -> None:
         not isinstance(mbe.ref_thres, float)
         or mbe.ref_thres < 0.0
         or mbe.ref_thres >= 1.0
-    ):
+    ) and (not isinstance(mbe.ref_thres, int) or mbe.ref_thres < 0):
         raise TypeError(
             "reference space squared overlap threshold (ref_thres keyword argument) "
-            "must be a float >= 0.0 and < 1.0"
+            "must be a float >= 0.0 and < 1.0 or an int < 0"
         )
 
     # base model
@@ -950,7 +950,9 @@ def ref_space_update(
 
     # get all squared overlap values that are close to minimum
     min_sq_overlaps = [
-        sq_overlap for sq_overlap in sq_overlaps if sq_overlap < min_sq_overlap + 0.01
+        sq_overlap
+        for sq_overlap in sq_overlaps
+        if sq_overlap < (min_sq_overlap + (1.0 - min_sq_overlap) * 1e-2)
     ]
 
     # get list of tuples with minimum squared overlap values and remaining tuples
