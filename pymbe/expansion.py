@@ -16,7 +16,7 @@ __status__ = "Development"
 
 import os
 import numpy as np
-from json import load, dump
+from pickle import load, dump
 from scipy import optimize
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
@@ -852,7 +852,7 @@ class ExpCls(
 
                 # read squared overlaps and respective tuples
                 elif "tup_sq_overlaps" in files[i]:
-                    with open(os.path.join(RST, files[i]), "r") as f:
+                    with open(os.path.join(RST, files[i]), "rb") as f:
                         self.tup_sq_overlaps = load(f)
 
                 # read timings
@@ -1258,7 +1258,7 @@ class ExpCls(
                         write_file(tup, "mbe_tup", self.order)
                         write_file(hashes[-1], "mbe_hashes", self.order)
                         self._write_inc_file(inc[-1], self.order)
-                        with open(os.path.join(RST, "tup_sq_overlaps.rst"), "w") as f:
+                        with open(os.path.join(RST, "tup_sq_overlaps.pkl"), "wb") as f:
                             dump(self.tup_sq_overlaps, f)
                         self.time["mbe"][-1] += MPI.Wtime() - time
                         write_file(
@@ -1502,6 +1502,8 @@ class ExpCls(
                 self.incs[-1], self.n_tuples["inc"][-1], self.order - self.min_order
             )
             self._write_inc_file(inc, self.order)
+            with open(os.path.join(RST, "tup_sq_overlaps.pkl"), "wb") as f:
+                dump(self.tup_sq_overlaps, f)
             self._write_target_file(self.min_inc[-1], "mbe_min_inc", self.order)
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
@@ -2430,7 +2432,7 @@ class ExpCls(
                     isinstance(self.ref_thres, int)
                     and (
                         self.ref_space.size < self.ref_thres
-                        or np.any(min_sq_overlap < 0.95)
+                        or np.any(min_sq_overlap < 0.9)
                     )
                 ) or (
                     isinstance(self.ref_thres, float)

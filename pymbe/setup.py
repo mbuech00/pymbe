@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from pymbe.logger import logger
 from pymbe.parallel import kw_dist, system_dist
 from pymbe.tools import RST, logger_config, ground_state_sym
-from pymbe.output import DIVIDER, main_header, ref_space_results
+from pymbe.output import main_header, ref_space_results
 
 
 if TYPE_CHECKING:
@@ -478,6 +478,13 @@ def sanity_check(mbe: MBE) -> None:
         raise TypeError(
             "reference space squared overlap threshold (ref_thres keyword argument) "
             "must be a float >= 0.0 and < 1.0 or an int < 0"
+        )
+    if (
+        isinstance(mbe.ref_thres, float) or mbe.ref_thres > 0
+    ) and not mbe.method != "fci":
+        raise ValueError(
+            "automatic reference space generation (ref_thres keyword argument) is only "
+            "possible with fci (method keyword argument)"
         )
 
     # base model
