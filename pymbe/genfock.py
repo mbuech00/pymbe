@@ -1027,11 +1027,11 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         string = mbe_debug(
             self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
         )
+        string += (
+            f"      energy increment for root {self.fci_state_root:d} "
+            + f"= {inc_tup.energy:.4e}\n"
+        )
         if logger.getEffectiveLevel() == 10:
-            string += (
-                f"      energy increment for root {self.fci_state_root:d} "
-                + f"= {inc_tup.energy:.4e}\n"
-            )
             string += (
                 f"      rdm1 increment for root {self.fci_state_root:d} = "
                 + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
