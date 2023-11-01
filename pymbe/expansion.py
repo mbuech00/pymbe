@@ -1884,7 +1884,9 @@ class ExpCls(
                     orb_screen = np.abs(
                         self.screen[-1][self.screen_func][self.exp_space[-1]]
                     )
-                    orb_significance = np.argsort(orb_screen)[::-1]
+                    # stable sorting algorithm is important to ensure that the same 
+                    # orbitals are screened away every time in case of equality
+                    orb_significance = np.argsort(orb_screen, kind="stable")[::-1]
                     # update expansion space wrt screened orbitals
                     self.exp_space.append(
                         self.exp_space[-1][np.sort(orb_significance[:nkeep])]
