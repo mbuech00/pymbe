@@ -16,7 +16,7 @@ pytest:
   needs: []
   script:
     - echo "MBECCLIB = '${MBECC_DIR}/libmbecc.so'" > pymbe/settings.py
-    - python3 -m pytest -x --junitxml=../report.xml pymbe/tests/system_tests/test_system.py::test_system[h2o-fci-genfock-can-vac]
+    - python3 -m pytest -s -x --junitxml=../report.xml pymbe/tests/system_tests/test_system.py::test_system[h2o-fci-genfock-can-vac]
   artifacts:
     when: always
     reports:
