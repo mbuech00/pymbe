@@ -22,18 +22,19 @@ from typing import TYPE_CHECKING
 from pymbe.tools import git_version, time_str, intervals
 
 if TYPE_CHECKING:
-    from typing import List, Dict, Optional
+    from typing import List, Dict
 
     from pymbe.parallel import MPICls
 
 
 # output parameters
+HEADER = f"{('-' * 45):^87}"
 DIVIDER = " " + "-" * 92
 FILL = " " + "|" * 92
 BAR_LENGTH = 50
 
 
-def main_header(mpi: MPICls) -> str:
+def main_header(mpi: MPICls, method: str) -> str:
     """
     this function prints the main pymbe header
     """
@@ -65,11 +66,18 @@ def main_header(mpi: MPICls) -> str:
                 f"{mpi.master_global_hosts[master_idx]:s}\n"
             )
 
+    string += "\n\n"
+
+    # method
+    string += HEADER + "\n"
+    string += f"{method.upper() + ' expansion':^87s}\n"
+    string += HEADER
+
     return string
 
 
 def mbe_header(
-    order: int, n_tuples: int, screen_type: str, screen_perc: float, screen_thres: float
+    order: int, n_incs: int, screen_type: str, screen_perc: float, screen_thres: float
 ) -> str:
     """
     this function prints the mbe header
@@ -77,7 +85,7 @@ def mbe_header(
     # set string
     string: str = "\n\n" + DIVIDER + "\n"
     string += (
-        f" STATUS-{order:d}:  order k = {order:d} MBE started  ---  {n_tuples:d} "
+        f" STATUS-{order:d}:  order k = {order:d} MBE started  ---  {n_incs:d} "
         f"tuples in total "
     )
     if screen_type == "fixed":
@@ -215,7 +223,9 @@ def purge_header(order: int) -> str:
     return string
 
 
-def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) -> str:
+def purge_results(
+    n_tuples: Dict[str, List[int]], n_incs: List[np.ndarray], min_order: int, order: int
+) -> str:
     """
     this function prints the updated number of tuples
     """
@@ -227,14 +237,16 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
         if min_order < k:
             string += f" RESULT-{order:d}:{'':30s}"
         red = (
-            (1.0 - n_tuples["inc"][k - min_order] / n_tuples["prev"][k - min_order])
+            (1.0 - np.sum(n_incs[k - min_order]) / n_tuples["prev"][k - min_order])
             * 100.0
             if n_tuples["prev"][k - min_order] > 0
             else 0.0
         )
         string += f"no. of tuples at k = {k:2d} has been reduced by: {red:6.2f} %\n"
-    total_red_abs = sum(n_tuples["prev"]) - sum(n_tuples["inc"])
-    total_red_rel = (1.0 - sum(n_tuples["inc"]) / sum(n_tuples["prev"])) * 100.0
+    sum_n_tuples_prev = sum(n_tuples["prev"])
+    sum_n_tuples_inc = sum(np.sum(order_n_incs) for order_n_incs in n_incs)
+    total_red_abs = sum_n_tuples_prev - sum_n_tuples_inc
+    total_red_rel = (1.0 - sum_n_tuples_inc / sum_n_tuples_prev) * 100.0
     string += DIVIDER + "\n"
     string += (
         f" RESULT-{order:d}:  total number of reduced tuples: {total_red_abs} "

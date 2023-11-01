@@ -23,17 +23,19 @@ from pyscf.cc import (
     uccsd_t_lambda,
     uccsd_t_rdm,
 )
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pymbe.expansion import SingleTargetExpCls, CONV_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, write_file, get_nhole, get_nexc
-from pymbe.parallel import mpi_reduce, open_shared_win
+from pymbe.parallel import mpi_reduce, open_shared_win, mpi_bcast
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
     import matplotlib
     from typing import Optional, Tuple, Union, List
+
+    from pymbe.parallel import MPICls
 
 
 class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
@@ -48,12 +50,17 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         this function returns the final dipole moment
         """
-        return self._prop_conv(
-            nuc_prop,
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb),
-        )[-1, :]
+        if len(self.mbe_tot_prop) > 0:
+            tot_dipole = -self.mbe_tot_prop[-1].copy()
+        else:
+            tot_dipole = self._init_target_inst(0.0)
+        tot_dipole -= self.base_prop
+        tot_dipole -= self.ref_prop
+        if prop_type in ["electronic", "total"]:
+            tot_dipole -= self.hf_prop
+        tot_dipole += nuc_prop
+
+        return tot_dipole
 
     def plot_results(
         self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -66,7 +73,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
             nuc_prop,
             self.hf_prop
             if y_axis in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb),
+            else self._init_target_inst(0.0),
         )
         dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
         for i in range(dipole.shape[0]):
@@ -82,6 +89,56 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
             "Dipole moment (in au)",
         )
 
+    def free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        super().free_ints()
+
+        # free additional integrals
+        self.dipole_ints_win.Free()
+
+        return
+
+    def _int_wins(
+        self,
+        mpi: MPICls,
+        hcore: Optional[np.ndarray],
+        eri: Optional[np.ndarray],
+        dipole_ints: Optional[np.ndarray] = None,
+        **kwargs: Optional[np.ndarray],
+    ):
+        """
+        this function creates shared memory windows for integrals on every node
+        """
+        super()._int_wins(mpi, hcore, eri)
+
+        # allocate dipole integrals in shared mem
+        self.dipole_ints_win: MPI.Win = MPI.Win.Allocate_shared(
+            8 * 3 * self.norb**2 if mpi.local_master else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+
+        # open dipole integrals in shared memory
+        self.dipole_ints = open_shared_win(
+            self.dipole_ints_win, np.float64, (3, self.norb, self.norb)
+        )
+
+        # set dipole integrals on global master
+        if mpi.global_master:
+            self.dipole_ints[:] = cast(np.ndarray, dipole_ints)
+
+        # mpi_bcast dipole integrals
+        if mpi.num_masters > 1 and mpi.local_master:
+            self.dipole_ints[:] = mpi_bcast(mpi.master_comm, self.dipole_ints)
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        return
+
     def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
         """
         this function calculates the hartree-fock electronic dipole moment
@@ -92,20 +149,12 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         this function prints reference space results for a target calculation
         """
-        if self.target == "dipole":
-            header = (
-                f"reference space dipole moment for root {self.fci_state_root} "
-                + f"(total increment = {np.linalg.norm(ref_prop):.4e})"
-            )
-        elif self.target == "trans":
-            header = (
-                f"reference space transition dipole moment for excitation 0 -> "
-                f"{self.fci_state_root} (total increment = "
-                f"{np.linalg.norm(ref_prop):.4e})"
-            )
+        header = f"reference space dipole moment for root {self.fci_state_root}"
+        dipole = f"(total increment = {np.linalg.norm(ref_prop):.4e})"
 
         string = DIVIDER_OUTPUT + "\n"
-        string += f" RESULT:{header:^81}\n"
+        string += f" RESULT: {header:^80}\n"
+        string += f" RESULT: {dipole:^80}\n"
         string += DIVIDER_OUTPUT
 
         return string
@@ -242,12 +291,12 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         return elec_dipole - self.hf_prop
 
     @staticmethod
-    def _write_target_file(prop: np.ndarray, string: str, order: Optional[int]) -> None:
+    def _write_target_file(prop: np.ndarray, string: str, order: int) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(prop, string, order)
+        write_file(prop, string, order=order)
 
     @staticmethod
     def _read_target_file(file: str) -> np.ndarray:
@@ -278,7 +327,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         return mpi_reduce(comm, values, root=0, op=op)
 
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
+        self, size: int, allocate: bool, comm: MPI.Comm, *args: int
     ) -> MPI.Win:
         """
         this function allocates a shared increment window
@@ -287,13 +336,11 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
             8 * size * 3 if allocate else 0, 8, comm=comm  # type: ignore
         )
 
-    def _open_shared_inc(
-        self, window: MPI.Win, n_tuples: int, *args: int
-    ) -> np.ndarray:
+    def _open_shared_inc(self, window: MPI.Win, n_incs: int, *args: int) -> np.ndarray:
         """
         this function opens a shared increment window
         """
-        return open_shared_win(window, np.float64, (n_tuples, 3))
+        return open_shared_win(window, np.float64, (n_incs, 3))
 
     @staticmethod
     def _add_screen(
@@ -310,7 +357,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
             raise ValueError
 
     @staticmethod
-    def _total_inc(inc: np.ndarray, mean_inc: np.ndarray) -> np.ndarray:
+    def _total_inc(inc: List[np.ndarray], mean_inc: np.ndarray) -> np.ndarray:
         """
         this function calculates the total increment at a certain order
         """

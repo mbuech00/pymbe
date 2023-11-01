@@ -42,7 +42,7 @@ def general_setup(mbe: MBE):
     sanity_check(mbe)
 
     # print expansion headers
-    logger.info(main_header(mbe.mpi))
+    logger.info(main_header(mbe.mpi, mbe.method))
 
     # dump flags
     for key, value in vars(mbe).items():
@@ -575,23 +575,31 @@ def sanity_check(mbe: MBE) -> None:
                 raise TypeError(
                     "base model property (base_prop keyword argument) must be a tuple"
                 )
-            if len(mbe.base_prop) != 2:
+            if len(mbe.base_prop) != 3:
                 raise ValueError(
                     "base model property (base_prop keyword argument) must have "
-                    "dimension 2"
+                    "dimension 3"
                 )
             if not (
                 isinstance(mbe.base_prop[0], float)
                 and isinstance(mbe.base_prop[1], np.ndarray)
+                and isinstance(mbe.base_prop[2], np.ndarray)
             ):
                 raise TypeError(
                     "first element of base model property (base_prop keyword argument) "
                     "describes the energy and must be a float, second element "
-                    "describes the generalized fock matrix and must be a np.ndarray "
+                    "describes the 1-particle RDM and must be a np.ndarray with shape "
+                    "(norb, norb), third element describes the generalized fock matrix "
+                    "and must be a np.ndarray "
                 )
-            if mbe.base_prop[1].shape != (mbe.full_nocc + mbe.norb, mbe.full_norb):
+            if mbe.base_prop[1].shape != 2 * (mbe.norb,):
                 raise ValueError(
-                    "base model generalized fock matrix (second element of base_prop "
+                    "base model 1-particle RDM (second element of base_prop keyword "
+                    "argument) must have shape (norb, norb)"
+                )
+            if mbe.base_prop[2].shape != (mbe.full_nocc + mbe.norb, mbe.full_norb):
+                raise ValueError(
+                    "base model generalized fock matrix (third element of base_prop "
                     "keyword argument) must have shape (full_nocc + norb, full_norb)"
                 )
 
@@ -743,10 +751,10 @@ def sanity_check(mbe: MBE) -> None:
                 "number of occupied orbitals in the full system (full_nocc keyword "
                 "argument) must be an int"
             )
-        if mbe.full_nocc <= 0:
+        if mbe.full_nocc < 0:
             raise ValueError(
                 "number of occupied orbitals in the full system (full_nocc keyword "
-                "argument) must be > 0"
+                "argument) must be >= 0"
             )
         if not (hasattr(mbe, "inact_fock") and isinstance(mbe.inact_fock, np.ndarray)):
             raise TypeError(
@@ -904,7 +912,12 @@ def restart_write_system(mbe: MBE) -> None:
     system_dict = {}
     for attr in system:
         if hasattr(mbe, attr):
-            system_dict[attr] = getattr(mbe, attr)
+            attr_value = getattr(mbe, attr)
+            if not isinstance(attr_value, tuple):
+                system_dict[attr] = attr_value
+            else:
+                for idx in range(len(attr_value)):
+                    system_dict[attr + "_" + str(idx)] = attr_value[idx]
 
     # write system quantities
     np.savez(os.path.join(RST, "system"), **system_dict)
@@ -915,7 +928,7 @@ def restart_read_system(mbe: MBE) -> MBE:
     this function reads all system quantities restart files
     """
     # read system quantities
-    system_npz = np.load(os.path.join(RST, "system.npz"), allow_pickle=True)
+    system_npz = np.load(os.path.join(RST, "system.npz"))
 
     # create system dictionary
     system = {}
@@ -933,6 +946,22 @@ def restart_read_system(mbe: MBE) -> MBE:
     # revert to list
     if system["orbsym"].dtype == object:
         system["orbsym"] = list(system["orbsym"])
+
+    # revert to tuple
+    tuple_keys = set()
+    for key in system.keys():
+        key_split = key.split("_")
+        if key_split[-1].isdigit():
+            tuple_keys.add("_".join(key_split[:-1]))
+    for key in tuple_keys:
+        n = 0
+        attr_list = []
+        attr_value = system.pop(key + "_" + str(n), None)
+        while attr_value is not None:
+            attr_list.append(attr_value)
+            n += 1
+            attr_value = system.pop(key + "_" + str(n), None)
+        system[key] = tuple(attr_list)
 
     # set system quantities as MBE attributes
     for key, val in system.items():

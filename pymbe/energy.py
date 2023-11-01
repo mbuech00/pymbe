@@ -42,12 +42,17 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         this function returns the final energy
         """
-        return self._prop_conv(
-            nuc_prop,
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb),
-        )[-1]
+        if len(self.mbe_tot_prop) > 0:
+            tot_energy = self.mbe_tot_prop[-1]
+        else:
+            tot_energy = self._init_target_inst(0.0)
+        tot_energy += self.ref_prop
+        tot_energy += self.base_prop
+        if prop_type in ["electronic", "total"]:
+            tot_energy += self.hf_prop
+        tot_energy += nuc_prop
+
+        return tot_energy
 
     def plot_results(
         self, y_axis: str, nuc_prop: float = 0.0
@@ -60,7 +65,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                 nuc_prop,
                 self.hf_prop
                 if y_axis in ["electronic", "total"]
-                else self._init_target_inst(0.0, self.norb),
+                else self._init_target_inst(0.0),
             ),
             self.min_order,
             self.final_order,
@@ -113,7 +118,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         )
 
         string = DIVIDER_OUTPUT + "\n"
-        string += f" RESULT:{header:^81}\n"
+        string += f" RESULT: {header:^80}\n"
         string += DIVIDER_OUTPUT
 
         return string
@@ -239,12 +244,12 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         return e_cc
 
     @staticmethod
-    def _write_target_file(prop: float, string: str, order: Optional[int]) -> None:
+    def _write_target_file(prop: float, string: str, order: int) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(np.array(prop, dtype=np.float64), string, order)
+        write_file(np.array(prop, dtype=np.float64), string, order=order)
 
     @staticmethod
     def _read_target_file(file: str) -> float:
@@ -285,7 +290,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         ).item()
 
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
+        self, size: int, allocate: bool, comm: MPI.Comm, *args: int
     ) -> MPI.Win:
         """
         this function allocates a shared increment window
@@ -294,13 +299,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             8 * size if allocate else 0, 8, comm=comm  # type: ignore
         )
 
-    def _open_shared_inc(
-        self, window: MPI.Win, n_tuples: int, *args: int
-    ) -> np.ndarray:
+    def _open_shared_inc(self, window: MPI.Win, n_incs: int, *args: int) -> np.ndarray:
         """
         this function opens a shared increment window
         """
-        return open_shared_win(window, np.float64, (n_tuples,))
+        return open_shared_win(window, np.float64, (n_incs,))
 
     @staticmethod
     def _add_screen(
@@ -319,7 +322,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             raise ValueError
 
     @staticmethod
-    def _total_inc(inc: np.ndarray, mean_inc: float) -> float:
+    def _total_inc(inc: List[np.ndarray], mean_inc: float) -> float:
         """
         this function calculates the total increment at a certain order
         """

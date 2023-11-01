@@ -18,7 +18,7 @@ import os
 import re
 import operator
 import numpy as np
-import scipy.special as sc
+from math import comb
 from pyscf import symm, ao2mo, fci
 from itertools import islice, combinations, groupby
 from bisect import insort
@@ -99,7 +99,7 @@ class RDMCls:
 
         return self
 
-    def __add__(self, other: RDMCls) -> RDMCls:
+    def __add__(self, other: Union[RDMCls, packedRDMCls]) -> RDMCls:
         """
         this function implements addition for the RDMCls objects
         """
@@ -119,7 +119,7 @@ class RDMCls:
         else:
             return NotImplemented
 
-    def __sub__(self, other: RDMCls) -> RDMCls:
+    def __sub__(self, other: Union[RDMCls, packedRDMCls]) -> RDMCls:
         """
         this function implements subtraction for the RDMCls objects
         """
@@ -199,9 +199,7 @@ class RDMCls:
 
 class packedRDMCls:
     """
-    this class describes packed RDMs, instances of this class can either be created
-    normally using __init__() or by opening a shared memory instance with
-    open_shared_RDM
+    this class describes packed RDMs
     """
 
     rdm1_size: List[int] = []
@@ -325,7 +323,7 @@ class packedRDMCls:
         self,
         idx: Union[int, np.int64, slice, np.ndarray, list],
         values: Union[
-            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
+            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, packedGenFockCls
         ],
     ) -> packedRDMCls:
         """
@@ -372,53 +370,119 @@ class GenFockCls:
     necessary operations
     """
 
-    def __init__(self, energy: float, gen_fock: np.ndarray):
+    def __init__(self, energy: float, rdm1: np.ndarray, gen_fock: np.ndarray):
         """
         initializes a GenFock object
         """
         self.energy = energy
+        self.rdm1 = rdm1
         self.gen_fock = gen_fock
 
-    def __add__(self, other: GenFockCls) -> GenFockCls:
+    def __getitem__(
+        self,
+        idx: Tuple[np.ndarray, np.ndarray],
+    ) -> GenFockCls:
+        """
+        this function ensures GenFockCls can be retrieved using one-dimensional
+        indexing of GenFockCls objects
+        """
+        return GenFockCls(
+            self.energy, self.rdm1[idx[0].reshape(-1, 1), idx[0]], self.gen_fock[idx[1]]
+        )
+
+    def __setitem__(
+        self,
+        idx: Tuple[np.ndarray, np.ndarray],
+        values: Union[GenFockCls, Tuple[float, np.ndarray, np.ndarray]],
+    ) -> GenFockCls:
+        """
+        this function implements setting GenFockCls through indexing for the GenFockCls
+        objects and through tuples of a float and two arrays
+        """
+        if isinstance(values, GenFockCls):
+            self.energy = values.energy
+            self.rdm1[idx[0].reshape(-1, 1), idx[0]] = values.rdm1
+            self.gen_fock[idx[1]] = values.gen_fock
+        elif isinstance(values, tuple):
+            self.energy = values[0]
+            self.rdm1[idx[0].reshape(-1, 1), idx[0]] = values[1]
+            self.gen_fock[idx[1]] = values[2]
+        else:
+            return NotImplemented
+
+        return self
+
+    def __add__(self, other: Union[GenFockCls, packedGenFockCls]) -> GenFockCls:
         """
         this function implements addition for the GenFockCls objects
         """
         if isinstance(other, GenFockCls):
             return GenFockCls(
-                self.energy + other.energy, self.gen_fock + other.gen_fock
+                self.energy + other.energy,
+                self.rdm1 + other.rdm1,
+                self.gen_fock + other.gen_fock,
             )
         else:
             return NotImplemented
 
-    def __iadd__(self, other: GenFockCls) -> GenFockCls:
+    def __iadd__(self, other: Union[GenFockCls, packedGenFockCls]) -> GenFockCls:
         """
         this function implements inplace addition for the GenFockCls objects
         """
         if isinstance(other, GenFockCls):
             self.energy += other.energy
+            self.rdm1 += other.rdm1
             self.gen_fock += other.gen_fock
             return self
         else:
             return NotImplemented
 
-    def __sub__(self, other: GenFockCls) -> GenFockCls:
+    def __sub__(self, other: Union[GenFockCls, packedGenFockCls]) -> GenFockCls:
         """
         this function implements subtraction for the GenFockCls objects
         """
         if isinstance(other, GenFockCls):
             return GenFockCls(
-                self.energy - other.energy, self.gen_fock - other.gen_fock
+                self.energy - other.energy,
+                self.rdm1 - other.rdm1,
+                self.gen_fock - other.gen_fock,
             )
         else:
             return NotImplemented
 
-    def __isub__(self, other: GenFockCls) -> GenFockCls:
+    def __isub__(self, other: Union[GenFockCls, packedGenFockCls]) -> GenFockCls:
         """
         this function implements inplace subtraction for the GenFockCls objects
         """
         if isinstance(other, GenFockCls):
             self.energy -= other.energy
+            self.rdm1 -= other.rdm1
             self.gen_fock -= other.gen_fock
+            return self
+        else:
+            return NotImplemented
+
+    def __mul__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements multiplication for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            return GenFockCls(
+                other * self.energy, other * self.rdm1, other * self.gen_fock
+            )
+        else:
+            return NotImplemented
+
+    __rmul__ = __mul__
+
+    def __imul__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements inplace multiplication for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.energy *= other
+            self.rdm1 *= other
+            self.gen_fock *= other
             return self
         else:
             return NotImplemented
@@ -428,7 +492,9 @@ class GenFockCls:
         this function implements division for the GenFockCls objects
         """
         if isinstance(other, (int, float)):
-            return GenFockCls(self.energy / other, self.gen_fock / other)
+            return GenFockCls(
+                self.energy / other, self.rdm1 / other, self.gen_fock / other
+            )
         else:
             return NotImplemented
 
@@ -438,6 +504,7 @@ class GenFockCls:
         """
         if isinstance(other, (int, float)):
             self.energy /= other
+            self.rdm1 /= other
             self.gen_fock /= other
             return self
         else:
@@ -448,46 +515,83 @@ class GenFockCls:
         this function defines the fill function for GenFockCls objects
         """
         self.energy = value
+        self.rdm1.fill(value)
         self.gen_fock.fill(value)
 
     def copy(self) -> GenFockCls:
         """
         this function creates a copy of GenFockCls objects
         """
-        return GenFockCls(self.energy, self.gen_fock.copy())
+        return GenFockCls(self.energy, self.rdm1.copy(), self.gen_fock.copy())
 
 
-class GenFockArrayCls:
+class packedGenFockCls:
     """
-    this class describes an array of generalized Fock matrices
+    this class describes a packed version of GenFockCls
     """
 
-    def __init__(self, energy: np.ndarray, gen_fock: np.ndarray) -> None:
+    rdm1_size: List[int] = []
+    pack_rdm1: List[Tuple[np.ndarray, np.ndarray]] = []
+    unpack_rdm1: List[np.ndarray] = []
+
+    def __init__(
+        self, energy: np.ndarray, rdm1: np.ndarray, gen_fock: np.ndarray, idx: int = -1
+    ) -> None:
         """
-        this function initializes a GenFockArrayCls object
+        this function initializes a packedGenFockCls object
         """
         self.energy = energy
+        self.rdm1 = rdm1
         self.gen_fock = gen_fock
+        self.idx = idx
+
+    @classmethod
+    def reset(cls):
+        """
+        this function resets the class to ensure class attributes are not kept from
+        previous runs
+        """
+        cls.rdm1_size = []
+        cls.pack_rdm1 = []
+        cls.unpack_rdm1 = []
+
+    @classmethod
+    def get_pack_idx(cls, norb) -> None:
+        """
+        this function generates packing and unpacking indices for the 1-particle rdms
+        and should be called at every order before a packedGenFockCls object is
+        initialized at this order
+        """
+        pack_rdm1 = np.triu_indices(norb)
+        unpack_rdm1 = np.zeros((norb, norb), dtype=np.int64)
+        rdm1_size = pack_rdm1[0].size
+        indices = np.arange(rdm1_size)
+        unpack_rdm1[pack_rdm1] = indices
+        unpack_rdm1[pack_rdm1[1], pack_rdm1[0]] = indices
+
+        cls.rdm1_size.append(rdm1_size)
+        cls.pack_rdm1.append(pack_rdm1)
+        cls.unpack_rdm1.append(unpack_rdm1)
 
     @overload
     def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls:
         ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> GenFockArrayCls:
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedGenFockCls:
         ...
 
     def __getitem__(
         self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
-    ) -> Union[GenFockCls, GenFockArrayCls]:
+    ) -> Union[GenFockCls, packedGenFockCls]:
         """
-        this function ensures GenFockArrayCls can be retrieved through indexing
-        GenFockArrayCls objects
+        this function ensures packedGenFockCls can be retrieved through indexing
+        packedGenFockCls objects
         """
-        if isinstance(idx, (int, np.integer)):
-            return GenFockCls(self.energy[idx], self.gen_fock[idx])
-        elif isinstance(idx, (slice, np.ndarray, list)):
-            return GenFockArrayCls(self.energy[idx], self.gen_fock[idx])
+        if isinstance(idx, (int, np.int64, slice, np.ndarray, list)):
+            return packedGenFockCls(
+                self.energy[idx], self.rdm1[idx], self.gen_fock[idx], self.idx
+            )
         else:
             return NotImplemented
 
@@ -495,29 +599,51 @@ class GenFockArrayCls:
         self,
         idx: Union[int, np.int64, slice, np.ndarray, List[int]],
         values: Union[
-            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
+            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, packedGenFockCls
         ],
-    ) -> GenFockArrayCls:
+    ) -> packedGenFockCls:
         """
-        this function ensures indexed GenFockArrayCls can be set using GenFockArrayCls
+        this function ensures indexed packedGenFockCls can be set using packedGenFockCls
         or GenFockCls objects
         """
-        if (
-            isinstance(idx, (slice, np.ndarray, list))
-            and isinstance(values, GenFockArrayCls)
-        ) or (isinstance(idx, (int, np.integer)) and isinstance(values, GenFockCls)):
+        if isinstance(idx, (slice, np.ndarray, list)) and isinstance(
+            values, packedGenFockCls
+        ):
             self.energy[idx] = values.energy
+            self.rdm1[idx] = values.rdm1
+            self.gen_fock[idx] = values.gen_fock
+        elif isinstance(idx, (int, np.integer)) and isinstance(values, GenFockCls):
+            self.energy[idx] = values.energy
+            self.rdm1[idx] = values.rdm1[self.pack_rdm1[self.idx]]
             self.gen_fock[idx] = values.gen_fock
         else:
             return NotImplemented
 
         return self
 
+    def __radd__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function ensures the packedGenFockCls object is unpacked when added to a
+        GenFockCls object
+        """
+        if (
+            isinstance(other, GenFockCls)
+            and self.energy.size == 1
+            and self.rdm1.ndim == 1
+            and self.gen_fock.ndim == 2
+        ):
+            return other + GenFockCls(
+                self.energy.item(), self.rdm1[self.unpack_rdm1[self.idx]], self.gen_fock
+            )
+        else:
+            return NotImplemented
+
     def fill(self, value: float) -> None:
         """
-        this function defines the fill function for GenFockArrayCls objects
+        this function defines the fill function for packedGenFockCls objects
         """
         self.energy.fill(value)
+        self.rdm1.fill(value)
         self.gen_fock.fill(value)
 
 
@@ -624,98 +750,106 @@ def tuples(
     ref_nhole: np.ndarray,
     vanish_exc: int,
     order: int,
-    order_start: int = 1,
+    order_start: int = 0,
     occ_start: int = 0,
     virt_start: int = 0,
 ) -> Generator[np.ndarray, None, None]:
     """
     this function is the main generator for tuples
     """
-    # combinations of occupied and virtual MOs
-    for k in range(order_start, order):
-        if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-            for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+    for k in range(order_start, order + 1):
+        if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+            if k == 0:
+                # only virtual MOs
                 for tup_virt in islice(
-                    combinations(virt_space, order - k), virt_start, None
+                    combinations(virt_space, order), virt_start, None
                 ):
-                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                    yield np.array(tup_virt, dtype=np.int64)
                 virt_start = 0
-            occ_start = 0
+            elif 0 < k < order:
+                # combinations of occupied and virtual MOs
+                for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+                    for tup_virt in islice(
+                        combinations(virt_space, order - k), virt_start, None
+                    ):
+                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                    virt_start = 0
+                occ_start = 0
+            elif k == order:
+                # only occupied MOs
+                for tup_occ in islice(combinations(occ_space, order), occ_start, None):
+                    yield np.array(tup_occ, dtype=np.int64)
+                occ_start = 0
 
-    # only occupied MOs
-    if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc) and 0 <= occ_start:
-        for tup_occ in islice(combinations(occ_space, order), occ_start, None):
-            yield np.array(tup_occ, dtype=np.int64)
 
-    # only virtual MOs
-    if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc) and 0 <= virt_start:
-        for tup_virt in islice(combinations(virt_space, order), virt_start, None):
-            yield np.array(tup_virt, dtype=np.int64)
-
-
-def orb_tuples(
+def orb_tuples_with_nocc(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    ref_nelec: np.ndarray,
-    ref_nhole: np.ndarray,
-    vanish_exc: int,
     order: int,
-    orb: int,
+    nocc: int,
+    orb: int
 ) -> Generator[np.ndarray, None, None]:
     """
-    this function is the main generator for tuples that include a certain orbital
+    this function is the main generator for tuples for a given occupation that include
+    a certain orbital
     """
     # orbital is occupied
     if orb in occ_space:
         # remove orbital
         occ_space = np.delete(occ_space, np.where(occ_space == orb)[0][0])
 
+        # only virtual orbitals
+        if nocc == 1:
+            for tup_virt in (
+                list(tup) for tup in combinations(virt_space, order - 1)
+            ):
+                yield np.array([orb] + tup_virt, dtype=np.int64)
+
         # combinations of occupied and virtual MOs
-        for k in range(1, order - 1):
-            if _valid_tup(ref_nelec, ref_nhole, k + 1, order - 1 - k, vanish_exc):
-                for tup_occ in (list(tup) for tup in combinations(occ_space, k)):
-                    insort(tup_occ, orb)
-                    for tup_virt in (
-                        list(tup) for tup in combinations(virt_space, order - 1 - k)
-                    ):
-                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+        elif 1 < nocc < order:
+            for tup_occ in (list(tup) for tup in combinations(occ_space, nocc - 1)):
+                insort(tup_occ, orb)
+                for tup_virt in (
+                    list(tup) for tup in combinations(virt_space, order - nocc)
+                ):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
 
         # only occupied MOs
-        if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
-            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
+        elif nocc == order:
+            for tup_occ in (
+                list(tup) for tup in combinations(occ_space, order - 1)
+            ):
                 insort(tup_occ, orb)
                 yield np.array(tup_occ, dtype=np.int64)
-
-        # only virtual MOs
-        if _valid_tup(ref_nelec, ref_nhole, 1, order - 1, vanish_exc):
-            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
-                yield np.array([orb] + tup_virt, dtype=np.int64)
 
     # orbital is virtual
     elif orb in virt_space:
         # remove orbital
         virt_space = np.delete(virt_space, np.where(virt_space == orb)[0][0])
 
-        # combinations of occupied and virtual MOs
-        for k in range(1, order - 1):
-            if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                for tup_occ in (list(tup) for tup in combinations(occ_space, k)):
-                    for tup_virt in (
-                        list(tup) for tup in combinations(virt_space, order - 1 - k)
-                    ):
-                        insort(tup_virt, orb)
-                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
-
-        # only occupied MOs
-        if _valid_tup(ref_nelec, ref_nhole, order - 1, 1, vanish_exc):
-            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
-                yield np.array(tup_occ + [orb], dtype=np.int64)
-
         # only virtual MOs
-        if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
-            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
+        if nocc == 0:
+            for tup_virt in (
+                list(tup) for tup in combinations(virt_space, order - 1)
+            ):
                 insort(tup_virt, orb)
                 yield np.array(tup_virt, dtype=np.int64)
+
+        # combinations of occupied and virtual MOs
+        elif 0 < nocc < order - 1:
+            for tup_occ in (list(tup) for tup in combinations(occ_space, nocc)):
+                for tup_virt in (
+                    list(tup) for tup in combinations(virt_space, order - 1 - nocc)
+                ):
+                    insort(tup_virt, orb)
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+        # only occupied MOs
+        elif nocc == order - 1:
+            for tup_occ in (
+                list(tup) for tup in combinations(occ_space, order - 1)
+            ):
+                yield np.array(tup_occ + [orb], dtype=np.int64)
 
 
 def start_idx(
@@ -728,24 +862,70 @@ def start_idx(
     this function return the start indices for a given occupied and virtual tuple
     """
     if tup_occ is None and tup_virt is None:
-        order_start = 1
+        order_start = 0
         occ_start = virt_start = 0
     elif tup_occ is not None and tup_virt is not None:
-        order_start = int(tup_occ.size)
-        occ_start = int(_comb_idx(occ_space, tup_occ))
-        virt_start = int(_comb_idx(virt_space, tup_virt))
+        order_start = tup_occ.size
+        occ_start = _comb_idx(occ_space, tup_occ)
+        virt_start = _comb_idx(virt_space, tup_virt)
     elif tup_occ is not None and tup_virt is None:
-        order_start = int(tup_occ.size)
-        occ_start = int(_comb_idx(occ_space, tup_occ))
+        order_start = tup_occ.size
+        occ_start = _comb_idx(occ_space, tup_occ)
         virt_start = 0
     elif tup_occ is None and tup_virt is not None:
-        order_start = int(tup_virt.size)
-        occ_start = -1
-        virt_start = int(_comb_idx(virt_space, tup_virt))
+        order_start = 0
+        occ_start = 0
+        virt_start = _comb_idx(virt_space, tup_virt)
     return order_start, occ_start, virt_start
 
 
-def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
+def tuples_with_nocc(
+    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int
+) -> Generator[np.ndarray, None, None]:
+    """
+    this function is the main generator for tuples for a given number of occupied
+    orbitals
+    """
+    # only virtual MOs
+    if nocc == 0:
+        for tup_virt in combinations(virt_space, order):
+            yield np.array(tup_virt, dtype=np.int64)
+    # combinations of occupied and virtual MOs
+    elif 0 < nocc < order:
+        for tup_occ in combinations(occ_space, nocc):
+            for tup_virt in combinations(virt_space, order - nocc):
+                yield np.array(tup_occ + tup_virt, dtype=np.int64)
+    # only occupied MOs
+    elif nocc == order:
+        for tup_occ in combinations(occ_space, order):
+            yield np.array(tup_occ, dtype=np.int64)
+
+
+def tuples_and_virt_with_nocc(
+    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int
+) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+    """
+    this function is the main generator for tuples and their corresponding virtual
+    subset for a given number of occupied orbitals
+    """
+    # only virtual MOs
+    if nocc == 0:
+        for tup_virt in combinations(virt_space, order):
+            yield np.array(tup_virt, dtype=np.int64), np.array(tup_virt, dtype=np.int64)
+    # combinations of occupied and virtual MOs
+    elif 0 < nocc < order:
+        for tup_occ in combinations(occ_space, nocc):
+            for tup_virt in combinations(virt_space, order - nocc):
+                yield np.array(tup_occ + tup_virt, dtype=np.int64), np.array(
+                    tup_virt, dtype=np.int64
+                )
+    # only occupied MOs
+    elif nocc == order:
+        for tup_occ in combinations(occ_space, order):
+            yield np.array(tup_occ, dtype=np.int64), np.array([], dtype=np.int64)
+
+
+def _comb_idx(space: np.ndarray, tup: np.ndarray) -> int:
     """
     this function return the index of a given (ordered) combination returned from
     itertools.combinations
@@ -760,14 +940,12 @@ def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
     return idx
 
 
-def _idx(space: np.ndarray, idx: int, order: int) -> float:
+def _idx(space: np.ndarray, idx: int, order: int) -> int:
     """
     this function return the start index of element space[idx] in position (order+1)
     from the right in a given combination
     """
-    return sum(
-        (sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx])
-    )
+    return sum((comb(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
 
 def n_tuples(
@@ -782,22 +960,33 @@ def n_tuples(
     this function returns the total number of tuples of a given order
     """
     # init n_tuples
-    n = 0.0
+    n = 0
 
-    # combinations of occupied and virtual MOs
-    for k in range(1, order):
-        if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-            n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
+    for k in range(order + 1):
+        if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+            n += comb(occ_space.size, k) * comb(virt_space.size, order - k)
 
-    # only occupied MOs
-    if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
-        n += sc.binom(occ_space.size, order)
+    return n
 
-    # only virtual MOs
-    if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
-        n += sc.binom(virt_space.size, order)
 
-    return int(n)
+def n_tuples_with_nocc(
+    occ_space: np.ndarray,
+    virt_space: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
+    vanish_exc: int,
+    order: int,
+    tup_nocc: int,
+) -> int:
+    """
+    this function returns the total number of tuples of a given order and a given
+    occupation
+    """
+    # check if tuple is valid for chosen method
+    if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+        return comb(occ_space.size, tup_nocc) * comb(virt_space.size, order - tup_nocc)
+    else:
+        return 0
 
 
 def orb_n_tuples(
@@ -814,33 +1003,33 @@ def orb_n_tuples(
     include a specific occupied or a specific virtual orbital
     """
     # initialize ntup_occ
-    ntup = 0.0
+    ntup = 0
 
     if occ_type == "occ" and occ_space.size > 0:
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                ntup += sc.binom(occ_space.size - 1, k - 1) * sc.binom(
+            if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                ntup += comb(occ_space.size - 1, k - 1) * comb(
                     virt_space.size, order - k
                 )
 
         # only occupied MOs
-        if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
-            ntup += sc.binom(occ_space.size - 1, order - 1)
+        if valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
+            ntup += comb(occ_space.size - 1, order - 1)
 
     elif occ_type == "virt" and virt_space.size > 0:
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                ntup += sc.binom(occ_space.size, k) * sc.binom(
+            if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                ntup += comb(occ_space.size, k) * comb(
                     virt_space.size - 1, order - k - 1
                 )
 
         # only virtual MOs
-        if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
-            ntup += sc.binom(virt_space.size - 1, order - 1)
+        if valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
+            ntup += comb(virt_space.size - 1, order - 1)
 
-    return int(ntup)
+    return ntup
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -1249,7 +1438,7 @@ def get_nexc(nelec: np.ndarray, nhole: np.ndarray) -> int:
     return np.add.reduce(np.minimum(nelec, nhole))
 
 
-def _valid_tup(
+def valid_tup(
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     tup_nocc: int,
@@ -1267,7 +1456,7 @@ def _valid_tup(
     ) > vanish_exc
 
 
-def is_file(order: int, string: str) -> bool:
+def is_file(string: str, order: int) -> bool:
     """
     this function looks to see if a general restart file corresponding to the input
     string exists
@@ -1278,14 +1467,21 @@ def is_file(order: int, string: str) -> bool:
         return os.path.isfile(os.path.join(RST, f"{string}_{order}.npy"))
 
 
-def write_file(arr: np.ndarray, string: str, order: Optional[int] = None) -> None:
+def write_file(
+    arr: np.ndarray,
+    string: str,
+    order: Optional[int] = None,
+    nocc: Optional[int] = None,
+) -> None:
     """
     this function writes a general restart file corresponding to the input string
     """
-    if order is None:
+    if order is None and nocc is None:
         np.save(os.path.join(RST, f"{string}"), arr)
-    else:
+    elif nocc is None:
         np.save(os.path.join(RST, f"{string}_{order}"), arr)
+    else:
+        np.save(os.path.join(RST, f"{string}_{order}_{nocc}"), arr)
 
 
 def write_file_mult(
@@ -1394,6 +1590,15 @@ def e_core_h1e(
     h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
 
     return e_core, h1e_cas
+
+
+def cf_prefactor(contrib_order: int, order: int, max_order: int) -> int:
+    """
+    this function calculates the prefactor for the closed form MBE
+    """
+    return (-1) ** (order - contrib_order) * comb(
+        max_order - contrib_order - 1, order - contrib_order
+    )
 
 
 def hop_no_singles(

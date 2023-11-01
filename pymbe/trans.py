@@ -18,8 +18,9 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from pymbe.expansion import CONV_TOL
+from pymbe.output import DIVIDER as DIVIDER_OUTPUT
 from pymbe.dipole import DipoleExpCls
-from pymbe.results import DIVIDER, results_plt
+from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
     import matplotlib
@@ -31,6 +32,19 @@ class TransExpCls(DipoleExpCls):
     this class contains the pymbe expansion attributes for expansions of the transition
     dipole moment
     """
+
+    def prop(self, *args: Union[str, np.ndarray]) -> np.ndarray:
+        """
+        this function returns the final transition dipole moment
+        """
+        if len(self.mbe_tot_prop) > 0:
+            tot_trans = self.mbe_tot_prop[-1].copy()
+        else:
+            tot_trans = self._init_target_inst(0.0)
+        tot_trans += self.base_prop
+        tot_trans += self.ref_prop
+
+        return tot_trans
 
     def plot_results(
         self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -59,6 +73,23 @@ class TransExpCls(DipoleExpCls):
         this function calculates the hartree-fock property
         """
         return np.zeros(3, dtype=np.float64)
+
+    def _ref_results(self, ref_prop: np.ndarray) -> str:
+        """
+        this function prints reference space results for a target calculation
+        """
+        header = (
+            f"reference space transition dipole moment for excitation 0 -> "
+            f"{self.fci_state_root}"
+        )
+        trans = f"(total increment = {np.linalg.norm(ref_prop):.4e})"
+
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {header:^80}\n"
+        string += f" RESULT: {trans:^80}\n"
+        string += DIVIDER_OUTPUT
+
+        return string
 
     def _inc(
         self,
@@ -161,20 +192,20 @@ class TransExpCls(DipoleExpCls):
         """
         this function returns the transition dipole moments table
         """
-        string: str = DIVIDER[:83] + "\n"
+        string: str = DIVIDER_RESULTS[:83] + "\n"
         string += (
             f"MBE trans. dipole moment (roots 0 > {self.fci_state_root})".center(87)
             + "\n"
         )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
         string += (
             f"{'':3}{'MBE order':^14}{'|':1}"
             f"{'dipole components (x,y,z)':^43}{'|':1}"
             f"{'dipole moment':^21}\n"
         )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
         tot_ref_trans: np.ndarray = self.ref_prop
         string += (
             f"{'':3}{'ref':^14s}{'|':1}"
@@ -184,7 +215,7 @@ class TransExpCls(DipoleExpCls):
             f"{np.linalg.norm(tot_ref_trans[:]):>14.6f}{'':7}\n"
         )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
         trans = self._prop_conv()
         for i, j in enumerate(range(self.min_order, self.final_order + 1)):
             string += (
@@ -195,7 +226,7 @@ class TransExpCls(DipoleExpCls):
                 f"{np.linalg.norm(trans[i, :]):>14.6f}{'':7}\n"
             )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
 
         return string
 

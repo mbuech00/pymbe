@@ -20,7 +20,6 @@ from pyscf import ao2mo, symm
 import numpy as np
 from typing import TYPE_CHECKING, cast
 
-from pymbe.logger import logger
 from pymbe.parallel import MPICls
 from pymbe.setup import (
     restart_read_kw,
@@ -74,7 +73,12 @@ class MBE:
         ref_thres: Union[int, float] = 0,
         base_method: Optional[str] = None,
         base_prop: Optional[
-            Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+            Union[
+                float,
+                np.ndarray,
+                Tuple[np.ndarray, np.ndarray],
+                Tuple[float, np.ndarray, np.ndarray],
+            ]
         ] = None,
         screen_type: str = "fixed",
         screen_start: int = 4,
@@ -302,10 +306,8 @@ class MBE:
                     ):
                         self.base_prop = (
                             0.0,
-                            np.zeros(
-                                (self.full_nocc + self.norb, self.full_norb),
-                                dtype=np.float64,
-                            ),
+                            np.zeros(2 * (self.norb,), dtype=np.float64),
+                            np.zeros((self.norb, self.full_norb), dtype=np.float64),
                         )
 
                 # screening
@@ -429,6 +431,9 @@ class MBE:
 
         # calculate total electronic property
         prop = self.final_prop(prop_type="electronic")
+
+        # free integrals
+        self.exp.free_ints()
 
         return prop
 

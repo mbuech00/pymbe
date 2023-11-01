@@ -29,6 +29,7 @@ from pymbe.tools import (
     _comb_idx,
     _idx,
     n_tuples,
+    n_tuples_with_nocc,
     cas,
     core_cas,
     _cas_idx_cart,
@@ -39,7 +40,7 @@ from pymbe.tools import (
     pi_prune,
     get_nelec,
     get_nhole,
-    _valid_tup,
+    valid_tup,
     natural_keys,
     _convert,
     intervals,
@@ -80,7 +81,7 @@ test_cases_start_idx = [
         "virt",
         None,
         np.array([6, 9, 12], dtype=np.int64),
-        (3, -1, 2),
+        (0, 0, 2),
     ),
 ]
 
@@ -333,6 +334,30 @@ def test_n_tuples(
     )
 
 
+@pytest.mark.parametrize(
+    argnames="ref_nelec, ref_nhole, ref_n_tuples",
+    argvalues=[case[1:] for case in test_cases_n_tuples],
+    ids=[case[0] for case in test_cases_n_tuples],
+)
+def test_n_tuples_with_nocc(
+    ref_nelec: np.ndarray, ref_nhole: np.ndarray, ref_n_tuples: int
+) -> None:
+    """
+    this function tests n_tuples
+    """
+    order = 5
+    occ_space = np.arange(10, dtype=np.int64)
+    virt_space = np.arange(10, 50, dtype=np.int64)
+
+    ntuples = 0
+    for tup_nocc in range(order + 1):
+        ntuples += n_tuples_with_nocc(
+            occ_space, virt_space, ref_nelec, ref_nhole, 1, order, tup_nocc
+        )
+
+    assert ntuples == ref_n_tuples
+
+
 def test_cas() -> None:
     """
     this function tests cas
@@ -458,7 +483,7 @@ def test_valid_tup(
     """
     this function tests _valid_tup
     """
-    assert _valid_tup(ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc) == ref_bool
+    assert valid_tup(ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc) == ref_bool
 
 
 @pytest.mark.parametrize(

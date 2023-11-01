@@ -25,7 +25,7 @@ try:
 
     cclib = ctypes.cdll.LoadLibrary(MBECCLIB)
     CCLIB_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     CCLIB_AVAILABLE = False
 
 if TYPE_CHECKING:
