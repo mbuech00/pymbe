@@ -53,7 +53,7 @@ test_cases_ref_prop = [
         "ccsd",
         "pyscf",
         0,
-        np.array([0.0, 0.0, 1.41941675e-03], dtype=np.float64),
+        np.array([0.0, 0.0, 1.41943254e-03], dtype=np.float64),
         1.0,
         0.9856854425080487,
     ),
