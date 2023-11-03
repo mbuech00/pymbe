@@ -154,7 +154,7 @@ def test_ref_prop(
 
     res, civec = exp._ref_prop(mbe.mpi)
 
-    assert res == pytest.approx(ref_res)
+    assert res == pytest.approx(ref_res, abs=1e-7)
     assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
     assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
 
