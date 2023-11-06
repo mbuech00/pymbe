@@ -1989,12 +1989,15 @@ class ExpCls(
                     # define allowed error
                     error_thresh = self.screen_thres - self.mbe_tot_error[-1]
 
+                    # get screening array in expansion space
+                    exp_screen = self.screen[-1]["mean_abs_inc"][self.exp_space[-1]]
+
                     # get index in expansion space for minimum mean absolute increment
-                    min_idx = np.argmin(self.screen[-1]["mean_abs_inc"])
+                    min_idx = np.argmin(exp_screen)
 
                     # check if minimum mean absolute increment comes close to
                     # convergence threshold
-                    if 0.0 < self.screen[-1]["mean_abs_inc"][min_idx] < 1e1 * CONV_TOL:
+                    if 0.0 < exp_screen[min_idx] < 1e1 * CONV_TOL:
                         # log screening
                         logger.info2(
                             f" Orbital {self.exp_space[-1][min_idx]} is screened away "
@@ -3210,7 +3213,7 @@ class ExpCls(
             remove_sum = np.zeros(self.norb, dtype=np.float64)
 
             # loop over number of occupied orbitals
-            for tup_nocc in range(self.order + 1):
+            for tup_nocc in range(order + 1):
                 # check if tuple with this occupation is valid
                 if not valid_tup(
                     self.ref_nelec,
