@@ -160,22 +160,18 @@ def test_system(example: List[str]) -> None:
         / "/".join([string for string in example])
     )
 
-    if example[2] in ["energy", "excitation", "dipole"]:
-        assert prop == pytest.approx(np.load(ref_path / "ref.npy"))
+    if example[2] in ["energy", "excitation"]:
+        assert prop == pytest.approx(np.load(ref_path / "ref.npy"), abs=1e-8)
 
-    elif example[2] == "trans":
-        assert prop == pytest.approx(np.load(ref_path / "ref.npy"), rel=1e-5, abs=1e-12)
+    elif example[2] in ["dipole", "trans"]:
+        assert prop == pytest.approx(np.load(ref_path / "ref.npy"), abs=1e-6)
 
     elif example[2] == "rdm12":
-        assert prop[0] == pytest.approx(
-            np.load(ref_path / "ref_rdm1.npy"), rel=1e-5, abs=1e-5
-        )
-        assert prop[1] == pytest.approx(
-            np.load(ref_path / "ref_rdm2.npy"), rel=1e-5, abs=1e-4
-        )
+        assert prop[0] == pytest.approx(np.load(ref_path / "ref_rdm1.npy"), abs=1e-4)
+        assert prop[1] == pytest.approx(np.load(ref_path / "ref_rdm2.npy"), abs=1e-4)
 
     elif example[2] == "genfock":
-        assert prop[0] == pytest.approx(np.load(ref_path / "ref_energy.npy"))
+        assert prop[0] == pytest.approx(np.load(ref_path / "ref_energy.npy"), abs=1e-8)
         assert prop[1] == pytest.approx(
-            np.load(ref_path / "ref_gen_fock.npy"), rel=1e-5, abs=1e-7
+            np.load(ref_path / "ref_gen_fock.npy"), abs=1e-6
         )

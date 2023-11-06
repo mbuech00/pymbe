@@ -16,7 +16,7 @@ __status__ = "Development"
 
 import pytest
 import numpy as np
-import scipy.special as sc
+from math import comb
 from mpi4py import MPI
 from typing import TYPE_CHECKING
 
@@ -56,16 +56,34 @@ test_cases_mbe = [
 ]
 
 test_cases_ref_prop = [
-    ("h2o", "fci", None, "pyscf", 0, -0.03769780809258805),
-    ("h2o", "ccsd", None, "pyscf", 0, -0.03733551374348559),
-    ("h2o", "fci", "ccsd", "pyscf", 0, -0.00036229313775759664),
-    ("h2o", "ccsd(t)", "ccsd", "pyscf", 0, -0.0003336954549769955),
-    ("h2o", "ccsd", None, "ecc", 0, -0.03733551374348559),
-    ("h2o", "fci", "ccsd", "ecc", 0, -0.0003622938195746786),
-    ("h2o", "ccsd(t)", "ccsd", "ecc", 0, -0.0003336954549769955),
-    ("h2o", "ccsd", None, "ncc", 0, -0.03733551374348559),
-    ("h2o", "fci", "ccsd", "ncc", 0, -0.0003622938195746786),
-    ("h2o", "ccsd(t)", "ccsd", "ncc", 0, -0.0003336954549769955),
+    ("h2o", "fci", None, "pyscf", 0, -0.03769780809258805, 1.0, 0.9856854425080487),
+    ("h2o", "ccsd", None, "pyscf", 0, -0.03733551374348559, 1.0, 1.0),
+    (
+        "h2o",
+        "fci",
+        "ccsd",
+        "pyscf",
+        0,
+        -0.00036229313775759664,
+        1.0,
+        0.9856854425080487,
+    ),
+    ("h2o", "ccsd(t)", "ccsd", "pyscf", 0, -0.0003336954549769955, 1.0, 1.0),
+    ("h2o", "ccsd", None, "ecc", 0, -0.03733551374348559, 1.0, 1.0),
+    ("h2o", "fci", "ccsd", "ecc", 0, -0.0003622938195746786, 1.0, 0.9856854425080487),
+    (
+        "h2o",
+        "ccsd(t)",
+        "ccsd",
+        "ecc",
+        0,
+        -0.0003336954549769955,
+        1.0,
+        1.0,
+    ),
+    ("h2o", "ccsd", None, "ncc", 0, -0.03733551374348559, 1.0, 1.0),
+    ("h2o", "fci", "ccsd", "ncc", 0, -0.0003622938195746786, 1.0, 0.9856854425080487),
+    ("h2o", "ccsd(t)", "ccsd", "ncc", 0, -0.0003336954549769955, 1.0, 1.0),
 ]
 
 test_cases_kernel = [
@@ -77,8 +95,8 @@ test_cases_kernel = [
 ]
 
 test_cases_fci_kernel = [
-    ("h2o", -0.00627368491326763),
-    ("hubbard", -2.875942809005066),
+    ("h2o", -0.00627368491326763, 1.0, 0.9979706719796727),
+    ("hubbard", -2.875942809005066, 1.0, 0.14031179591440068),
 ]
 
 test_cases_cc_kernel = [
@@ -134,18 +152,16 @@ def test_mbe(
     inc: List[List[np.ndarray]] = []
 
     for exp.order in range(1, order + 1):
-        exp.n_tuples["inc"].append([])
         hashes.append([])
         inc.append([])
 
+        exp.n_incs.append(np.empty(exp.order + 1, dtype=np.int64))
         for k in range(exp.order + 1):
-            n_tuples = sc.binom(
+            exp.n_incs[-1][k] = comb(
                 exp.exp_space[-1][exp.exp_space[-1] < nocc].size, k
-            ) * sc.binom(
-                exp.exp_space[-1][nocc <= exp.exp_space[-1]].size, exp.order - k
-            )
+            ) * comb(exp.exp_space[-1][nocc <= exp.exp_space[-1]].size, exp.order - k)
 
-            exp.n_tuples["inc"][-1].append(int(n_tuples))
+        exp.n_tuples["van"].append(np.sum(exp.n_incs[-1]))
 
         exp._mbe(mbe.mpi)
 
@@ -154,7 +170,7 @@ def test_mbe(
                 np.ndarray(
                     buffer=exp.hashes[-1][k].Shared_query(0)[0],  # type: ignore
                     dtype=np.int64,
-                    shape=(exp.n_tuples["inc"][exp.order - 1][k],),
+                    shape=(exp.n_incs[exp.order - 1][k],),
                 )
             )
 
@@ -162,7 +178,7 @@ def test_mbe(
                 np.ndarray(
                     buffer=exp.incs[-1][k].Shared_query(0)[0],  # type: ignore
                     dtype=np.float64,
-                    shape=(exp.n_tuples["inc"][exp.order - 1][k], 1),
+                    shape=(exp.n_incs[exp.order - 1][k], 1),
                 )
             )
 
@@ -290,7 +306,12 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     exp.exp_space = [np.array([0, 1, 2, 3, 5], dtype=np.int64)]
     exp.screen_orbs = np.array([4], dtype=np.int64)
     exp.order = 4
-    exp.n_tuples = {"inc": [[0, 0], [0, 9, 0], [0, 9, 9, 0], [0, 3, 9, 3, 0]]}
+    exp.n_incs = [
+        np.array([0, 0], dtype=np.int64),
+        np.array([0, 10, 0], dtype=np.int64),
+        np.array([0, 9, 9, 0], dtype=np.int64),
+        np.array([0, 3, 9, 3, 0], dtype=np.int64),
+    ]
 
     start_hashes = [
         [
@@ -309,6 +330,7 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
                     1455941523185766351,
                     2796798554289973955,
                     6981656516950638826,
+                    7372096627385889923,
                     7504768460337078519,
                 ],
                 dtype=np.int64,
@@ -386,40 +408,39 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     hashes: List[List[np.ndarray]] = []
     incs: List[List[np.ndarray]] = []
 
-    for k in range(4):
+    for order in range(1, 5):
+        k = order - 1
         hashes.append([])
         incs.append([])
         exp.hashes.append([])
         exp.incs.append([])
-        for l in range(k + 2):
+        for l in range(order + 1):
             hashes_win = MPI.Win.Allocate_shared(
-                8 * exp.n_tuples["inc"][k][l], 8, comm=mbe.mpi.local_comm  # type: ignore
+                8 * exp.n_incs[k][l], 8, comm=mbe.mpi.local_comm  # type: ignore
             )
             buf = hashes_win.Shared_query(0)[0]
             hashes[-1].append(
                 np.ndarray(
                     buffer=buf,  # type: ignore
                     dtype=np.int64,
-                    shape=(exp.n_tuples["inc"][k][l],),
+                    shape=(exp.n_incs[k][l],),
                 )
             )
             hashes[-1][l][:] = start_hashes[k][l]
             exp.hashes[-1].append(hashes_win)
 
             inc_win = MPI.Win.Allocate_shared(
-                8 * exp.n_tuples["inc"][k][l], 8, comm=mbe.mpi.local_comm  # type: ignore
+                8 * exp.n_incs[k][l], 8, comm=mbe.mpi.local_comm  # type: ignore
             )
             buf = inc_win.Shared_query(0)[0]
             incs[-1].append(
                 np.ndarray(
                     buffer=buf,  # type: ignore
                     dtype=np.float64,
-                    shape=(exp.n_tuples["inc"][k][l],),
+                    shape=(exp.n_incs[k][l],),
                 )
             )
-            incs[-1][l][:] = np.arange(
-                1, exp.n_tuples["inc"][k][l] + 1, dtype=np.float64
-            )
+            incs[-1][l][:] = np.arange(1, exp.n_incs[k][l] + 1, dtype=np.float64)
             exp.incs[-1].append(inc_win)
 
     exp._purge(mbe.mpi)
@@ -427,16 +448,17 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     purged_hashes: List[List[np.ndarray]] = []
     purged_incs: List[List[np.ndarray]] = []
 
-    for k in range(0, 4):
+    for order in range(1, 5):
+        k = order - 1
         purged_hashes.append([])
         purged_incs.append([])
-        for l in range(k + 1):
+        for l in range(order + 1):
             buf = exp.hashes[k][l].Shared_query(0)[0]
             purged_hashes[-1].append(
                 np.ndarray(
                     buffer=buf,  # type: ignore
                     dtype=np.int64,
-                    shape=(exp.n_tuples["inc"][k][l],),
+                    shape=(exp.n_incs[k][l],),
                 )
             )
 
@@ -445,39 +467,47 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
                 np.ndarray(
                     buffer=buf,  # type: ignore
                     dtype=np.float64,
-                    shape=(exp.n_tuples["inc"][k][l],),
+                    shape=(exp.n_incs[k][l],),
                 )
             )
 
-    assert exp.n_tuples["inc"] == [[0, 0], [0, 6, 0], [0, 3, 6, 0], [0, 0, 3, 2, 0]]
+    assert np.array_equal(exp.n_incs[0], np.array([0, 0], dtype=np.int64))
+    assert np.array_equal(exp.n_incs[1], np.array([0, 6, 0], dtype=np.int64))
+    assert np.array_equal(exp.n_incs[2], np.array([0, 3, 6, 0], dtype=np.int64))
+    assert np.array_equal(exp.n_incs[3], np.array([0, 0, 3, 2, 0], dtype=np.int64))
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_hashes[0], ref_hashes[0])
+        np.array_equal(purged, ref)
+        for purged, ref in zip(purged_hashes[0], ref_hashes[0])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_hashes[1], ref_hashes[1])
+        np.array_equal(purged, ref)
+        for purged, ref in zip(purged_hashes[1], ref_hashes[1])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_hashes[2], ref_hashes[2])
+        np.array_equal(purged, ref)
+        for purged, ref in zip(purged_hashes[2], ref_hashes[2])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_hashes[3], ref_hashes[3])
+        np.array_equal(purged, ref)
+        for purged, ref in zip(purged_hashes[3], ref_hashes[3])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_incs[0], ref_incs[0])
+        np.array_equal(purged, ref) for purged, ref in zip(purged_incs[0], ref_incs[0])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_incs[1], ref_incs[1])
+        np.array_equal(purged, ref) for purged, ref in zip(purged_incs[1], ref_incs[1])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_incs[2], ref_incs[2])
+        np.array_equal(purged, ref) for purged, ref in zip(purged_incs[2], ref_incs[2])
     )
     assert all(
-        (purged == ref).all() for purged, ref in zip(purged_incs[3], ref_incs[3])
+        np.array_equal(purged, ref) for purged, ref in zip(purged_incs[3], ref_incs[3])
     )
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, cc_backend, root, ref_res",
+    argnames="system, method, base_method, cc_backend, root, ref_res, ref_civec_sum, "
+    "ref_civec_amax",
     argvalues=test_cases_ref_prop,
     ids=[
         "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
@@ -495,6 +525,8 @@ def test_ref_prop(
     cc_backend: str,
     root: int,
     ref_res: float,
+    ref_civec_sum: float,
+    ref_civec_amax: float,
 ) -> None:
     """
     this function tests _ref_prop
@@ -506,11 +538,19 @@ def test_ref_prop(
     exp.hcore, exp.eri = ints
     exp.vhf = vhf
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
+    exp.ref_nelec = np.array(
+        [
+            np.count_nonzero(exp.occup[exp.ref_space] > 0.0),
+            np.count_nonzero(exp.occup[exp.ref_space] > 1.0),
+        ],
+    )
     exp.base_method = base_method
 
-    res = exp._ref_prop(mbe.mpi)
+    res, civec = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
 
 
 @pytest.mark.parametrize(
@@ -542,6 +582,7 @@ def test_kernel(
     elif system == "hubbard":
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
         exp.point_group = "C1"
+        exp.hf_guess = False
 
     core_idx, cas_idx, _ = indices
 
@@ -554,13 +595,15 @@ def test_kernel(
         ]
     )
 
-    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res = exp._kernel(
+        method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, ref_guess=False
+    )
 
     assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(
-    argnames="system, ref",
+    argnames="system, ref, ref_civec_sum, ref_civec_amax",
     argvalues=test_cases_fci_kernel,
     ids=[case[0] for case in test_cases_fci_kernel],
     indirect=["system"],
@@ -573,6 +616,8 @@ def test_fci_kernel(
     ints_cas: Tuple[np.ndarray, np.ndarray],
     orbsym: np.ndarray,
     ref: float,
+    ref_civec_sum: float,
+    ref_civec_amax: float,
 ) -> None:
     """
     this function tests _fci_kernel
@@ -584,6 +629,7 @@ def test_fci_kernel(
 
     elif system == "hubbard":
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+        exp.hf_guess = False
 
     core_idx, cas_idx, _ = indices
 
@@ -596,9 +642,11 @@ def test_fci_kernel(
         ]
     )
 
-    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res, civec = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, False)
 
     assert res == pytest.approx(ref)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
 
 
 @pytest.mark.parametrize(

@@ -82,36 +82,47 @@ def kw_dist(mbe: MBE) -> MBE:
     """
     if mbe.mpi.global_master:
         # collect keywords (must be updated with new future attributes)
-        keywords = {
-            "method": mbe.method,
-            "cc_backend": mbe.cc_backend,
-            "hf_guess": mbe.hf_guess,
-            "target": mbe.target,
-            "point_group": mbe.point_group,
-            "fci_state_sym": mbe.fci_state_sym,
-            "fci_state_root": mbe.fci_state_root,
-            "orb_type": mbe.orb_type,
-            "base_method": mbe.base_method,
-            "screen_start": mbe.screen_start,
-            "screen_perc": mbe.screen_perc,
-            "max_order": mbe.max_order,
-            "rst": mbe.rst,
-            "rst_freq": mbe.rst_freq,
-            "restarted": mbe.restarted,
-            "verbose": mbe.verbose,
-            "pi_prune": mbe.pi_prune,
-            "no_singles": mbe.no_singles,
-        }
+        keywords = [
+            "method",
+            "cc_backend",
+            "hf_guess",
+            "target",
+            "point_group",
+            "fci_state_sym",
+            "fci_state_root",
+            "orb_type",
+            "ref_thres",
+            "base_method",
+            "screen_type",
+            "screen_start",
+            "screen_perc",
+            "screen_thres",
+            "screen_func",
+            "max_order",
+            "rst",
+            "rst_freq",
+            "restarted",
+            "verbose",
+            "dryrun",
+            "pi_prune",
+            "no_singles",
+        ]
+
+        # put keyword attributes that exist into dictionary
+        kw_dict = {}
+        for kw in keywords:
+            if hasattr(mbe, kw):
+                kw_dict[kw] = getattr(mbe, kw)
 
         # bcast to slaves
-        mbe.mpi.global_comm.bcast(keywords, root=0)
+        mbe.mpi.global_comm.bcast(kw_dict, root=0)
 
     else:
         # receive info from master
-        keywords = mbe.mpi.global_comm.bcast(None, root=0)
+        kw_dict = mbe.mpi.global_comm.bcast(None, root=0)
 
         # set mbe attributes from keywords
-        for key, val in keywords.items():
+        for key, val in kw_dict.items():
             setattr(mbe, key, val)
 
     return mbe
@@ -123,27 +134,38 @@ def system_dist(mbe: MBE) -> MBE:
     """
     if mbe.mpi.global_master:
         # collect system quantites (must be updated with new future attributes)
-        system = {
-            "norb": mbe.norb,
-            "nelec": mbe.nelec,
-            "orbsym": mbe.orbsym,
-            "ref_space": mbe.ref_space,
-            "exp_space": mbe.exp_space,
-            "base_prop": mbe.base_prop,
-            "orbsym_linear": mbe.orbsym_linear,
-            "full_norb": mbe.full_norb,
-            "full_nocc": mbe.full_nocc,
-        }
+        system = [
+            "norb",
+            "nelec",
+            "orbsym",
+            "ref_space",
+            "exp_space",
+            "base_prop",
+            "orbsym_linear",
+            "dipole_ints",
+            "full_norb",
+            "full_nocc",
+            "inact_fock",
+            "eri_goaa",
+            "eri_gaao",
+            "eri_gaaa",
+        ]
+
+        # put keyword attributes that exist into dictionary
+        system_dict = {}
+        for attr in system:
+            if hasattr(mbe, attr):
+                system_dict[attr] = getattr(mbe, attr)
 
         # bcast to slaves
-        mbe.mpi.global_comm.bcast(system, root=0)
+        mbe.mpi.global_comm.bcast(system_dict, root=0)
 
     else:
         # receive system quantites from master
-        system = mbe.mpi.global_comm.bcast(None, root=0)
+        system_dict = mbe.mpi.global_comm.bcast(None, root=0)
 
         # set mbe attributes from system dict
-        for key, val in system.items():
+        for key, val in system_dict.items():
             setattr(mbe, key, val)
 
     return mbe
@@ -220,36 +242,6 @@ def mpi_allreduce(
     # allreduce all tiles
     for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
         comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=op)
-
-    return recv_buff
-
-
-def mpi_gatherv(
-    comm: MPI.Comm,
-    send_buff: np.ndarray,
-    recv_buff: np.ndarray,
-    counts: np.ndarray,
-    root: int = 0,
-) -> np.ndarray:
-    """
-    this function performs a gatherv operation using point-to-point operations
-    inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-    """
-    # rank and size
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
-    if rank == root:
-        recv_tile: np.ndarray = np.ndarray(
-            recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff
-        )
-        recv_tile[: send_buff.size] = send_buff
-        # recv from all slaves
-        for slave in range(1, size):
-            slave_idx = np.sum(counts[:slave])
-            comm.Recv(recv_tile[slave_idx : slave_idx + counts[slave]], source=slave)
-    else:
-        comm.Send(send_buff, dest=root)
 
     return recv_buff
 

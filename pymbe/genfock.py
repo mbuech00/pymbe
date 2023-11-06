@@ -16,20 +16,19 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
-from pyscf import ao2mo, gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List, Optional
-
-from pymbe.expansion import (
-    ExpCls,
-    StateIntType,
-    StateArrayType,
-    MAX_MEM,
-    CONV_TOL,
-    SPIN_TOL,
+from pyscf import ao2mo
+from pyscf.cc import (
+    ccsd_t_lambda_slow as ccsd_t_lambda,
+    ccsd_t_rdm_slow as ccsd_t_rdm,
+    uccsd_t_lambda,
+    uccsd_t_rdm,
 )
+from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List
+
+from pymbe.logger import logger
+from pymbe.expansion import ExpCls, StateIntType, StateArrayType
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import (
     RST,
@@ -44,32 +43,22 @@ from pymbe.tools import (
     get_occup,
     get_nhole,
     get_nexc,
-    assertion,
     idx_tril,
+    write_file_mult,
 )
-from pymbe.parallel import (
-    mpi_reduce,
-    mpi_allreduce,
-    mpi_bcast,
-    mpi_gatherv,
-    open_shared_win,
-)
+from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import List, Union
+    from typing import Optional, Union, Dict
 
-    from pymbe.pymbe import MBE
     from pymbe.parallel import MPICls
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 
 class GenFockExpCls(
     ExpCls[
         GenFockCls,
+        Tuple[float, np.ndarray, np.ndarray],
         packedGenFockCls,
         Tuple[MPI.Win, MPI.Win, MPI.Win],
         StateIntType,
@@ -81,37 +70,12 @@ class GenFockExpCls(
     elements
     """
 
-    def __init__(self, mbe: MBE) -> None:
+    def __del__(self) -> None:
         """
-        init expansion attributes
+        finalizes expansion attributes
         """
-        super(GenFockExpCls, self).__init__(
-            mbe, GenFockCls(*cast(tuple, mbe.base_prop))
-        )
-
-        # additional system parameters
-        self.full_norb = cast(int, mbe.full_norb)
-        self.full_nocc = cast(int, mbe.full_nocc)
-
-        # additional integrals
-        (
-            self.inact_fock,
-            self.eri_goaa,
-            self.eri_gaao,
-            self.eri_gaaa,
-            self.inact_fock_win,
-            self.eri_goaa_win,
-            self.eri_gaao_win,
-            self.eri_gaaa_win,
-        ) = self._add_int_wins(
-            mbe.inact_fock, mbe.eri_goaa, mbe.eri_gaao, mbe.eri_gaaa, mbe.mpi
-        )
-
-        # additional settings
-        self.no_singles = mbe.no_singles
-
-        # initialize dependent attributes
-        self._init_dep_attrs(mbe)
+        # ensure the class attributes of packedGenFockCls are reset
+        packedGenFockCls.reset()
 
     def __del__(self) -> None:
         """
@@ -125,7 +89,7 @@ class GenFockExpCls(
         this function returns the final generalized Fock matrix elements
         """
         if len(self.mbe_tot_prop) > 0:
-            tot_targets = self.mbe_tot_prop[-1].copy() 
+            tot_targets = self.mbe_tot_prop[-1].copy()
         else:
             tot_targets = self._init_target_inst(0.0, self.norb, self.nocc)
         tot_targets += self.base_prop
@@ -166,100 +130,112 @@ class GenFockExpCls(
         """
         raise NotImplementedError
 
-    def _add_int_wins(
+    def free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        super(GenFockExpCls, self).free_ints()
+
+        # free additional integrals
+        self.inact_fock_win.Free()
+        self.eri_goaa_win.Free()
+        self.eri_gaao_win.Free()
+        self.eri_gaaa_win.Free()
+
+        return
+
+    def _int_wins(
         self,
-        inact_fock_in: Optional[np.ndarray],
-        eri_goaa_in: Optional[np.ndarray],
-        eri_gaao_in: Optional[np.ndarray],
-        eri_gaaa_in: Optional[np.ndarray],
         mpi: MPICls,
-    ) -> Tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        MPI.Win,
-        MPI.Win,
-        MPI.Win,
-        MPI.Win,
-    ]:
+        hcore: Optional[np.ndarray],
+        eri: Optional[np.ndarray],
+        inact_fock: Optional[np.ndarray] = None,
+        eri_goaa: Optional[np.ndarray] = None,
+        eri_gaao: Optional[np.ndarray] = None,
+        eri_gaaa: Optional[np.ndarray] = None,
+        **kwargs: Optional[np.ndarray],
+    ):
         """
-        this function creates shared memory windows for additional integrals on every
-        node
+        this function creates shared memory windows for integrals on every node
         """
+        super()._int_wins(mpi, hcore, eri)
+
         # allocate additional integrals in shared mem
-        inact_fock_win = MPI.Win.Allocate_shared(
+        self.inact_fock_win: MPI.Win = MPI.Win.Allocate_shared(
             8 * self.full_norb * (self.full_nocc + self.norb)
             if mpi.local_master
             else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
-        eri_goaa_win = MPI.Win.Allocate_shared(
+        self.eri_goaa_win: MPI.Win = MPI.Win.Allocate_shared(
             8 * self.full_norb * self.full_nocc * self.norb**2
             if mpi.local_master
             else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
-        eri_gaao_win = MPI.Win.Allocate_shared(
+        self.eri_gaao_win: MPI.Win = MPI.Win.Allocate_shared(
             8 * self.full_norb * self.norb**2 * self.full_nocc
             if mpi.local_master
             else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
-        eri_gaaa_win = MPI.Win.Allocate_shared(
+        self.eri_gaaa_win: MPI.Win = MPI.Win.Allocate_shared(
             8 * self.full_norb * self.norb**3 if mpi.local_master else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
 
         # open additional integrals in shared memory
-        inact_fock = open_shared_win(
-            inact_fock_win, np.float64, (self.full_norb, self.full_nocc + self.norb)
+        self.inact_fock: np.ndarray = open_shared_win(
+            self.inact_fock_win,
+            np.float64,
+            (self.full_norb, self.full_nocc + self.norb),
         )
-        eri_goaa = open_shared_win(
-            eri_goaa_win,
+        self.eri_goaa: np.ndarray = open_shared_win(
+            self.eri_goaa_win,
             np.float64,
             (self.full_norb, self.full_nocc, self.norb, self.norb),
         )
-        eri_gaao = open_shared_win(
-            eri_gaao_win,
+        self.eri_gaao: np.ndarray = open_shared_win(
+            self.eri_gaao_win,
             np.float64,
             (self.full_norb, self.norb, self.norb, self.full_nocc),
         )
-        eri_gaaa = open_shared_win(
-            eri_gaaa_win, np.float64, (self.full_norb, self.norb, self.norb, self.norb)
+        self.eri_gaaa: np.ndarray = open_shared_win(
+            self.eri_gaaa_win,
+            np.float64,
+            (self.full_norb, self.norb, self.norb, self.norb),
         )
 
-        # set set additional integrals on global master
+        # set additional integrals on global master
         if mpi.global_master:
-            inact_fock[:] = cast(np.ndarray, inact_fock_in)
-            eri_goaa[:] = cast(np.ndarray, eri_goaa_in)
-            eri_gaao[:] = cast(np.ndarray, eri_gaao_in)
-            eri_gaaa[:] = cast(np.ndarray, eri_gaaa_in)
+            self.inact_fock[:] = cast(np.ndarray, inact_fock)
+            self.eri_goaa[:] = cast(np.ndarray, eri_goaa)
+            self.eri_gaao[:] = cast(np.ndarray, eri_gaao)
+            self.eri_gaaa[:] = cast(np.ndarray, eri_gaaa)
 
         # mpi_bcast additional integrals
         if mpi.num_masters > 1 and mpi.local_master:
-            inact_fock[:] = mpi_bcast(mpi.master_comm, inact_fock)
-            eri_goaa[:] = mpi_bcast(mpi.master_comm, eri_goaa)
-            eri_gaao[:] = mpi_bcast(mpi.master_comm, eri_gaao)
-            eri_gaaa[:] = mpi_bcast(mpi.master_comm, eri_gaaa)
+            self.inact_fock[:] = mpi_bcast(mpi.master_comm, self.inact_fock)
+            self.eri_goaa[:] = mpi_bcast(mpi.master_comm, self.eri_goaa)
+            self.eri_gaao[:] = mpi_bcast(mpi.master_comm, self.eri_gaao)
+            self.eri_gaaa[:] = mpi_bcast(mpi.master_comm, self.eri_gaaa)
 
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return (
-            inact_fock,
-            eri_goaa,
-            eri_gaao,
-            eri_gaaa,
-            inact_fock_win,
-            eri_goaa_win,
-            eri_gaao_win,
-            eri_gaaa_win,
-        )
+        return
+
+    @staticmethod
+    def _convert_to_target(prop: Tuple[float, np.ndarray, np.ndarray]) -> GenFockCls:
+        """
+        this function converts the input target type into the used target type
+        """
+        return GenFockCls(*prop)
 
     def _calc_hf_prop(
         self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
@@ -315,20 +291,32 @@ class GenFockExpCls(
 
         return GenFockCls(hf_energy, hf_rdm1, hf_gen_fock)
 
-    def free_ints(self) -> None:
+    def _ref_results(self, ref_prop: GenFockCls) -> str:
         """
-        this function deallocates integrals in shared memory after the calculation is
-        done
+        this function prints reference space results for a target calculation
         """
-        super(GenFockExpCls, self).free_ints()
+        energy = (
+            f"reference space energy for root {self.fci_state_root} "
+            + f"(total increment = {ref_prop.energy:.4e})"
+        )
+        header_rdm1 = f"reference space 1-particle RDM for root {self.fci_state_root}"
+        rdm1 = f"(total increment norm = {np.linalg.norm(ref_prop.rdm1):.4e})"
+        header_gen_fock = (
+            f"reference space generalized Fock matrix for root {self.fci_state_root}"
+        )
+        gen_fock = f"(total increment norm = {np.linalg.norm(ref_prop.gen_fock):.4e})"
 
-        # free additional integrals
-        self.inact_fock_win.Free()
-        self.eri_goaa_win.Free()
-        self.eri_gaao_win.Free()
-        self.eri_gaaa_win.Free()
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {energy:^80}\n"
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {header_rdm1:^80}\n"
+        string += f" RESULT: {rdm1:^80}\n"
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {header_gen_fock:^80}\n"
+        string += f" RESULT: {gen_fock:^80}\n"
+        string += DIVIDER_OUTPUT
 
-        return
+        return string
 
     def _inc(
         self,
@@ -337,14 +325,12 @@ class GenFockExpCls(
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[GenFockCls, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> GenFockCls:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
         gen_fock = self._kernel(
             self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
@@ -365,7 +351,7 @@ class GenFockExpCls(
         # subtract reference space properties
         gen_fock[idx, gen_fock_idx] -= self.ref_prop
 
-        return gen_fock, nelec
+        return gen_fock
 
     def _sum(
         self,
@@ -471,8 +457,8 @@ class GenFockExpCls(
         this function returns the results of a cc calculation
         """
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
-        singlet = spin_cas == 0
+        if spin_cas != self.spin:
+            raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
 
         # number of holes in cas space
         nhole = get_nhole(nelec, cas_idx)
@@ -480,55 +466,10 @@ class GenFockExpCls(
         # number of possible excitations in cas space
         nexc = get_nexc(nelec, nhole)
 
-        # init ccsd solver
-        mol_tmp = gto.Mole(verbose=0)
-        mol_tmp._built = True
-        mol_tmp.max_memory = MAX_MEM
-        mol_tmp.incore_anyway = True
-
-        if singlet:
-            hf = scf.RHF(mol_tmp)
-        else:
-            hf = scf.UHF(mol_tmp)
-
-        hf.get_hcore = lambda *args: h1e
-        hf._eri = h2e
-
-        if singlet:
-            ccsd = cc.ccsd.CCSD(
-                hf, mo_coeff=np.eye(cas_idx.size), mo_occ=self.occup[cas_idx]
-            )
-        else:
-            ccsd = cc.uccsd.UCCSD(
-                hf,
-                mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))),
-                mo_occ=np.array(
-                    (self.occup[cas_idx] > 0.0, self.occup[cas_idx] == 2.0),
-                    dtype=np.double,
-                ),
-            )
-
-        # settings
-        ccsd.conv_tol = CONV_TOL
-        ccsd.conv_tol_normt = ccsd.conv_tol
-        ccsd.max_cycle = 500
-        ccsd.async_io = False
-        ccsd.diis_start_cycle = 4
-        ccsd.diis_space = 12
-        ccsd.incore_complete = True
-        eris = ccsd.ao2mo()
-
-        # calculate ccsd energy
-        ccsd.kernel(eris=eris)
-
-        # convergence check
-        assertion(
-            ccsd.converged,
-            f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
+        # run ccsd calculation
+        e_cc, ccsd, eris = self._ccsd_driver_pyscf(
+            h1e, h2e, core_idx, cas_idx, spin_cas, converge_amps=True
         )
-
-        # e_corr
-        e_cc = ccsd.e_corr
 
         # calculate (t) correction
         if method == "ccsd(t)":
@@ -548,25 +489,19 @@ class GenFockExpCls(
             rdm1 = ccsd.make_rdm1()
             rdm2 = ccsd.make_rdm2()
         elif method == "ccsd(t)":
-            if singlet:
-                l1, l2 = cc.ccsd_t_lambda_slow.kernel(ccsd, eris=eris, verbose=0)[1:]
-                rdm1 = cc.ccsd_t_rdm_slow.make_rdm1(
-                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
-                )
-                rdm2 = cc.ccsd_t_rdm_slow.make_rdm2(
-                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
-                )
+            if spin_cas == 0:
+                l1, l2 = ccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
+                rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                rdm2 = ccsd_t_rdm.make_rdm2(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
             else:
-                l1, l2 = cc.uccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
-                rdm1 = cc.uccsd_t_rdm.make_rdm1(
-                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
-                )
-                rdm2 = cc.uccsd_t_rdm.make_rdm2(
-                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
-                )
-        if not singlet:
-            rdm1 = rdm1[0] + rdm1[1]
-            rdm2 = rdm2[0] + rdm2[1] + rdm2[2] + rdm2[3]
+                l1, l2 = uccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
+                rdm1 = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                rdm2 = uccsd_t_rdm.make_rdm2(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+
+        if spin_cas == 0:
+            rdm12 = RDMCls(rdm1, rdm2)
+        else:
+            rdm12 = RDMCls(rdm1[0] + rdm1[1], rdm2[0] + rdm2[1] + rdm2[2] + rdm2[3])
 
         # calculate generalized Fock matrix elements
         gen_fock = self._calc_gen_fock(core_idx, cas_idx, rdm1, rdm2)
@@ -656,20 +591,15 @@ class GenFockExpCls(
         this function defines how to write restart files for instances of the target
         type
         """
-        if order is None:
-            np.savez(
-                os.path.join(RST, f"{string}"),
-                energy=prop.energy,
-                rdm1=prop.rdm1,
-                gen_fock=prop.gen_fock,
-            )
-        else:
-            np.savez(
-                os.path.join(RST, f"{string}_{order}"),
-                energy=prop.energy,
-                rdm1=prop.rdm1,
-                gen_fock=prop.gen_fock,
-            )
+        write_file_mult(
+            {
+                "energy": np.array(prop.energy),
+                "rdm1": prop.rdm1,
+                "gen_fock": prop.gen_fock,
+            },
+            string,
+            order,
+        )
 
     @staticmethod
     def _read_target_file(file: str) -> GenFockCls:
@@ -769,7 +699,7 @@ class GenFockExpCls(
     def _open_shared_inc(
         self,
         window: Tuple[MPI.Win, MPI.Win, MPI.Win],
-        n_tuples: int,
+        n_incs: int,
         tup_norb: int,
         tup_nocc: int,
     ) -> packedGenFockCls:
@@ -781,16 +711,45 @@ class GenFockExpCls(
             self.nocc + self.ref_space.size - self.ref_occ.size + tup_norb - tup_nocc
         )
 
-        return packedGenFockCls(
-            open_shared_win(window[0], np.float64, (n_tuples,)),
-            packedGenFockCls.open_shared_RDM(window[1], n_tuples, tup_norb - 1),
-            open_shared_win(
-                window[2],
-                np.float64,
-                (n_tuples, gen_fock_norb, self.full_norb),
-            ),
-            tup_norb - 1,
+        # open shared windows
+        energy = open_shared_win(window[0], np.float64, (n_incs,))
+        rdm1 = open_shared_win(
+            window[1], np.float64, (n_incs, packedGenFockCls.rdm1_size[tup_norb - 1])
         )
+        gen_fock = open_shared_win(
+            window[2], np.float64, (n_incs, gen_fock_norb, self.full_norb)
+        )
+
+        return packedGenFockCls(energy, rdm1, gen_fock, tup_norb - 1)
+
+    def _init_inc_arr_from_lst(
+        self, inc_lst: List[GenFockCls], tup_norb: int, tup_nocc: int
+    ) -> packedGenFockCls:
+        """
+        this function creates an increment array from a list of increments
+        """
+        # get number of orbitals for generalized Fock matrix
+        gen_fock_norb = (
+            self.nocc + self.ref_space.size - self.ref_occ.size + tup_norb - tup_nocc
+        )
+
+        # initialize arrays
+        energy = np.empty(len(inc_lst), dtype=np.float64)
+        rdm1 = np.empty(
+            (len(inc_lst), packedGenFockCls.rdm1_size[-1]), dtype=np.float64
+        )
+        gen_fock = np.empty(
+            (len(inc_lst), gen_fock_norb, self.full_norb),
+            dtype=np.float64,
+        )
+
+        # fill arrays
+        for i, inc in enumerate(inc_lst):
+            energy[i] = inc.energy
+            rdm1[i] = inc.rdm1[packedGenFockCls.pack_rdm1[-1]]
+            gen_fock[i] = inc.gen_fock
+
+        return packedGenFockCls(energy, rdm1, gen_fock)
 
     @staticmethod
     def _mpi_bcast_inc(comm: MPI.Comm, inc: packedGenFockCls) -> packedGenFockCls:
@@ -831,36 +790,41 @@ class GenFockExpCls(
 
     @staticmethod
     def _mpi_gatherv_inc(
-        comm: MPI.Comm, send_inc: packedGenFockCls, recv_inc: packedGenFockCls
-    ) -> packedGenFockCls:
+        comm: MPI.Comm, send_inc: packedGenFockCls, recv_inc: Optional[packedGenFockCls]
+    ) -> None:
         """
         this function performs a MPI gatherv operation on the increments
         """
-        # number of increments for every rank
-        recv_counts = {
-            "energy": np.array(comm.allgather(send_inc.energy.size)),
+        # size of arrays on every rank
+        counts_dict = {
+            "energy": np.array(comm.gather(send_inc.energy.size)),
             "rdm1": np.array(comm.allgather(send_inc.rdm1.size)),
-            "gen_fock": np.array(comm.allgather(send_inc.gen_fock.size)),
+            "gen_fock": np.array(comm.gather(send_inc.gen_fock.size)),
         }
 
-        return packedGenFockCls(
-            mpi_gatherv(comm, send_inc.energy, recv_inc.energy, recv_counts["energy"]),
-            mpi_gatherv(comm, send_inc.rdm1, recv_inc.rdm1, recv_counts["rdm1"]),
-            mpi_gatherv(
-                comm, send_inc.gen_fock, recv_inc.gen_fock, recv_counts["gen_fock"]
-            ),
-        )
+        # receiving arrays
+        recv_inc_dict: Dict[str, Optional[np.ndarray]] = {}
+        if recv_inc is not None:
+            recv_inc_dict["energy"] = recv_inc.energy
+            recv_inc_dict["rdm1"] = recv_inc.rdm1
+            recv_inc_dict["gen_fock"] = recv_inc.gen_fock
+        else:
+            recv_inc_dict["energy"] = recv_inc_dict["rdm1"] = recv_inc_dict[
+                "gen_fock"
+            ] = None
 
-    @staticmethod
-    def _flatten_inc(inc_lst: List[packedGenFockCls], order: int) -> packedGenFockCls:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return packedGenFockCls(
-            np.array([inc.energy for inc in inc_lst]).reshape(-1),
-            np.array([inc.rdm1 for inc in inc_lst]).reshape(-1),
-            np.array([inc.gen_fock for inc in inc_lst]).reshape(-1),
-            order,
+        comm.Gatherv(
+            send_inc.energy, (recv_inc_dict["energy"], counts_dict["energy"]), root=0
+        )
+        comm.Gatherv(
+            send_inc.rdm1.ravel(),
+            (recv_inc_dict["rdm1"], counts_dict["rdm1"]),
+            root=0,
+        )
+        comm.Gatherv(
+            send_inc.gen_fock.ravel(),
+            (recv_inc_dict["gen_fock"], counts_dict["gen_fock"]),
+            root=0,
         )
 
     @staticmethod
@@ -873,16 +837,21 @@ class GenFockExpCls(
         inc_win[2].Free()
 
     @staticmethod
-    def _screen(
-        inc_tup: GenFockCls, screen: np.ndarray, tup: np.ndarray, screen_func: str
+    def _add_screen(
+        inc_tup: Union[GenFockCls, packedGenFockCls],
+        screen: np.ndarray,
+        tup: np.ndarray,
+        screen_func: str,
     ) -> np.ndarray:
         """
         this function modifies the screening array
         """
-        if screen_func == "sum":
-            return screen[tup] + np.sum(np.abs(inc_tup.rdm1))
-        else:
+        if screen_func == "max":
             return np.maximum(screen[tup], np.max(np.abs(inc_tup.rdm1)))
+        elif screen_func == "sum_abs":
+            return screen[tup] + np.sum(np.abs(inc_tup.gen_fock))
+        else:
+            raise ValueError
 
     def _update_inc_stats(
         self,
@@ -891,6 +860,7 @@ class GenFockExpCls(
         mean_inc: GenFockCls,
         max_inc: GenFockCls,
         cas_idx: np.ndarray,
+        n_eqv_tups: int,
     ) -> Tuple[GenFockCls, GenFockCls, GenFockCls]:
         """
         this function updates the increment statistics
@@ -1014,152 +984,31 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-    ) -> GenFockCls:
+        ref_guess: bool = True,
+    ) -> Tuple[GenFockCls, List[np.ndarray]]:
         """
         this function returns the results of a fci calculation
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
-        # init fci solver
-        if spin_cas == 0:
-            solver = fci.direct_spin0_symm.FCI()
-        else:
-            solver = fci.direct_spin1_symm.FCI()
+        # run fci calculation
+        energy, civec, solver = self._fci_driver(
+            e_core,
+            h1e,
+            h2e,
+            cas_idx,
+            nelec,
+            spin_cas,
+            self.fci_state_sym,
+            [self.fci_state_root],
+            ref_guess,
+        )
 
-        # create special function for hamiltonian operation when singles are omitted
-        if not self.no_singles:
-            hop = None
-
-        else:
-            # get link indices
-            link_indexa = fci.cistring.gen_linkstr_index_trilidx(
-                range(cas_idx.size), nelec[0]
-            )
-            link_indexb = fci.cistring.gen_linkstr_index_trilidx(
-                range(cas_idx.size), nelec[1]
-            )
-
-            # get indices of singly excited determinants with respect to alpha and
-            # beta orbitals
-            t1_addrs_a = np.array(
-                [
-                    fci.cistring.str2addr(cas_idx.size, nelec[0], x)
-                    for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
-                ]
-            )
-            t1_addrs_b = np.array(
-                [
-                    fci.cistring.str2addr(cas_idx.size, nelec[1], x)
-                    for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
-                ]
-            )
-            t1_idx = np.concatenate((t1_addrs_a, t1_addrs_b * link_indexa.shape[0]))
-
-            # get symmetry-allowed indices
-            sym_idx = np.hstack(
-                fci.direct_spin1_symm.sym_allowed_indices(
-                    nelec, self.orbsym[cas_idx], self.fci_state_sym
-                )
-            )
-
-            # get indices of symmetry-allowed singly excited determinants
-            t1_sym_idx = np.where(np.isin(sym_idx, t1_idx))[0]
-
-            # absorb one-electron contribution into two-electron integrals
-            h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
-
-            # define hamilton operation
-            def hop(c):
-                hc = solver.contract_2e(
-                    h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
-                ).ravel()
-                hc[t1_sym_idx] = 0.0
-                return hc
-
-        # settings
-        solver.conv_tol = CONV_TOL
-        solver.max_memory = MAX_MEM
-        solver.max_cycle = 5000
-        solver.max_space = 25
-        solver.davidson_only = True
-        solver.pspace_size = 0
-        if self.verbose >= 3:
-            solver.verbose = 10
-        solver.wfnsym = self.fci_state_sym
-        solver.orbsym = self.orbsym[cas_idx]
-        solver.nroots = self.fci_state_root + 1
-
-        # hf starting guess
-        if self.hf_guess:
-            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
-            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
-            ci0 = np.zeros((na, nb))
-            ci0[0, 0] = 1
-        else:
-            ci0 = None
-
-        # interface
-        def _fci_interface() -> Tuple[List[float], List[np.ndarray]]:
-            """
-            this function provides an interface to solver.kernel
-            """
-            # perform calc
-            e, c = solver.kernel(
-                h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0, hop=hop
-            )
-
-            # collect results
-            if solver.nroots == 1:
-                return [e], [c]
-            else:
-                return [e[0], e[-1]], [c[0], c[-1]]
-
-        # perform calc
-        energy, civec = _fci_interface()
-
-        # multiplicity check
-        for root in range(len(civec)):
-            s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-
-            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-                # fix spin by applying level shift
-                sz = np.abs(nelec[0] - nelec[1]) * 0.5
-                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
-
-                # perform calc
-                energy, civec = _fci_interface()
-
-                # verify correct spin
-                for root in range(len(civec)):
-                    s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-                    assertion(
-                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
-                        f"spin contamination for root entry = {root}\n"
-                        f"2*S + 1 = {mult:.6f}\n"
-                        f"cas_idx = {cas_idx}\n"
-                        f"cas_sym = {self.orbsym[cas_idx]}",
-                    )
-
-        # convergence check
-        if solver.nroots == 1:
-            assertion(
-                solver.converged,
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        else:
-            assertion(
-                solver.converged[-1],
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        rdm1, rdm2 = solver.make_rdm12(civec[-1], cas_idx.size, nelec)
+        # calculate 1- and 2-RDMs
+        rdm1, rdm2 = solver.make_rdm12(civec[0], cas_idx.size, nelec)
 
         # calculate generalized Fock matrix elements
         gen_fock = self._calc_gen_fock(core_idx, cas_idx, rdm1, rdm2)
@@ -1170,7 +1019,7 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         # get hartree-fock property
         hf_prop = self.hf_prop[cas_idx, gen_fock_idx]
 
-        return GenFockCls(energy[-1], rdm1, gen_fock) - hf_prop
+        return GenFockCls(energy[-1], rdm1, gen_fock) - hf_prop, civec
 
     def _mbe_debug(
         self,
@@ -1185,11 +1034,11 @@ class ssGenFockExpCls(GenFockExpCls[int, np.ndarray]):
         string = mbe_debug(
             self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
         )
+        string += (
+            f"      energy increment for root {self.fci_state_root:d} "
+            + f"= {inc_tup.energy:.4e}\n"
+        )
         if logger.getEffectiveLevel() == 10:
-            string += (
-                f"      energy increment for root {self.fci_state_root:d} "
-                + f"= {inc_tup.energy:.4e}\n"
-            )
             string += (
                 f"      rdm1 increment for root {self.fci_state_root:d} = "
                 + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
@@ -1226,8 +1075,9 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
         h2e: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        nelec: np.ndarray,
-    ) -> GenFockCls:
+        _nelec: np.ndarray,
+        ref_guess: bool = True,
+    ) -> Tuple[GenFockCls, List[np.ndarray]]:
         """
         this function returns the results of a fci calculation
         """
@@ -1268,9 +1118,8 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
             # spin
             spin_cas = abs(nelec[0] - nelec[1])
-            assertion(
-                spin_cas == state["spin"], f"casci wrong spin in space: {cas_idx}"
-            )
+            if spin_cas != state["spin"]:
+                raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
             # loop over solver settings
             for solver_info in solvers:
@@ -1297,161 +1146,23 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
 
         # loop over solvers
         for solver_info in solvers:
-            # init fci solver
-            if solver_info["spin"] == 0:
-                solver = fci.direct_spin0_symm.FCI()
-            else:
-                solver = fci.direct_spin1_symm.FCI()
-
-            # create special function for hamiltonian operation when singles are omitted
-            if not self.no_singles:
-                hop = None
-
-            else:
-                # get link indices
-                link_indexa = fci.cistring.gen_linkstr_index_trilidx(
-                    range(cas_idx.size), nelec[0]
-                )
-                link_indexb = fci.cistring.gen_linkstr_index_trilidx(
-                    range(cas_idx.size), nelec[1]
-                )
-
-                # get indices of singly excited determinants with respect to alpha and
-                # beta orbitals
-                t1_addrs_a = np.array(
-                    [
-                        fci.cistring.str2addr(cas_idx.size, nelec[0], x)
-                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[0], 1)
-                    ]
-                )
-                t1_addrs_b = np.array(
-                    [
-                        fci.cistring.str2addr(cas_idx.size, nelec[1], x)
-                        for x in fci.cistring.tn_strs(cas_idx.size, nelec[1], 1)
-                    ]
-                )
-                t1_idx = np.concatenate((t1_addrs_a, t1_addrs_b * link_indexa.shape[0]))
-
-                # get symmetry-allowed indices
-                sym_idx = np.hstack(
-                    fci.direct_spin1_symm.sym_allowed_indices(
-                        nelec, self.orbsym[cas_idx], self.fci_state_sym
-                    )
-                )
-
-                # get indices of symmetry-allowed singly excited determinants
-                t1_sym_idx = np.where(np.isin(sym_idx, t1_idx))[0]
-
-                # absorb one-electron contribution into two-electron integrals
-                h2e_abs = solver.absorb_h1e(h1e, h2e, cas_idx.size, nelec, 0.5)
-
-                # define hamilton operation
-                def hop(c):
-                    hc = solver.contract_2e(
-                        h2e_abs, c, cas_idx.size, nelec, (link_indexa, link_indexb)
-                    ).ravel()
-                    hc[t1_sym_idx] = 0.0
-                    return hc
-
-            # get roots
+            # get roots for this solver
             roots = [states[state]["root"] for state in solver_info["states"]]
 
-            # settings
-            solver.conv_tol = CONV_TOL
-            solver.max_memory = MAX_MEM
-            solver.max_cycle = 5000
-            solver.max_space = 25
-            solver.davidson_only = True
-            solver.pspace_size = 0
-            if self.verbose >= 3:
-                solver.verbose = 10
-            solver.wfnsym = solver_info["sym"]
-            solver.orbsym = self.orbsym[cas_idx]
-            solver.nroots = max(roots) + 1
+            # run fci calculation
+            energy, civec, solver = self._fci_driver(
+                e_core,
+                h1e,
+                h2e,
+                cas_idx,
+                solver_info["nelec"],
+                solver_info["spin"],
+                solver_info["sym"],
+                roots,
+                ref_guess,
+            )
 
-            # hf starting guess
-            if self.hf_guess:
-                na = fci.cistring.num_strings(cas_idx.size, solver_info["nelec"][0])
-                nb = fci.cistring.num_strings(cas_idx.size, solver_info["nelec"][1])
-                ci0 = np.zeros((na, nb))
-                ci0[0, 0] = 1
-            else:
-                ci0 = None
-
-            # interface
-            def _fci_interface(
-                roots: List[int],
-            ) -> Tuple[List[float], List[np.ndarray]]:
-                """
-                this function provides an interface to solver.kernel
-                """
-                # perform calc
-                e, c = solver.kernel(
-                    h1e,
-                    h2e,
-                    cas_idx.size,
-                    solver_info["nelec"],
-                    ecore=e_core,
-                    ci0=ci0,
-                    hop=hop,
-                )
-
-                # collect results
-                if solver.nroots == 1:
-                    return [e], [c]
-                else:
-                    return [e[root] for root in roots], [c[root] for root in roots]
-
-            # perform calc
-            energy, civec = _fci_interface(roots)
-
-            # multiplicity check
-            for root in range(len(civec)):
-                s, mult = solver.spin_square(
-                    civec[root], cas_idx.size, solver_info["nelec"]
-                )
-
-                if np.abs((solver_info["spin"] + 1) - mult) > SPIN_TOL:
-                    # fix spin by applying level shift
-                    sz = np.abs(solver_info["nelec"][0] - solver_info["nelec"][1]) * 0.5
-                    solver = fci.addons.fix_spin_(
-                        solver, shift=0.25, ss=sz * (sz + 1.0)
-                    )
-
-                    # perform calc
-                    energy, civec = _fci_interface(roots)
-
-                    # verify correct spin
-                    for root in range(len(civec)):
-                        s, mult = solver.spin_square(
-                            civec[root], cas_idx.size, solver_info["nelec"]
-                        )
-                        assertion(
-                            np.abs((solver_info["spin"] + 1) - mult) < SPIN_TOL,
-                            f"spin contamination for root entry = {root}\n"
-                            f"2*S + 1 = {mult:.6f}\n"
-                            f"cas_idx = {cas_idx}\n"
-                            f"cas_sym = {self.orbsym[cas_idx]}",
-                        )
-
-            # convergence check
-            if solver.nroots == 1:
-                assertion(
-                    solver.converged,
-                    f"state {root} not converged\n"
-                    f"cas_idx = {cas_idx}\n"
-                    f"cas_sym = {self.orbsym[cas_idx]}",
-                )
-
-            else:
-                for root in roots:
-                    assertion(
-                        solver.converged[root],
-                        f"state {root} not converged\n"
-                        f"cas_idx = {cas_idx}\n"
-                        f"cas_sym = {self.orbsym[cas_idx]}",
-                    )
-
+            # calculate state-averaged energy and 1- and 2-RDMs
             for root, state_idx in zip(roots, solver_info["states"]):
                 sa_energy += self.fci_state_weights[state_idx] * energy[root]
                 sa_rdm12 += self.fci_state_weights[state_idx] * RDMCls(
@@ -1469,7 +1180,7 @@ class saGenFockExpCls(GenFockExpCls[List[int], List[np.ndarray]]):
         # get hartree-fock property
         hf_prop = self.hf_prop[cas_idx, gen_fock_idx]
 
-        return GenFockCls(sa_energy, sa_rdm12.rdm1, sa_gen_fock) - hf_prop
+        return GenFockCls(sa_energy, sa_rdm12.rdm1, sa_gen_fock) - hf_prop, civec
 
     def _mbe_debug(
         self,

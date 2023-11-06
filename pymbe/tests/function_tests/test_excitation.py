@@ -28,7 +28,16 @@ if TYPE_CHECKING:
     from pymbe.pymbe import MBE
 
 test_cases_ref_prop = [
-    ("h2o", "fci", None, "pyscf", 1, 0.7060145137233889),
+    (
+        "h2o",
+        "fci",
+        None,
+        "pyscf",
+        1,
+        0.7060145137233889,
+        (1.0, 1.0),
+        (0.9856854425080487, 0.4710257978333213),
+    ),
 ]
 
 test_cases_kernel = [
@@ -37,8 +46,20 @@ test_cases_kernel = [
 ]
 
 test_cases_fci_kernel = [
-    ("h2o", 1, 1.35065890634786),
-    ("hubbard", 1, 1.8507741999568346),
+    (
+        "h2o",
+        1,
+        1.35065890634786,
+        (1.0, 1.0),
+        (0.9979706719230536, 0.4951968133086011),
+    ),
+    (
+        "hubbard",
+        1,
+        1.8507741999568346,
+        (1.0, 1.0),
+        (0.14031179591440077, 0.2135931586339437),
+    ),
 ]
 
 
@@ -54,7 +75,8 @@ def exp(mbe: MBE):
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, cc_backend, root, ref_res",
+    argnames="system, method, base_method, cc_backend, root, ref_res, ref_civec_sum, "
+    "ref_civec_amax",
     argvalues=test_cases_ref_prop,
     ids=[
         "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
@@ -72,6 +94,8 @@ def test_ref_prop(
     cc_backend: str,
     root: int,
     ref_res: float,
+    ref_civec_sum: Tuple[float, float],
+    ref_civec_amax: Tuple[float, float],
 ) -> None:
     """
     this function tests ref_prop
@@ -83,11 +107,21 @@ def test_ref_prop(
     exp.hcore, exp.eri = ints
     exp.vhf = vhf
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
+    exp.ref_nelec = np.array(
+        [
+            np.count_nonzero(exp.occup[exp.ref_space] > 0.0),
+            np.count_nonzero(exp.occup[exp.ref_space] > 1.0),
+        ],
+    )
     exp.base_method = base_method
 
-    res = exp._ref_prop(mbe.mpi)
+    res, civec = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum[0])
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax[0])
+    assert np.sum(civec[1] ** 2) == pytest.approx(ref_civec_sum[1])
+    assert np.amax(civec[1] ** 2) == pytest.approx(ref_civec_amax[1])
 
 
 @pytest.mark.parametrize(
@@ -119,6 +153,7 @@ def test_kernel(
 
     elif system == "hubbard":
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+        exp.hf_guess = False
 
     core_idx, cas_idx, _ = indices
 
@@ -131,13 +166,15 @@ def test_kernel(
         ]
     )
 
-    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res = exp._kernel(
+        method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, ref_guess=False
+    )
 
     assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(
-    argnames="system, root, ref",
+    argnames="system, root, ref, ref_civec_sum, ref_civec_amax",
     argvalues=test_cases_fci_kernel,
     ids=[case[0] for case in test_cases_fci_kernel],
     indirect=["system"],
@@ -151,6 +188,8 @@ def test_fci_kernel(
     orbsym: np.ndarray,
     root: int,
     ref: float,
+    ref_civec_sum: Tuple[float, float],
+    ref_civec_amax: Tuple[float, float],
 ) -> None:
     """
     this function tests _fci_kernel
@@ -163,6 +202,7 @@ def test_fci_kernel(
 
     elif system == "hubbard":
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+        exp.hf_guess = False
 
     core_idx, cas_idx, _ = indices
 
@@ -175,6 +215,10 @@ def test_fci_kernel(
         ]
     )
 
-    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+    res, civec = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, False)
 
     assert res == pytest.approx(ref)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum[0])
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax[0])
+    assert np.sum(civec[1] ** 2) == pytest.approx(ref_civec_sum[1])
+    assert np.amax(civec[1] ** 2) == pytest.approx(ref_civec_amax[1])

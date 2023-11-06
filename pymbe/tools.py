@@ -16,25 +16,20 @@ __status__ = "Development"
 
 import os
 import re
-import sys
-import logging
+import operator
 import numpy as np
 from math import comb
-from mpi4py import MPI
-from pyscf import symm, ao2mo
+from pyscf import symm, ao2mo, fci
 from itertools import islice, combinations, groupby
+from bisect import insort
 from subprocess import Popen, PIPE
-from traceback import format_stack
 from typing import TYPE_CHECKING, overload
 
-from pymbe.parallel import open_shared_win
+from pymbe.logger import logger
 
 if TYPE_CHECKING:
-    from typing import Tuple, List, Generator, Union, Optional
+    from typing import Tuple, List, Generator, Union, Optional, Dict, Set, Callable
 
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
 
 # restart folder
 RST = os.getcwd() + "/rst"
@@ -204,9 +199,7 @@ class RDMCls:
 
 class packedRDMCls:
     """
-    this class describes packed RDMs, instances of this class can either be created
-    normally using __init__() or by opening a shared memory instance with
-    open_shared_RDM
+    this class describes packed RDMs
     """
 
     rdm1_size: List[int] = []
@@ -236,19 +229,6 @@ class packedRDMCls:
         cls.rdm2_size = []
         cls.pack_rdm2 = []
         cls.unpack_rdm2 = []
-
-    @classmethod
-    def open_shared_RDM(
-        cls, inc_win: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
-    ) -> packedRDMCls:
-        """
-        this factory function initializes a packedRDMCls object in shared memory
-        """
-        # open shared windows
-        rdm1 = open_shared_win(inc_win[0], np.float64, (n_tuples, cls.rdm1_size[idx]))
-        rdm2 = open_shared_win(inc_win[1], np.float64, (n_tuples, cls.rdm2_size[idx]))
-
-        return cls(rdm1, rdm2, idx)
 
     @classmethod
     def get_pack_idx(cls, norb) -> None:
@@ -314,19 +294,34 @@ class packedRDMCls:
         )
         cls.unpack_rdm2.append(unpack_rdm2)
 
-    def __getitem__(self, idx: Union[int, np.int64, slice, np.ndarray]) -> packedRDMCls:
+    @overload
+    def __getitem__(self, idx: Union[int, np.int64]) -> RDMCls:
+        ...
+
+    @overload
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedRDMCls:
+        ...
+
+    def __getitem__(
+        self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
+    ) -> Union[RDMCls, packedRDMCls]:
         """
         this function ensures packedRDMCls can be retrieved through indexing
         packedRDMCls objects
         """
-        if isinstance(idx, (int, np.integer, slice, np.ndarray)):
+        if isinstance(idx, (int, np.integer)):
+            return RDMCls(
+                self.rdm1[idx][self.unpack_rdm1[self.idx]],
+                self.rdm2[idx][self.unpack_rdm2[self.idx]],
+            )
+        elif isinstance(idx, (slice, np.ndarray, list)):
             return packedRDMCls(self.rdm1[idx], self.rdm2[idx], self.idx)
         else:
             return NotImplemented
 
     def __setitem__(
         self,
-        idx: Union[int, np.int64, slice, np.ndarray],
+        idx: Union[int, np.int64, slice, np.ndarray, list],
         values: Union[
             float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, packedGenFockCls
         ],
@@ -335,7 +330,9 @@ class packedRDMCls:
         this function ensures indexed packedRDMCls can be set using packedRDMCls or
         RDMCls objects
         """
-        if isinstance(idx, (slice, np.ndarray)) and isinstance(values, packedRDMCls):
+        if isinstance(idx, (slice, np.ndarray, list)) and isinstance(
+            values, packedRDMCls
+        ):
             self.rdm1[idx] = values.rdm1
             self.rdm2[idx] = values.rdm2
         elif isinstance(idx, (int, np.integer)) and isinstance(values, RDMCls):
@@ -530,9 +527,7 @@ class GenFockCls:
 
 class packedGenFockCls:
     """
-    this class describes a packed version of GenFockCls, instances of this class can
-    either be created normally using __init__() or by opening a shared memory instance
-    with open_shared_RDM
+    this class describes a packed version of GenFockCls
     """
 
     rdm1_size: List[int] = []
@@ -561,13 +556,6 @@ class packedGenFockCls:
         cls.unpack_rdm1 = []
 
     @classmethod
-    def open_shared_RDM(cls, inc_win: MPI.Win, n_tuples: int, idx: int) -> np.ndarray:
-        """
-        this factory function initializes a packedGenFockCls object in shared memory
-        """
-        return open_shared_win(inc_win, np.float64, (n_tuples, cls.rdm1_size[idx]))
-
-    @classmethod
     def get_pack_idx(cls, norb) -> None:
         """
         this function generates packing and unpacking indices for the 1-particle rdms
@@ -590,17 +578,17 @@ class packedGenFockCls:
         ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray]) -> packedGenFockCls:
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedGenFockCls:
         ...
 
     def __getitem__(
-        self, idx: Union[int, np.int64, slice, np.ndarray]
+        self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
     ) -> Union[GenFockCls, packedGenFockCls]:
         """
         this function ensures packedGenFockCls can be retrieved through indexing
         packedGenFockCls objects
         """
-        if isinstance(idx, (int, np.int64, slice, np.ndarray)):
+        if isinstance(idx, (int, np.int64, slice, np.ndarray, list)):
             return packedGenFockCls(
                 self.energy[idx], self.rdm1[idx], self.gen_fock[idx], self.idx
             )
@@ -609,7 +597,7 @@ class packedGenFockCls:
 
     def __setitem__(
         self,
-        idx: Union[int, np.int64, slice, np.ndarray],
+        idx: Union[int, np.int64, slice, np.ndarray, List[int]],
         values: Union[
             float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, packedGenFockCls
         ],
@@ -618,7 +606,7 @@ class packedGenFockCls:
         this function ensures indexed packedGenFockCls can be set using packedGenFockCls
         or GenFockCls objects
         """
-        if isinstance(idx, (slice, np.ndarray)) and isinstance(
+        if isinstance(idx, (slice, np.ndarray, list)) and isinstance(
             values, packedGenFockCls
         ):
             self.energy[idx] = values.energy
@@ -664,26 +652,10 @@ def logger_config(verbose: int) -> None:
     this function configures the pymbe logger
     """
     # corresponding logging level
-    verbose_level = {0: 30, 1: 20, 2: 10, 3: 10}
+    verbose_level = {0: 30, 1: 20, 2: 15, 3: 10, 4: 5}
 
     # set level for logger
     logger.setLevel(verbose_level[verbose])
-
-    # add new handler to log to stdout
-    handler = logging.StreamHandler(sys.stdout)
-
-    # create new formatter
-    formatter = logging.Formatter("%(message)s")
-
-    # add formatter to handler
-    handler.setFormatter(formatter)
-
-    # add handler to logger if it does not already exist
-    if not len(logger.handlers):
-        logger.addHandler(handler)
-
-    # prevent logger from propagating handlers from parent loggers
-    logger.propagate = False
 
 
 def git_version() -> str:
@@ -719,20 +691,6 @@ def get_pymbe_path() -> str:
     this function returns the path to pymbe
     """
     return os.path.dirname(__file__)
-
-
-def assertion(cond: Union[bool, np.bool_], reason: str) -> None:
-    """
-    this function returns an assertion of a given condition
-    """
-    if not cond:
-        # get stack
-        stack = "".join(format_stack()[:-1])
-        # print stack
-        logger.error("\n\n" + stack)
-        logger.error("\n\n*** PyMBE assertion error: " + reason + " ***\n\n")
-        # abort mpi
-        MPI.COMM_WORLD.Abort()
 
 
 def time_str(time: float) -> str:
@@ -800,7 +758,7 @@ def tuples(
     this function is the main generator for tuples
     """
     for k in range(order_start, order + 1):
-        if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+        if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
             if k == 0:
                 # only virtual MOs
                 for tup_virt in islice(
@@ -822,6 +780,76 @@ def tuples(
                 for tup_occ in islice(combinations(occ_space, order), occ_start, None):
                     yield np.array(tup_occ, dtype=np.int64)
                 occ_start = 0
+
+
+def orb_tuples_with_nocc(
+    occ_space: np.ndarray,
+    virt_space: np.ndarray,
+    order: int,
+    nocc: int,
+    orb: int
+) -> Generator[np.ndarray, None, None]:
+    """
+    this function is the main generator for tuples for a given occupation that include
+    a certain orbital
+    """
+    # orbital is occupied
+    if orb in occ_space:
+        # remove orbital
+        occ_space = np.delete(occ_space, np.where(occ_space == orb)[0][0])
+
+        # only virtual orbitals
+        if nocc == 1:
+            for tup_virt in (
+                list(tup) for tup in combinations(virt_space, order - 1)
+            ):
+                yield np.array([orb] + tup_virt, dtype=np.int64)
+
+        # combinations of occupied and virtual MOs
+        elif 1 < nocc < order:
+            for tup_occ in (list(tup) for tup in combinations(occ_space, nocc - 1)):
+                insort(tup_occ, orb)
+                for tup_virt in (
+                    list(tup) for tup in combinations(virt_space, order - nocc)
+                ):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+        # only occupied MOs
+        elif nocc == order:
+            for tup_occ in (
+                list(tup) for tup in combinations(occ_space, order - 1)
+            ):
+                insort(tup_occ, orb)
+                yield np.array(tup_occ, dtype=np.int64)
+
+    # orbital is virtual
+    elif orb in virt_space:
+        # remove orbital
+        virt_space = np.delete(virt_space, np.where(virt_space == orb)[0][0])
+
+        # only virtual MOs
+        if nocc == 0:
+            for tup_virt in (
+                list(tup) for tup in combinations(virt_space, order - 1)
+            ):
+                insort(tup_virt, orb)
+                yield np.array(tup_virt, dtype=np.int64)
+
+        # combinations of occupied and virtual MOs
+        elif 0 < nocc < order - 1:
+            for tup_occ in (list(tup) for tup in combinations(occ_space, nocc)):
+                for tup_virt in (
+                    list(tup) for tup in combinations(virt_space, order - 1 - nocc)
+                ):
+                    insort(tup_virt, orb)
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+        # only occupied MOs
+        elif nocc == order - 1:
+            for tup_occ in (
+                list(tup) for tup in combinations(occ_space, order - 1)
+            ):
+                yield np.array(tup_occ + [orb], dtype=np.int64)
 
 
 def start_idx(
@@ -852,10 +880,7 @@ def start_idx(
 
 
 def tuples_with_nocc(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
-    order: int,
-    nocc: int,
+    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int
 ) -> Generator[np.ndarray, None, None]:
     """
     this function is the main generator for tuples for a given number of occupied
@@ -877,14 +902,11 @@ def tuples_with_nocc(
 
 
 def tuples_and_virt_with_nocc(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
-    order: int,
-    nocc: int,
+    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int
 ) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
-    this function is the main generator for tuples for a given number of occupied
-    orbitals
+    this function is the main generator for tuples and their corresponding virtual
+    subset for a given number of occupied orbitals
     """
     # only virtual MOs
     if nocc == 0:
@@ -941,11 +963,74 @@ def n_tuples(
     # init n_tuples
     n = 0
 
-    # check if tuple is valid for chosen method
-    if _valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
-        n += comb(occ_space.size, tup_nocc) * comb(virt_space.size, order - tup_nocc)
+    for k in range(order + 1):
+        if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+            n += comb(occ_space.size, k) * comb(virt_space.size, order - k)
 
     return n
+
+
+def n_tuples_with_nocc(
+    occ_space: np.ndarray,
+    virt_space: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
+    vanish_exc: int,
+    order: int,
+    tup_nocc: int,
+) -> int:
+    """
+    this function returns the total number of tuples of a given order and a given
+    occupation
+    """
+    # check if tuple is valid for chosen method
+    if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+        return comb(occ_space.size, tup_nocc) * comb(virt_space.size, order - tup_nocc)
+    else:
+        return 0
+
+
+def orb_n_tuples(
+    occ_space: np.ndarray,
+    virt_space: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
+    vanish_exc: int,
+    order: int,
+    occ_type: str,
+) -> int:
+    """
+    this function returns the both the total number of tuples of a given order that
+    include a specific occupied or a specific virtual orbital
+    """
+    # initialize ntup_occ
+    ntup = 0
+
+    if occ_type == "occ" and occ_space.size > 0:
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                ntup += comb(occ_space.size - 1, k - 1) * comb(
+                    virt_space.size, order - k
+                )
+
+        # only occupied MOs
+        if valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
+            ntup += comb(occ_space.size - 1, order - 1)
+
+    elif occ_type == "virt" and virt_space.size > 0:
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                ntup += comb(occ_space.size, k) * comb(
+                    virt_space.size - 1, order - k - 1
+                )
+
+        # only virtual MOs
+        if valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
+            ntup += comb(virt_space.size - 1, order - 1)
+
+    return ntup
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -962,7 +1047,7 @@ def core_cas(
     this function returns a core and a cas space
     """
     cas_idx = cas(ref_space, tup)
-    core_idx = np.setdiff1d(np.arange(nocc), cas_idx)
+    core_idx = np.setdiff1d(np.arange(nocc), cas_idx, assume_unique=True)
     return core_idx, cas_idx
 
 
@@ -1055,6 +1140,280 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
     return idx is not None
 
 
+def symm_eqv_tup(
+    cas_idx: np.ndarray,
+    symm_orbs: List[Dict[int, Tuple[int, ...]]],
+    ref_space: Optional[np.ndarray],
+) -> Optional[Set[Tuple[int, ...]]]:
+    """
+    this function returns a set of symmetry-equivalent cas_idx that will yield the same
+    CASCI property if the supplied cas_idx is lexicographically greatest with respect
+    to all symmetry operations, otherwise returns None
+    """
+    # initialize set of symmetry-equivalent tuples
+    eqv_set = {tuple(cas_idx)}
+
+    # loop over symmetry operations in point group
+    for symm_op in symm_orbs:
+        # get permuted cas space by applying symmetry operation
+        perm_cas = apply_symm_op(symm_op, cas_idx)
+
+        # skip this symmetry operation
+        if perm_cas is None or (
+            ref_space is not None
+            and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+            < ref_space.size
+        ):
+            continue
+
+        # sort permuted cas space
+        perm_cas.sort()
+
+        # loop over orbs in cas space and permuted cas space
+        for orb, perm_orb in zip(cas_idx, perm_cas):
+            # check if orb in cas space is smaller than orb in permuted cas space
+            if orb < perm_orb:
+                # tuple is not unique and not lexicographically smaller
+                return None
+
+            # check if orb in cas space is greater than orb in permuted cas space
+            elif orb > perm_orb:
+                # tuple is lexicographically greater
+                break
+
+        eqv_set.add(tuple(perm_cas))
+
+    return eqv_set
+
+
+def symm_eqv_inc(
+    symm_orbs: np.ndarray,
+    eqv_tup_set: Set[Tuple[int, ...]],
+    ref_space: Optional[np.ndarray],
+) -> Tuple[List[np.ndarray], List[List[np.ndarray]]]:
+    """
+    this function returns a list of sets of tuples that yield symmetrically equivalent
+    increments and returns the lexicographically greatest increment for every set
+    """
+    # initialize list of sets of tuples with the same increments
+    eqv_inc_sets = []
+
+    # initialize list of lexicographically greates increment for every set
+    lex_cas = []
+
+    # check if all tuples in set will produce the same increment
+    while len(eqv_tup_set) > 0:
+        # start with random tuple in set of equivalent tuples
+        curr_cas = eqv_tup_set.pop()
+
+        # add new set of equivalent increments
+        eqv_inc_sets.append({curr_cas})
+
+        # add new lexicographically greatest equivalent increment
+        lex_cas.append(np.array(curr_cas, dtype=np.int64))
+
+        # get permuted cas spaces by applying symmetry operations
+        perm_cas_spaces = symm_orbs[:, curr_cas]
+
+        # sort permuted cas spaces
+        perm_cas_spaces.sort()
+
+        # loop over symmetry operations
+        for perm_cas in perm_cas_spaces:
+            # skip this symmetry operation
+            if perm_cas[0] == -1 or (
+                ref_space is not None
+                and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+                < ref_space.size
+            ):
+                continue
+
+            # convert to tuple
+            tup_perm_cas = tuple(perm_cas)
+
+            # check if tuple has been added to set of tuples with the same increments
+            if tup_perm_cas not in eqv_inc_sets[-1]:
+                # add permuted tuple to set of tuples with the same increments
+                eqv_inc_sets[-1].add(tup_perm_cas)
+
+                # remove permuted tuple from set of symmetrically equivalent tuples
+                eqv_tup_set.remove(tup_perm_cas)
+
+                # loop over orbs in lex_cas and perm_cas
+                for lex_orb, perm_orb in zip(lex_cas[-1], perm_cas):
+                    # check if orb in lex_cas is smaller than orb in perm_cas
+                    if lex_orb < perm_orb:
+                        # set permuted cas space as lexicographically greatest
+                        lex_cas[-1] = perm_cas
+
+                        # perm_cas is lexicographically greater
+                        break
+
+                    # check if orb in lex_cas is greater than orb in perm_cas
+                    elif lex_orb > perm_orb:
+                        # perm_cas is lexicographically smaller
+                        break
+
+    # remove reference space
+    if ref_space is not None:
+        lex_tup = [
+            np.setdiff1d(cas_idx, ref_space, assume_unique=True) for cas_idx in lex_cas
+        ]
+        eqv_inc_tups = [
+            [
+                np.setdiff1d(cas_idx, ref_space, assume_unique=True)
+                for cas_idx in eqv_inc_set
+            ]
+            for eqv_inc_set in eqv_inc_sets
+        ]
+    else:
+        lex_tup = lex_cas
+        eqv_inc_tups = [
+            [np.array(cas_idx, dtype=np.int64) for cas_idx in eqv_inc_set]
+            for eqv_inc_set in eqv_inc_sets
+        ]
+
+    return lex_tup, eqv_inc_tups
+
+
+def is_lex_tup(
+    cas_idx: np.ndarray, symm_orbs: np.ndarray, ref_space: Optional[np.ndarray]
+) -> bool:
+    """
+    this function returns whether the supplied cas_idx is the lexicographically
+    greatest cas_idx
+    """
+    # get permuted cas spaces by applying symmetry operations
+    perm_cas_spaces = symm_orbs[:, cas_idx]
+
+    # sort permuted cas spaces
+    perm_cas_spaces.sort()
+
+    # loop over symmetry operations in point group
+    for perm_cas in perm_cas_spaces:
+        # skip this symmetry operation
+        if (
+            ref_space is not None
+            and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+            < ref_space.size
+        ):
+            continue
+
+        # loop over orbs in cas_idx and perm_cas
+        for curr_orb, perm_orb in zip(cas_idx, perm_cas):
+            # check if orb in cas_idx is smaller than orb in perm_cas
+            if curr_orb < perm_orb:
+                # perm_cas is lexicographically greater
+                return False
+
+            # check if orb in lex_cas is greater than orb in perm_cas
+            elif curr_orb > perm_orb:
+                # perm_cas is lexicographically smaller
+                break
+
+    return True
+
+
+def get_lex_cas(
+    cas_idx: np.ndarray, symm_orbs: np.ndarray, ref_space: Optional[np.ndarray]
+) -> np.ndarray:
+    """
+    this function returns the symmetrically equivalent but lexicographically greater
+    cas_idx
+    """
+    # initialize current lexicographically greatest cas space
+    lex_cas = cas_idx
+
+    # get permuted cas spaces by applying symmetry operations
+    perm_cas_spaces = symm_orbs[:, cas_idx]
+
+    # sort permuted cas spaces
+    perm_cas_spaces.sort()
+
+    # loop over symmetry operations in point group
+    for perm_cas in perm_cas_spaces:
+        # skip this symmetry operation
+        if (
+            ref_space is not None
+            and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+            < ref_space.size
+        ):
+            continue
+
+        # loop over orbs in lex_cas and perm_cas
+        for lex_orb, perm_orb in zip(lex_cas, perm_cas):
+            # check if orb in lex_cas is smaller than orb in perm_cas
+            if lex_orb < perm_orb:
+                # set permuted cas space as lexicographically greatest
+                lex_cas = perm_cas
+
+                # perm_cas is lexicographically greater
+                break
+
+            # check if orb in lex_cas is greater than orb in perm_cas
+            elif lex_orb > perm_orb:
+                # perm_cas is lexicographically smaller
+                break
+
+    return lex_cas
+
+
+def apply_symm_op(
+    symm_op: Dict[int, Tuple[int, ...]], tup: np.ndarray
+) -> Optional[np.ndarray]:
+    """
+    this function applies a symmetry operation to a tuple of orbitals
+    """
+    try:
+        perm_set: Set[int] = set()
+        try:
+            perm_set.update(*operator.itemgetter(*tup)(symm_op))
+        except TypeError:
+            perm_set.update(operator.itemgetter(*tup)(symm_op))
+    except KeyError:
+        return None
+    set_len = len(perm_set)
+    if set_len == tup.size:
+        return np.fromiter(perm_set, np.int64, count=set_len)
+    else:
+        return None
+
+
+def reduce_symm_eqv_orbs(
+    symm_eqv_orbs: List[Dict[int, Tuple[int, ...]]], space: np.ndarray
+) -> List[Dict[int, Tuple[int, ...]]]:
+    """
+    this function only returns symmetry-equivalent orbitals included in the supplied
+    space
+    """
+    return [
+        {
+            orb: tuple(tup_orb for tup_orb in tup)
+            for orb, tup in symm_op.items()
+            if orb in space and np.isin(tup, space).all()
+        }
+        for symm_op in symm_eqv_orbs
+    ]
+
+
+def get_eqv_inc_orbs(
+    symm_eqv_orbs: List[Dict[int, Tuple[int, ...]]], nsymm: int, norb: int
+) -> np.ndarray:
+    """
+    this function returns the orbital combinations necessary to produce a
+    symmetry-equivalent increment
+    """
+    eqv_inc_orbs = np.empty((nsymm, norb), dtype=np.int64)
+    for op, symm_op in enumerate(symm_eqv_orbs):
+        for orb1 in range(norb):
+            orb2 = symm_op.get(orb1, None)
+            if orb2 is not None and len(orb2) == 1:
+                eqv_inc_orbs[op, orb1] = orb2[0]
+            else:
+                eqv_inc_orbs[op, orb1] = -1
+    return eqv_inc_orbs
+
+
 def get_nelec(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of electrons in a given tuple of orbitals
@@ -1077,10 +1436,10 @@ def get_nexc(nelec: np.ndarray, nhole: np.ndarray) -> int:
     this function returns the number of possible excitations in a given tuple of
     orbitals
     """
-    return np.sum(np.minimum(nelec, nhole))
+    return np.add.reduce(np.minimum(nelec, nhole))
 
 
-def _valid_tup(
+def valid_tup(
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     tup_nocc: int,
@@ -1089,15 +1448,13 @@ def _valid_tup(
 ) -> bool:
     """
     this function returns true if a tuple kind produces a non-vanishing correlation
-    energy
+    energy by calculating the number of excitations (equivalent to get_nexc but faster)
+    and comparing to the number of vanishing excitation for the used model
     """
     return (
-        get_nexc(
-            ref_nelec + np.array([tup_nocc, tup_nocc]),
-            ref_nhole + np.array([tup_nvirt, tup_nvirt]),
-        )
-        > vanish_exc
-    )
+        min(ref_nelec[0] + tup_nocc, ref_nhole[0] + tup_nvirt)
+        + min(ref_nelec[1] + tup_nocc, ref_nhole[1] + tup_nvirt)
+    ) > vanish_exc
 
 
 def is_file(string: str, order: int) -> bool:
@@ -1128,7 +1485,20 @@ def write_file(
         np.save(os.path.join(RST, f"{string}_{order}_{nocc}"), arr)
 
 
-def read_file(string: str, order: Optional[int]) -> np.ndarray:
+def write_file_mult(
+    arrs: Dict[str, np.ndarray], string: str, order: Optional[int] = None
+) -> None:
+    """
+    this function writes a general restart file corresponding to the input string for
+    multiple arrays
+    """
+    if order is None:
+        np.savez(os.path.join(RST, f"{string}"), **arrs)
+    else:
+        np.savez(os.path.join(RST, f"{string}_{order}"), **arrs)
+
+
+def read_file(string: str, order: Optional[int] = None) -> np.ndarray:
     """
     this function reads a general restart file corresponding to the input string
     """
@@ -1230,3 +1600,111 @@ def cf_prefactor(contrib_order: int, order: int, max_order: int) -> int:
     return (-1) ** (order - contrib_order) * comb(
         max_order - contrib_order - 1, order - contrib_order
     )
+
+
+def hop_no_singles(
+    solver: Union[fci.direct_spin0_symm.FCI, fci.direct_spin1_symm.FCI],
+    norb: int,
+    nelec: np.ndarray,
+    spin: int,
+    h1e: np.ndarray,
+    h2e: np.ndarray,
+) -> Callable[[np.ndarray], np.ndarray]:
+    """
+    this function generates a special function for the hamiltonian operation where
+    singles are omitted
+    """
+    if spin == 0:
+        link_index = fci.cistring.gen_linkstr_index_trilidx(range(norb), nelec[0])
+        na = link_index.shape[0]
+        t1_addrs = np.array(
+            [
+                fci.cistring.str2addr(norb, nelec[0], x)
+                for x in fci.cistring.tn_strs(norb, nelec[0], 1)
+            ]
+        )
+        h2e_abs = solver.absorb_h1e(h1e, h2e, norb, nelec, 0.5)
+
+        def hop(c):
+            hc = solver.contract_2e(h2e_abs, c.reshape(na, na), norb, nelec, link_index)
+            hc[t1_addrs, 0] = 0.0
+            hc[0, t1_addrs] = 0.0
+            return hc.ravel()
+
+    else:
+        link_indexa = fci.cistring.gen_linkstr_index_trilidx(range(norb), nelec[0])
+        link_indexb = fci.cistring.gen_linkstr_index_trilidx(range(norb), nelec[1])
+        t1_addrs_a = np.array(
+            [
+                fci.cistring.str2addr(norb, nelec[0], x)
+                for x in fci.cistring.tn_strs(norb, nelec[0], 1)
+            ]
+        )
+        t1_addrs_b = np.array(
+            [
+                fci.cistring.str2addr(norb, nelec[1], x)
+                for x in fci.cistring.tn_strs(norb, nelec[1], 1)
+            ]
+        )
+        h2e_abs = solver.absorb_h1e(h1e, h2e, norb, nelec, 0.5)
+
+        def hop(c):
+            hc = solver.contract_2e(h2e_abs, c, norb, nelec, (link_indexa, link_indexb))
+            if t1_addrs_a.size > 0:
+                hc[t1_addrs_a] = 0.0
+            if t1_addrs_b.size > 0:
+                hc[t1_addrs_b * na] = 0.0
+            return hc.ravel()
+
+    return hop
+
+
+def get_subspace_det_addr(
+    cas: np.ndarray,
+    cas_nelec: np.ndarray,
+    subspace: np.ndarray,
+    subspace_nelec: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    this function determines the adresses of subspace determinants in a CAS wavefunction
+    """
+    # get indices of orbitals inside and outside subspace within cas
+    inside_idx = np.searchsorted(cas, subspace)
+    outside_idx = np.delete(np.arange(cas.size), inside_idx)
+
+    # get indices of occupied orbitals outside subspace (should be the same regardless
+    # of spin if subspace includes all singly occupied orbitals)
+    occ_outside_idx = outside_idx[outside_idx < cas_nelec[0]]
+
+    # write bitstring for occupied orbitals outside subspace
+    outside_str = 0
+    for i in occ_outside_idx:
+        outside_str = outside_str | (1 << i)
+
+    # make bitstrings for subspace determinants
+    strs_a = fci.cistring.make_strings(inside_idx, subspace_nelec[0])
+    strs_b = fci.cistring.make_strings(inside_idx, subspace_nelec[1])
+
+    # add occupied orbitals outside subspace
+    strs_a = [string | outside_str for string in strs_a]
+    strs_b = [string | outside_str for string in strs_b]
+
+    # get adresses
+    subspace_addr_a = fci.cistring.strs2addr(cas.size, cas_nelec[0], strs_a)
+    subspace_addr_b = fci.cistring.strs2addr(cas.size, cas_nelec[1], strs_b)
+
+    return subspace_addr_a, subspace_addr_b
+
+
+def init_wfn(norb: int, nelec: np.ndarray, length: int) -> np.ndarray:
+    """
+    this function initializes a wavefunction
+    """
+    # determine size of ci vector
+    na = fci.cistring.num_strings(norb, nelec[0])
+    nb = fci.cistring.num_strings(norb, nelec[1])
+
+    # initialize ci vector
+    civec = np.zeros((length, na, nb))
+
+    return civec

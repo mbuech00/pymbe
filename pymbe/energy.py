@@ -15,36 +15,21 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
-from pyscf import ao2mo, gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast
+from pyscf import ao2mo
+from typing import TYPE_CHECKING
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import SingleTargetExpCls
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import (
-    RST,
-    write_file,
-    get_nelec,
-    idx_tril,
-    get_nhole,
-    get_nexc,
-    assertion,
-)
+from pymbe.tools import RST, write_file, idx_tril, get_nhole, get_nexc
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import List, Optional, Tuple, Union
-
-    from pymbe.pymbe import MBE
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
+    from typing import Optional, Tuple, Union, Dict, List
 
 
 class EnergyExpCls(SingleTargetExpCls[float]):
@@ -52,15 +37,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
     this class contains the pymbe expansion attributes for expansions of the electronic
     energy
     """
-
-    def __init__(self, mbe: MBE) -> None:
-        """
-        init expansion attributes
-        """
-        super().__init__(mbe, cast(float, mbe.base_prop))
-
-        # initialize dependent attributes
-        self._init_dep_attrs(mbe)
 
     def prop(self, prop_type: str, nuc_prop: float = 0.0) -> float:
         """
@@ -89,7 +65,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                 nuc_prop,
                 self.hf_prop
                 if y_axis in ["electronic", "total"]
-                else self._init_target_inst(0.0, self.norb, self.nocc),
+                else self._init_target_inst(0.0),
             ),
             self.min_order,
             self.final_order,
@@ -132,6 +108,21 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         return hf_energy
 
+    def _ref_results(self, ref_prop: float) -> str:
+        """
+        this function prints reference space results for a target calculation
+        """
+        header = (
+            f"reference space energy for root {self.fci_state_root} "
+            + f"(total increment = {ref_prop:.4e})"
+        )
+
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {header:^80}\n"
+        string += DIVIDER_OUTPUT
+
+        return string
+
     def _inc(
         self,
         e_core: float,
@@ -139,14 +130,12 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[float, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> float:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
         energy = self._kernel(
             self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
@@ -160,108 +149,40 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         energy -= self.ref_prop
 
-        return energy, nelec
+        return energy
 
     def _fci_kernel(
         self,
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
-        core_idx: np.ndarray,
+        _core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-    ) -> float:
+        ref_guess: bool,
+    ) -> Tuple[float, List[np.ndarray]]:
         """
         this function returns the results of a fci calculation
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
-        # init fci solver
-        if spin_cas == 0:
-            solver = fci.direct_spin0_symm.FCI()
-        else:
-            solver = fci.direct_spin1_symm.FCI()
+        # run fci calculation
+        energy, civec, _ = self._fci_driver(
+            e_core,
+            h1e,
+            h2e,
+            cas_idx,
+            nelec,
+            spin_cas,
+            self.fci_state_sym,
+            [self.fci_state_root],
+            ref_guess,
+        )
 
-        # settings
-        solver.conv_tol = CONV_TOL
-        solver.max_memory = MAX_MEM
-        solver.max_cycle = 5000
-        solver.max_space = 25
-        solver.davidson_only = True
-        solver.pspace_size = 0
-        if self.verbose >= 3:
-            solver.verbose = 10
-        solver.wfnsym = self.fci_state_sym
-        solver.orbsym = self.orbsym[cas_idx]
-        solver.nroots = self.fci_state_root + 1
-
-        # hf starting guess
-        if self.hf_guess:
-            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
-            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
-            ci0 = np.zeros((na, nb))
-            ci0[0, 0] = 1
-        else:
-            ci0 = None
-
-        # interface
-        def _fci_interface() -> Tuple[float, np.ndarray]:
-            """
-            this function provides an interface to solver.kernel
-            """
-            # perform calc
-            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
-
-            # collect results
-            if solver.nroots == 1:
-                return e, c
-            else:
-                return e[-1], c[-1]
-
-        # perform calc
-        energy, civec = _fci_interface()
-
-        # multiplicity check
-        s, mult = solver.spin_square(civec, cas_idx.size, nelec)
-
-        if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-            # fix spin by applying level shift
-            sz = np.abs(nelec[0] - nelec[1]) * 0.5
-            solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
-
-            # perform calc
-            energy, civec = _fci_interface()
-
-            # verify correct spin
-            s, mult = solver.spin_square(civec, cas_idx.size, nelec)
-            assertion(
-                np.abs((spin_cas + 1) - mult) < SPIN_TOL,
-                f"spin contamination for root entry = {self.fci_state_root}\n"
-                f"2*S + 1 = {mult:.6f}\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        # convergence check
-        if solver.nroots == 1:
-            assertion(
-                solver.converged,
-                f"state {self.fci_state_root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        else:
-            assertion(
-                solver.converged[-1],
-                f"state {self.fci_state_root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        return energy - self.hf_prop
+        return energy[0] - self.hf_prop, civec
 
     def _cc_kernel(
         self,
@@ -277,58 +198,14 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         this function returns the results of a cc calculation
         """
         spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
-        singlet = spin_cas == 0
+        if spin_cas != self.spin:
+            raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
 
         if self.cc_backend == "pyscf":
-            # init ccsd solver
-            mol_tmp = gto.Mole(verbose=0)
-            mol_tmp._built = True
-            mol_tmp.max_memory = MAX_MEM
-            mol_tmp.incore_anyway = True
-
-            if singlet:
-                hf = scf.RHF(mol_tmp)
-            else:
-                hf = scf.UHF(mol_tmp)
-
-            hf.get_hcore = lambda *args: h1e
-            hf._eri = h2e
-
-            if singlet:
-                ccsd = cc.ccsd.CCSD(
-                    hf, mo_coeff=np.eye(cas_idx.size), mo_occ=self.occup[cas_idx]
-                )
-            else:
-                ccsd = cc.uccsd.UCCSD(
-                    hf,
-                    mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))),
-                    mo_occ=np.array(
-                        (self.occup[cas_idx] > 0.0, self.occup[cas_idx] == 2.0),
-                        dtype=np.double,
-                    ),
-                )
-
-            # settings
-            ccsd.conv_tol = CONV_TOL
-            ccsd.max_cycle = 500
-            ccsd.async_io = False
-            ccsd.diis_start_cycle = 4
-            ccsd.diis_space = 12
-            ccsd.incore_complete = True
-            eris = ccsd.ao2mo()
-
-            # calculate ccsd energy
-            ccsd.kernel(eris=eris)
-
-            # convergence check
-            assertion(
-                ccsd.converged,
-                f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
+            # run ccsd calculation
+            e_cc, ccsd, _ = self._ccsd_driver_pyscf(
+                h1e, h2e, core_idx, cas_idx, spin_cas
             )
-
-            # e_corr
-            e_cc = ccsd.e_corr
 
             # calculate (t) correction
             if method == "ccsd(t)":
@@ -344,7 +221,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         elif self.cc_backend in ["ecc", "ncc"]:
             # calculate cc energy
-            cc_energy, success = mbecc_interface(
+            e_cc, success = mbecc_interface(
                 method,
                 self.cc_backend,
                 self.orb_type,
@@ -358,13 +235,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             )
 
             # convergence check
-            assertion(
-                success == 1,
-                f"MBECC error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
-            )
-
-            # e_corr
-            e_cc = cc_energy
+            if not success == 1:
+                raise RuntimeError(
+                    f"MBECC error: no convergence, core_idx = {core_idx}, "
+                    f"cas_idx = {cas_idx}"
+                )
 
         return e_cc
 
@@ -388,6 +263,16 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         this function initializes an instance of the target type
         """
         return value
+
+    def _init_screen(self) -> Dict[str, np.ndarray]:
+        """
+        this function initializes the screening arrays
+        """
+        return {
+            "sum_abs": np.zeros(self.norb, dtype=np.float64),
+            "sum": np.zeros(self.norb, dtype=np.float64),
+            "max": np.zeros(self.norb, dtype=np.float64),
+        }
 
     def _zero_target_arr(self, length: int):
         """
@@ -414,39 +299,34 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             8 * size if allocate else 0, 8, comm=comm  # type: ignore
         )
 
-    def _open_shared_inc(
-        self, window: MPI.Win, n_tuples: int, *args: int
-    ) -> np.ndarray:
+    def _open_shared_inc(self, window: MPI.Win, n_incs: int, *args: int) -> np.ndarray:
         """
         this function opens a shared increment window
         """
-        return open_shared_win(window, np.float64, (n_tuples,))
+        return open_shared_win(window, np.float64, (n_incs,))
 
     @staticmethod
-    def _flatten_inc(inc_lst: List[np.ndarray], order: int) -> np.ndarray:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return np.array(inc_lst, dtype=np.float64)
-
-    @staticmethod
-    def _screen(
+    def _add_screen(
         inc_tup: float, screen: np.ndarray, tup: np.ndarray, screen_func: str
     ) -> np.ndarray:
         """
         this function modifies the screening array
         """
-        if screen_func == "sum":
-            return screen[tup] + np.abs(inc_tup)
-        else:
+        if screen_func == "max":
             return np.maximum(screen[tup], np.abs(inc_tup))
+        elif screen_func == "sum_abs":
+            return screen[tup] + np.abs(inc_tup)
+        elif screen_func == "sum":
+            return screen[tup] + inc_tup
+        else:
+            raise ValueError
 
     @staticmethod
     def _total_inc(inc: List[np.ndarray], mean_inc: float) -> float:
         """
         this function calculates the total increment at a certain order
         """
-        return np.sum(np.concatenate(inc))
+        return mean_inc
 
     def _mbe_debug(
         self,
