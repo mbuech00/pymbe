@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from pymbe.dipole import DipoleExpCls
 
 if TYPE_CHECKING:
+    from mpi4py import MPI
     from pyscf import scf
     from typing import Tuple, Optional
 
@@ -34,8 +35,6 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, -0.02732937], dtype=np.float64),
-        1.0,
-        0.9856854425080487,
     ),
     (
         "h2o",
@@ -44,8 +43,6 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, -2.87487935e-02], dtype=np.float64),
-        1.0,
-        1.0,
     ),
     (
         "h2o",
@@ -53,9 +50,7 @@ test_cases_ref_prop = [
         "ccsd",
         "pyscf",
         0,
-        np.array([0.0, 0.0, 1.41943254e-03], dtype=np.float64),
-        1.0,
-        0.9856854425080487,
+        np.array([0.0, 0.0, 1.41941689e-03], dtype=np.float64),
     ),
     (
         "h2o",
@@ -64,8 +59,6 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, 1.47038530e-03], dtype=np.float64),
-        1.0,
-        1.0,
     ),
 ]
 
@@ -75,12 +68,7 @@ test_cases_kernel = [
 ]
 
 test_cases_fci_kernel = [
-    (
-        "h2o",
-        np.array([0.0, 0.0, -1.02539661e-03], dtype=np.float64),
-        1.0,
-        0.9979706719796727,
-    ),
+    ("h2o", np.array([0.0, 0.0, -1.02539661e-03], dtype=np.float64)),
 ]
 
 test_cases_cc_kernel = [
@@ -112,8 +100,7 @@ def exp(mbe: MBE, dipole_quantities: Tuple[np.ndarray, np.ndarray]):
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, cc_backend, root, ref_res, ref_civec_sum, "
-    "ref_civec_amax",
+    argnames="system, method, base_method, cc_backend, root, ref_res",
     argvalues=test_cases_ref_prop,
     ids=[
         "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
@@ -131,8 +118,6 @@ def test_ref_prop(
     cc_backend: str,
     root: int,
     ref_res: np.ndarray,
-    ref_civec_sum: float,
-    ref_civec_amax: float,
 ) -> None:
     """
     this function tests ref_prop
@@ -144,19 +129,11 @@ def test_ref_prop(
     exp.hcore, exp.eri = ints
     exp.vhf = vhf
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
-    exp.ref_nelec = np.array(
-        [
-            np.count_nonzero(exp.occup[exp.ref_space] > 0.0),
-            np.count_nonzero(exp.occup[exp.ref_space] > 1.0),
-        ],
-    )
     exp.base_method = base_method
 
-    res, civec = exp._ref_prop(mbe.mpi)
+    res = exp._ref_prop(mbe.mpi)
 
-    assert res == pytest.approx(ref_res, abs=1e-7)
-    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
-    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
+    assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(
@@ -193,15 +170,13 @@ def test_kernel(
         ]
     )
 
-    res = exp._kernel(
-        method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, ref_guess=False
-    )
+    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 
     assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(
-    argnames="system, ref, ref_civec_sum, ref_civec_amax",
+    argnames="system, ref",
     argvalues=test_cases_fci_kernel,
     ids=[case[0] for case in test_cases_fci_kernel],
     indirect=["system"],
@@ -214,8 +189,6 @@ def test_fci_kernel(
     ints_cas: Tuple[np.ndarray, np.ndarray],
     orbsym: np.ndarray,
     ref: np.ndarray,
-    ref_civec_sum: float,
-    ref_civec_amax: float,
 ) -> None:
     """
     this function tests _fci_kernel
@@ -239,11 +212,9 @@ def test_fci_kernel(
         ]
     )
 
-    res, civec = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, False)
+    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 
     assert res == pytest.approx(ref)
-    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
-    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
 
 
 @pytest.mark.parametrize(

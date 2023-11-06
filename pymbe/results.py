@@ -67,13 +67,7 @@ def _time(time: Dict[str, List[float]], comp: str, idx: int) -> str:
     return time_str(req_time)
 
 
-def timings_prt(
-    method: str,
-    min_order: int,
-    final_order: int,
-    n_tuples: Dict[str, List[int]],
-    time: Dict[str, List[float]],
-) -> str:
+def timings_prt(exp: ExpCls, method: str) -> str:
     """
     this function returns the timings table
     """
@@ -87,16 +81,20 @@ def timings_prt(
     )
 
     string += DIVIDER[:106] + "\n"
-    for i, j in enumerate(range(min_order, final_order + 1)):
-        calc_i = n_tuples["calc"][i]
-        rel_i = n_tuples["calc"][i] / n_tuples["theo"][i] * 100.0
-        calc_tot = sum(n_tuples["calc"][: i + 1])
-        rel_tot = calc_tot / sum(n_tuples["theo"][: i + 1]) * 100.0
+    for i, j in enumerate(range(exp.min_order, exp.final_order + 1)):
+        calc_i = sum(exp.n_tuples["calc"][i])
+        rel_i = calc_i / sum(exp.n_tuples["theo"][i]) * 100.0
+        calc_tot = sum(sum(order) for order in exp.n_tuples["calc"][: i + 1])
+        rel_tot = (
+            calc_tot
+            / sum(sum(order) for order in exp.n_tuples["theo"][: i + 1])
+            * 100.0
+        )
         string += (
             f"{'':3}{j:>8d}{'':6}{'|':1}"
-            f"{_time(time, 'mbe', i):>16s}{'':2}{'|':1}"
-            f"{_time(time, 'purge', i):>16s}{'':2}{'|':1}"
-            f"{_time(time, 'sum', i):>16s}{'':2}{'|':1}"
+            f"{_time(exp.time, 'mbe', i):>16s}{'':2}{'|':1}"
+            f"{_time(exp.time, 'purge', i):>16s}{'':2}{'|':1}"
+            f"{_time(exp.time, 'sum', i):>16s}{'':2}{'|':1}"
             f"{calc_i:>16d}{'':2}{'|':1}"
             f"{rel_i:>10.2f}\n"
         )
@@ -104,9 +102,9 @@ def timings_prt(
     string += DIVIDER[:106] + "\n"
     string += (
         f"{'':3}{'total':^14s}{'|':1}"
-        f"{_time(time, 'tot_mbe', -1):>16s}{'':2}{'|':1}"
-        f"{_time(time, 'tot_purge', -1):>16s}{'':2}{'|':1}"
-        f"{_time(time, 'tot_sum', -1):>16s}{'':2}{'|':1}"
+        f"{_time(exp.time, 'tot_mbe', -1):>16s}{'':2}{'|':1}"
+        f"{_time(exp.time, 'tot_purge', -1):>16s}{'':2}{'|':1}"
+        f"{_time(exp.time, 'tot_sum', -1):>16s}{'':2}{'|':1}"
         f"{calc_tot:>16d}{'':2}{'|':1}"
         f"{rel_tot:>10.2f}\n"
     )

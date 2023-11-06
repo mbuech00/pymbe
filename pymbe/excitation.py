@@ -15,10 +15,13 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
+from pyscf import fci
 from typing import TYPE_CHECKING
 
+from pymbe.expansion import MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.energy import EnergyExpCls
 from pymbe.results import DIVIDER, results_plt
+from pymbe.tools import assertion
 
 if TYPE_CHECKING:
     import matplotlib
@@ -58,33 +61,92 @@ class ExcExpCls(EnergyExpCls):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
-        _core_idx: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-        ref_guess: bool,
-    ) -> Tuple[float, List[np.ndarray]]:
+    ) -> float:
         """
         this function returns the results of a fci calculation
         """
         # spin
         spin_cas = abs(nelec[0] - nelec[1])
-        if spin_cas != self.spin:
-            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
+        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
 
-        # run fci calculation
-        energy, civec, _ = self._fci_driver(
-            e_core,
-            h1e,
-            h2e,
-            cas_idx,
-            nelec,
-            spin_cas,
-            self.fci_state_sym,
-            [0, self.fci_state_root],
-            ref_guess,
-        )
+        # init fci solver
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
 
-        return energy[-1] - energy[0], civec
+        # settings
+        solver.conv_tol = CONV_TOL
+        solver.max_memory = MAX_MEM
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        if self.verbose >= 3:
+            solver.verbose = 10
+        solver.wfnsym = self.fci_state_sym
+        solver.orbsym = self.orbsym[cas_idx]
+        solver.nroots = self.fci_state_root + 1
+
+        # hf starting guess
+        if self.hf_guess:
+            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
+            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
+            ci0 = np.zeros((na, nb))
+            ci0[0, 0] = 1
+        else:
+            ci0 = None
+
+        # interface
+        def _fci_interface() -> Tuple[List[float], List[np.ndarray]]:
+            """
+            this function provides an interface to solver.kernel
+            """
+            # perform calc
+            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
+
+            # collect results
+            return [e[0], e[-1]], [c[0], c[-1]]
+
+        # perform calc
+        energy, civec = _fci_interface()
+
+        # multiplicity check
+        for root in range(len(civec)):
+            s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
+
+            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+                # fix spin by applying level shift
+                sz = np.abs(nelec[0] - nelec[1]) * 0.5
+                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+
+                # perform calc
+                energy, civec = _fci_interface()
+
+                # verify correct spin
+                for root in range(len(civec)):
+                    s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
+                    assertion(
+                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                        f"spin contamination for root entry = {root}\n"
+                        f"2*S + 1 = {mult:.6f}\n"
+                        f"cas_idx = {cas_idx}\n"
+                        f"cas_sym = {self.orbsym[cas_idx]}",
+                    )
+
+        # convergence check
+        for root in [0, solver.nroots - 1]:
+            assertion(
+                solver.converged[root],
+                f"state {root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        return energy[-1] - energy[0]
 
     def _cc_kernel(
         self,
