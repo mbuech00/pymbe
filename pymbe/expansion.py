@@ -1884,7 +1884,7 @@ class ExpCls(
                     orb_screen = np.abs(
                         self.screen[-1][self.screen_func][self.exp_space[-1]]
                     )
-                    # stable sorting algorithm is important to ensure that the same 
+                    # stable sorting algorithm is important to ensure that the same
                     # orbitals are screened away every time in case of equality
                     orb_significance = np.argsort(orb_screen, kind="stable")[::-1]
                     # update expansion space wrt screened orbitals
@@ -3231,7 +3231,7 @@ class ExpCls(
 
                 # loop over tuples
                 for tup_idx, tup in enumerate(
-                    orb_tuples_with_nocc(exp_occ, exp_virt, k, tup_nocc, orb)
+                    orb_tuples_with_nocc(exp_occ, exp_virt, order, tup_nocc, orb)
                 ):
                     # distribute tuples
                     if tup_idx % mpi.global_size != mpi.global_rank:
