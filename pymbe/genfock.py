@@ -16,6 +16,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
+import sys
 import numpy as np
 from mpi4py import MPI
 from pyscf import ao2mo
@@ -25,7 +26,12 @@ from pyscf.cc import (
     uccsd_t_lambda,
     uccsd_t_rdm,
 )
-from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List
+from typing import TYPE_CHECKING, cast, Tuple, List
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 from pymbe.logger import logger
 from pymbe.expansion import ExpCls, StateIntType, StateArrayType
