@@ -1102,7 +1102,11 @@ class ExpCls(
             # start tuple indices
             tup_idx = read_file("mbe_tup_idx", self.order).item() if rst_read else 0
             # start increment array indices
-            inc_idx = read_file("mbe_inc_idx", self.order).item() if rst_read else 0
+            inc_idx = (
+                read_file("mbe_inc_idx", self.order)
+                if rst_read
+                else np.zeros(self.order + 1, dtype=np.int64)
+            )
             # start tuples
             tup = read_file("mbe_tup", self.order) if rst_read else None
             # wake up slaves
@@ -1226,10 +1230,12 @@ class ExpCls(
                         # buffer to store hashes and increments
                         if mpi.global_master:
                             hash_buf: Optional[np.ndarray] = hashes[-1][tup_nocc][
-                                inc_idx : inc_idx + np.sum(recv_counts)
+                                inc_idx[tup_nocc] : inc_idx[tup_nocc]
+                                + np.sum(recv_counts)
                             ]
                             inc_buf: Optional[IncType] = inc[-1][tup_nocc][
-                                inc_idx : inc_idx + np.sum(recv_counts)
+                                inc_idx[tup_nocc] : inc_idx[tup_nocc]
+                                + np.sum(recv_counts)
                             ]
                         else:
                             hash_buf = inc_buf = None
@@ -1242,7 +1248,7 @@ class ExpCls(
 
                         # increment restart index
                         if mpi.global_master:
-                            inc_idx += np.sum(recv_counts)
+                            inc_idx[tup_nocc] += np.sum(recv_counts)
 
                     # reduce number of calculations onto global master
                     n_calc = mpi_reduce(
@@ -1305,7 +1311,7 @@ class ExpCls(
                         self._write_target_file(max_inc, "mbe_max_inc", self.order)
                         write_file_mult(screen, "mbe_screen", self.order)
                         write_file(np.asarray(tup_idx), "mbe_tup_idx", self.order)
-                        write_file(np.asarray(inc_idx), "mbe_inc_idx", self.order)
+                        write_file(inc_idx, "mbe_inc_idx", self.order)
                         write_file(np.asarray(n_calc), "mbe_n_tuples_calc", self.order)
                         write_file(tup, "mbe_tup", order=self.order)
                         for tup_nocc in range(self.order + 1):
@@ -1330,7 +1336,9 @@ class ExpCls(
                         time = MPI.Wtime()
                         # print status
                         logger.info(
-                            mbe_status(self.order, inc_idx / np.sum(self.n_incs[-1]))
+                            mbe_status(
+                                self.order, np.sum(inc_idx) / np.sum(self.n_incs[-1])
+                            )
                         )
 
                 # distribute tuples
