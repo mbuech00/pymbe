@@ -1799,6 +1799,18 @@ class ExpCls(
         else:
             self.exp_space.append(np.array([], dtype=np.int64))
 
+        # gather maximum squared overlaps on global master
+        if mpi.global_master:
+            sq_overlaps = cast(
+                List[Dict[float, np.ndarray]],
+                mpi.global_comm.gather(self.tup_sq_overlaps, root=0),
+            )
+            self.tup_sq_overlaps = {
+                sq_overlap: tup for d in sq_overlaps for sq_overlap, tup in d.items()
+            }
+        else:
+            mpi.global_comm.gather(self.tup_sq_overlaps, root=0)
+
         if mpi.global_master:
             # append total property
             self.mbe_tot_prop.append(mbe_tot_prop)
@@ -2636,7 +2648,7 @@ class ExpCls(
         this function is the general fci driver function for all calculations
         """
         # init fci solver
-        solver: Union[fci.direct_spin0_symm.FCI, fci.direct_spin0_symm.FCI]
+        solver: Union[fci.direct_spin0_symm.FCI, fci.direct_spin1_symm.FCI]
         if spin == 0:
             solver = fci.direct_spin0_symm.FCI()
         else:
@@ -2686,7 +2698,7 @@ class ExpCls(
         # interface
         def _fci_interface(
             roots: List[int],
-        ) -> Tuple[List[float], List[np.ndarray], List[bool]]:
+        ) -> Tuple[List[float], List[np.ndarray], List[bool], float]:
             """
             this function provides an interface to solver.kernel
             """
@@ -2729,7 +2741,7 @@ class ExpCls(
                 # define how long the number of roots is to be increased: either until
                 # the root with the maximum squared overlap has been found for every
                 # state or until all roots have been exhausted
-                if isinstance(solver, fci.direct_spin0_symm.FCI):
+                if nelec[0] == nelec[1]:
                     # get total number of singlet states
                     strsa = fci.cistring.gen_strings4orblist(
                         range(cas_idx.size), nelec[0]
@@ -2793,32 +2805,23 @@ class ExpCls(
 
                 # check whether any maximum squared overlap is below threshold
                 min_sq_overlap = np.min(max_sq_overlaps).astype(float)
-                if (
-                    isinstance(self.ref_thres, int)
-                    and (
-                        self.ref_space.size < self.ref_thres
-                        or np.any(min_sq_overlap < 0.9)
-                    )
-                ) or (
-                    isinstance(self.ref_thres, float)
-                    and np.any(min_sq_overlap < self.ref_thres)
-                ):
-                    self.tup_sq_overlaps[min_sq_overlap] = np.setdiff1d(
-                        cas_idx, self.ref_space
-                    )
 
                 # get root indices
                 roots = root_idx.tolist()
+
+            else:
+                min_sq_overlap = 1.0
 
             # collect results
             return (
                 [e[root] for root in roots],
                 [c[root] for root in roots],
                 [converged[root] for root in roots],
+                min_sq_overlap,
             )
 
         # perform calc
-        energies, civecs, converged = _fci_interface(roots)
+        energies, civecs, converged, min_sq_overlap = _fci_interface(roots)
 
         # multiplicity check
         for root in range(len(civecs)):
@@ -2831,11 +2834,11 @@ class ExpCls(
                 solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
 
                 # perform calc
-                energies, civecs, converged = _fci_interface(roots)
+                energies, civecs, converged, min_sq_overlap = _fci_interface(roots)
 
                 # verify correct spin
                 for root in range(len(civecs)):
-                    s, mult = solver.spin_square(civecs[root], cas_idx.size, nelec)
+                    _, mult = solver.spin_square(civecs[root], cas_idx.size, nelec)
                     if np.abs((spin + 1) - mult) > SPIN_TOL:
                         raise RuntimeError(
                             f"spin contamination for root entry = {root}\n"
@@ -2852,6 +2855,13 @@ class ExpCls(
                     f"cas_idx = {cas_idx}\n"
                     f"cas_sym = {self.orbsym[cas_idx]}",
                 )
+
+        # add tuple to potential candidates for reference space
+        if (
+            isinstance(self.ref_thres, int)
+            and (self.ref_space.size < self.ref_thres or min_sq_overlap < 0.9)
+        ) or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres):
+            self.tup_sq_overlaps[min_sq_overlap] = np.setdiff1d(cas_idx, self.ref_space)
 
         return energies, civecs, solver
 
