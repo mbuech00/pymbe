@@ -146,8 +146,6 @@ class ExpCls(
         """
         # expansion model
         self.method = mbe.method
-        self.cc_backend = mbe.cc_backend
-        self.hf_guess = mbe.hf_guess
 
         # target property
         self.target = mbe.target
@@ -272,6 +270,13 @@ class ExpCls(
 
         # verbose
         self.verbose = mbe.verbose
+
+        # backend
+        self.fci_backend = mbe.fci_backend
+        self.cc_backend = mbe.cc_backend
+
+        # hf guess
+        self.hf_guess = mbe.hf_guess
 
         # dryrun
         self.dryrun = mbe.dryrun
@@ -2642,17 +2647,24 @@ class ExpCls(
     ) -> Tuple[
         List[float],
         List[np.ndarray],
-        Union[fci.direct_spin0_symm.FCI, fci.direct_spin0_symm.FCI],
+        Union[
+            fci.direct_spin0.FCI,
+            fci.direct_spin1.FCI,
+            fci.direct_spin0_symm.FCI,
+            fci.direct_spin1_symm.FCI,
+        ],
     ]:
         """
         this function is the general fci driver function for all calculations
         """
         # init fci solver
-        solver: Union[fci.direct_spin0_symm.FCI, fci.direct_spin1_symm.FCI]
-        if spin == 0:
-            solver = fci.direct_spin0_symm.FCI()
-        else:
-            solver = fci.direct_spin1_symm.FCI()
+        solver: Union[
+            fci.direct_spin0.FCI,
+            fci.direct_spin1.FCI,
+            fci.direct_spin0_symm.FCI,
+            fci.direct_spin1_symm.FCI,
+        ]
+        solver = getattr(fci, self.fci_backend).FCI()
 
         # settings
         solver.conv_tol = conv_tol

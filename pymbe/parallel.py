@@ -84,8 +84,6 @@ def kw_dist(mbe: MBE) -> MBE:
         # collect keywords (must be updated with new future attributes)
         keywords = [
             "method",
-            "cc_backend",
-            "hf_guess",
             "target",
             "point_group",
             "fci_state_sym",
@@ -102,6 +100,9 @@ def kw_dist(mbe: MBE) -> MBE:
             "rst",
             "rst_freq",
             "restarted",
+            "fci_backend",
+            "cc_backend",
+            "hf_guess",
             "verbose",
             "dryrun",
             "pi_prune",

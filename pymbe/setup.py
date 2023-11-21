@@ -93,36 +93,6 @@ def sanity_check(mbe: MBE) -> None:
             "valid electronic structure methods (method keyword argument) are: ccsd, "
             "ccsd(t), ccsdt, ccsdtq and fci"
         )
-    if not isinstance(mbe.cc_backend, str):
-        raise TypeError(
-            "coupled-cluster backend (cc_backend keyword argument) must be a string"
-        )
-    if mbe.cc_backend not in ["pyscf", "ecc", "ncc"]:
-        raise ValueError(
-            "valid coupled-cluster backends (cc_backend keyword argument) are: pyscf, "
-            "ecc and ncc"
-        )
-    if not isinstance(mbe.hf_guess, bool):
-        raise TypeError(
-            "hf initial guess for fci calculations (hf_guess keyword argument) must be "
-            "a bool"
-        )
-    if mbe.method != "fci":
-        if not mbe.hf_guess:
-            raise ValueError(
-                "non-hf initial guess (hf_guess keyword argument) only valid for fci "
-                "calcs (method keyword argument)"
-            )
-        if mbe.method == "ccsdt" and mbe.cc_backend == "pyscf":
-            raise ValueError(
-                "ccsdt (method keyword argument) is not available with the pyscf "
-                "coupled-cluster backend (cc_backend keyword argument)"
-            )
-        if mbe.method == "ccsdtq" and mbe.cc_backend != "ncc":
-            raise ValueError(
-                "ccsdtq (method keyword argument) is not available with the pyscf and "
-                "ecc coupled-cluster backends (cc_backend keyword argument)"
-            )
 
     # targets
     if not isinstance(mbe.target, str):
@@ -148,12 +118,6 @@ def sanity_check(mbe: MBE) -> None:
             raise ValueError(
                 "excited target states (target keyword argument) not implemented for "
                 "chosen expansion model (method keyword argument)"
-            )
-        if mbe.cc_backend in ["ecc", "ncc"] and mbe.target != "energy":
-            raise ValueError(
-                "calculation of targets (target keyword argument) other than energy "
-                "are not possible using the ecc and ncc backends (cc_backend keyword "
-                "argument)"
             )
 
     # system
@@ -196,23 +160,6 @@ def sanity_check(mbe: MBE) -> None:
             "number of electrons (nelec keyword argument) for state-averaged "
             "calculations must be a list of tuples or np.ndarrays of ints with "
             "dimension 2 and at least one element > 0"
-        )
-    if (
-        (isinstance(mbe.nelec, np.ndarray) and mbe.nelec[0] != mbe.nelec[1])
-        or (
-            isinstance(mbe.nelec, list)
-            and any([state[0] != state[1] for state in mbe.nelec])
-        )
-    ) and (mbe.method != "fci" or mbe.base_method is not None):
-        if mbe.cc_backend != "pyscf":
-            raise ValueError(
-                "the ecc and ncc backends (cc_backend keyword argument) are designed "
-                "for closed-shell systems only"
-            )
-        logger.warning(
-            "Warning: All open-shell CC calculations with the pyscf backend estimate "
-            "the unrestricted CC property on the basis of a ROHF reference function "
-            "instead of the fully restricted CC property."
         )
     if not isinstance(mbe.point_group, str):
         raise TypeError("symmetry (point_group keyword argument) must be a str")
@@ -311,13 +258,6 @@ def sanity_check(mbe: MBE) -> None:
     ):
         if isinstance(mbe.orbsym, np.ndarray):
             hf_wfnsym = ground_state_sym(mbe.orbsym, mbe.nelec, mbe.point_group)
-            if mbe.method == "fci" and mbe.hf_guess and mbe.fci_state_sym != hf_wfnsym:
-                raise ValueError(
-                    "illegal choice of fci state wavefunction symmetry (fci_state_sym "
-                    "keyword argument) when enforcing hf initial guess (hf_guess "
-                    "keyword argument) because fci_state_sym does not equal hf state "
-                    "symmetry"
-                )
             if (
                 mbe.method != "fci" or mbe.base_method is not None
             ) and mbe.fci_state_sym != hf_wfnsym:
@@ -497,26 +437,10 @@ def sanity_check(mbe: MBE) -> None:
                 "valid base model electronic structure methods (base_method keyword "
                 "argument) are currently: ccsd, ccsd(t), ccsdt and ccsdtq"
             )
-        if mbe.base_method == "ccsdt" and mbe.cc_backend == "pyscf":
-            raise ValueError(
-                "ccsdt (base_method keyword argument) is not available with pyscf "
-                "coupled-cluster backend (cc_backend keyword argument)"
-            )
-        if mbe.base_method == "ccsdtq" and mbe.cc_backend != "ncc":
-            raise ValueError(
-                "ccsdtq (base_method keyword argument) is not available with pyscf and "
-                "ecc coupled-cluster backends (cc_backend keyword argument)"
-            )
         if mbe.target not in ["energy", "dipole", "rdm12", "genfock"]:
             raise ValueError(
                 "excited target states (target keyword argument) not implemented for "
                 "base model calculations (base_method keyword argument)"
-            )
-        if mbe.cc_backend in ["ecc", "ncc"] and mbe.target != "energy":
-            raise ValueError(
-                "calculation of targets (target keyword argument) other than energy "
-                "are not possible using the ecc and ncc coupled-cluster backends "
-                "(cc_backend keyword argument)"
             )
         if mbe.fci_state_root != 0:
             raise ValueError(
@@ -679,6 +603,103 @@ def sanity_check(mbe: MBE) -> None:
     if mbe.verbose < 0:
         raise ValueError("verbose option (verbose keyword argument) must be  >= 0")
 
+    # backends
+    if mbe.method == "fci":
+        if not isinstance(mbe.fci_backend, str):
+            raise TypeError(
+                "fci backend (fci_backend keyword argument) must be a string"
+            )
+        if mbe.fci_backend not in [
+            "direct_spin0",
+            "direct_spin1",
+            "direct_spin0_symm",
+            "direct_spin1_symm",
+        ]:
+            raise ValueError(
+                "valid fci backends (fci_backend keyword argument) are: direct_spin0, "
+                "direct_spin1, direct_spin0_symm, direct_spin1_symm"
+            )
+    if (
+        mbe.method in ["ccsd", "ccsd(t)" "ccsdt", "ccsdtq"]
+        or mbe.base_method is not None
+    ):
+        if not isinstance(mbe.cc_backend, str):
+            raise TypeError(
+                "coupled-cluster backend (cc_backend keyword argument) must be a "
+                "string"
+            )
+        if mbe.cc_backend not in ["pyscf", "ecc", "ncc"]:
+            raise ValueError(
+                "valid coupled-cluster backends (cc_backend keyword argument) are: "
+                "pyscf, ecc and ncc"
+            )
+        if mbe.method == "ccsdt" and mbe.cc_backend == "pyscf":
+            raise ValueError(
+                "ccsdt (method keyword argument) is not available with the pyscf "
+                "coupled-cluster backend (cc_backend keyword argument)"
+            )
+        if mbe.method == "ccsdtq" and mbe.cc_backend != "ncc":
+            raise ValueError(
+                "ccsdtq (method keyword argument) is not available with the pyscf and ecc "
+                "coupled-cluster backends (cc_backend keyword argument)"
+            )
+        if mbe.cc_backend in ["ecc", "ncc"] and mbe.target != "energy":
+            raise ValueError(
+                "calculation of targets (target keyword argument) other than energy "
+                "are not possible using the ecc and ncc backends (cc_backend keyword "
+                "argument)"
+            )
+        if (isinstance(mbe.nelec, np.ndarray) and mbe.nelec[0] != mbe.nelec[1]) or (
+            isinstance(mbe.nelec, list)
+            and any([state[0] != state[1] for state in mbe.nelec])
+        ):
+            if mbe.cc_backend != "pyscf":
+                raise ValueError(
+                    "the ecc and ncc backends (cc_backend keyword argument) are "
+                    "designed for closed-shell systems only"
+                )
+            logger.warning(
+                "Warning: All open-shell CC calculations with the pyscf backend "
+                "estimate the unrestricted CC property on the basis of a ROHF "
+                "reference function instead of the fully restricted CC property."
+            )
+        if mbe.base_method == "ccsdt" and mbe.cc_backend == "pyscf":
+            raise ValueError(
+                "ccsdt (base_method keyword argument) is not available with pyscf "
+                "coupled-cluster backend (cc_backend keyword argument)"
+            )
+        if mbe.base_method == "ccsdtq" and mbe.cc_backend != "ncc":
+            raise ValueError(
+                "ccsdtq (base_method keyword argument) is not available with pyscf and "
+                "ecc coupled-cluster backends (cc_backend keyword argument)"
+            )
+
+    # hf_guess
+    if not isinstance(mbe.hf_guess, bool):
+        raise TypeError(
+            "hf initial guess for fci calculations (hf_guess keyword argument) must be "
+            "a bool"
+        )
+    if mbe.method != "fci" and not mbe.hf_guess:
+        raise ValueError(
+            "non-hf initial guess (hf_guess keyword argument) only valid for fci calcs "
+            "(method keyword argument)"
+        )
+    if (
+        isinstance(mbe.nelec, np.ndarray)
+        and isinstance(mbe.fci_state_sym, (str, int))
+        and isinstance(mbe.fci_state_root, int)
+        and not hasattr(mbe, "fci_state_weights")
+        and isinstance(mbe.orbsym, np.ndarray)
+    ):
+        hf_wfnsym = ground_state_sym(mbe.orbsym, mbe.nelec, mbe.point_group)
+        if mbe.method == "fci" and mbe.hf_guess and mbe.fci_state_sym != hf_wfnsym:
+            raise ValueError(
+                "illegal choice of fci state wavefunction symmetry (fci_state_sym "
+                "keyword argument) when enforcing hf initial guess (hf_guess keyword "
+                "argument) because fci_state_sym does not equal hf state symmetry"
+            )
+
     # dryrun
     if not isinstance(mbe.dryrun, bool):
         raise TypeError("dryrun option (dryrun keyword argument) must be a bool")
@@ -833,8 +854,6 @@ def restart_write_kw(mbe: MBE) -> None:
     # define keywords
     keywords = [
         "method",
-        "cc_backend",
-        "hf_guess",
         "target",
         "point_group",
         "fci_state_sym",
@@ -850,6 +869,9 @@ def restart_write_kw(mbe: MBE) -> None:
         "max_order",
         "rst",
         "rst_freq",
+        "fci_backend",
+        "cc_backend",
+        "hf_guess",
         "verbose",
         "dryrun",
         "pi_prune",

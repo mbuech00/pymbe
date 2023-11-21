@@ -46,8 +46,6 @@ class MBE:
     def __init__(
         self,
         method: str = "fci",
-        cc_backend: str = "pyscf",
-        hf_guess: bool = True,
         target: str = "energy",
         mol: Optional[gto.Mole] = None,
         norb: Optional[int] = None,
@@ -70,7 +68,7 @@ class MBE:
         eri: Optional[np.ndarray] = None,
         ref_space: np.ndarray = np.array([], dtype=np.int64),
         exp_space: Optional[np.ndarray] = None,
-        ref_thres: Union[int, float] = 0.9,
+        ref_thres: Union[int, float] = 0,
         base_method: Optional[str] = None,
         base_prop: Optional[
             Union[
@@ -89,6 +87,9 @@ class MBE:
         rst: bool = True,
         rst_freq: int = int(1e6),
         verbose: int = 0,
+        fci_backend: Optional[str] = None,
+        cc_backend: Optional[str] = None,
+        hf_guess: bool = True,
         dryrun: bool = False,
         pi_prune: bool = False,
         orbsym_linear: Optional[np.ndarray] = None,
@@ -122,8 +123,6 @@ class MBE:
             if not os.path.isdir(RST):
                 # expansion model
                 self.method = method
-                self.cc_backend = cc_backend
-                self.hf_guess = hf_guess
 
                 # target property
                 self.target = target
@@ -331,6 +330,37 @@ class MBE:
 
                 # verbose
                 self.verbose = verbose
+
+                # backend
+                if fci_backend is None:
+                    if (
+                        isinstance(self.nelec, np.ndarray)
+                        and self.nelec[0] == self.nelec[1]
+                    ) or (
+                        isinstance(self.nelec, list)
+                        and all([state[0] == state[1] for state in self.nelec])
+                    ):
+                        self.fci_backend = "direct_spin0"
+                    else:
+                        self.fci_backend = "direct_spin1"
+                    if self.point_group != "C1" or (
+                        isinstance(self.orbsym, np.ndarray) and np.any(self.orbsym)
+                    ):
+                        self.fci_backend += "_symm"
+                else:
+                    self.fci_backend = fci_backend
+                if cc_backend is None:
+                    if method == "ccsdt" or base_method == "ccsdt":
+                        self.cc_backend = "ecc"
+                    elif method == "ccsdtq" or base_method == "ccsdtq":
+                        self.cc_backend = "ncc"
+                    else:
+                        self.cc_backend = "pyscf"
+                else:
+                    self.cc_backend = cc_backend
+
+                # hf guess
+                self.hf_guess = hf_guess
 
                 # dryrun
                 self.dryrun = dryrun
