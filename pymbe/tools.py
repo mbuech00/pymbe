@@ -783,11 +783,7 @@ def tuples(
 
 
 def orb_tuples_with_nocc(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
-    order: int,
-    nocc: int,
-    orb: int
+    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int, orb: int
 ) -> Generator[np.ndarray, None, None]:
     """
     this function is the main generator for tuples for a given occupation that include
@@ -800,9 +796,7 @@ def orb_tuples_with_nocc(
 
         # only virtual orbitals
         if nocc == 1:
-            for tup_virt in (
-                list(tup) for tup in combinations(virt_space, order - 1)
-            ):
+            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
                 yield np.array([orb] + tup_virt, dtype=np.int64)
 
         # combinations of occupied and virtual MOs
@@ -816,9 +810,7 @@ def orb_tuples_with_nocc(
 
         # only occupied MOs
         elif nocc == order:
-            for tup_occ in (
-                list(tup) for tup in combinations(occ_space, order - 1)
-            ):
+            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
                 insort(tup_occ, orb)
                 yield np.array(tup_occ, dtype=np.int64)
 
@@ -829,9 +821,7 @@ def orb_tuples_with_nocc(
 
         # only virtual MOs
         if nocc == 0:
-            for tup_virt in (
-                list(tup) for tup in combinations(virt_space, order - 1)
-            ):
+            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
                 insort(tup_virt, orb)
                 yield np.array(tup_virt, dtype=np.int64)
 
@@ -846,9 +836,7 @@ def orb_tuples_with_nocc(
 
         # only occupied MOs
         elif nocc == order - 1:
-            for tup_occ in (
-                list(tup) for tup in combinations(occ_space, order - 1)
-            ):
+            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
                 yield np.array(tup_occ + [orb], dtype=np.int64)
 
 
@@ -1596,9 +1584,7 @@ def cf_prefactor(contrib_order: int, order: int, max_order: int) -> int:
     """
     this function calculates the prefactor for the closed form MBE
     """
-    return (-1) ** (order - contrib_order) * comb(
-        max_order - contrib_order - 1, order - contrib_order
-    )
+    return comb(max_order - contrib_order, order - contrib_order)
 
 
 def hop_no_singles(

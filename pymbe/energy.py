@@ -377,22 +377,23 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         string += f" RESULT-{order:d}:{header:^81}\n"
         string += DIVIDER_OUTPUT + "\n"
 
-        # set string
-        string += DIVIDER_OUTPUT + "\n"
-        string += (
-            f" RESULT-{order:d}:      mean increment     |      "
-            "min. abs. increment     |     max. abs. increment\n"
-        )
-        string += DIVIDER_OUTPUT + "\n"
-        string += (
-            f" RESULT-{order:d}:     "
-            f"{self.mean_inc[order - self.min_order]:>13.4e}       |        "
-            f"{self.min_inc[order - self.min_order]:>13.4e}         |       "
-            f"{self.max_inc[order - self.min_order]:>13.4e}\n"
-        )
+        if not self.closed_form:
+            # set string
+            string += DIVIDER_OUTPUT + "\n"
+            string += (
+                f" RESULT-{order:d}:      mean increment     |      "
+                "min. abs. increment     |     max. abs. increment\n"
+            )
+            string += DIVIDER_OUTPUT + "\n"
+            string += (
+                f" RESULT-{order:d}:     "
+                f"{self.mean_inc[order - self.min_order]:>13.4e}       |        "
+                f"{self.min_inc[order - self.min_order]:>13.4e}         |       "
+                f"{self.max_inc[order - self.min_order]:>13.4e}\n"
+            )
+            string += DIVIDER_OUTPUT + "\n"
 
         # set string
-        string += DIVIDER_OUTPUT + "\n"
         string += FILL_OUTPUT + "\n"
         string += DIVIDER_OUTPUT
 

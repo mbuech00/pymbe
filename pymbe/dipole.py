@@ -414,31 +414,32 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         string += f" RESULT-{order:d}:{header:^81}\n"
         string += DIVIDER_OUTPUT + "\n"
 
-        # set components
-        string += DIVIDER_OUTPUT
-        comp = ("x-component", "y-component", "z-component")
-
-        # loop over x, y, and z
-        for k in range(3):
+        if not self.closed_form:
             # set string
-            string += f"\n RESULT-{order:d}:{comp[k]:^81}\n"
+            string += DIVIDER_OUTPUT
+
+            # loop over x, y, and z
+            comp = ("x-component", "y-component", "z-component")
+            for k in range(3):
+                string += f"\n RESULT-{order:d}:{comp[k]:^81}\n"
+                string += DIVIDER_OUTPUT + "\n"
+                string += (
+                    f" RESULT-{order:d}:      mean increment     |      "
+                    "min. abs. increment     |     max. abs. increment\n"
+                )
+                string += DIVIDER_OUTPUT + "\n"
+                string += (
+                    f" RESULT-{order:d}:     "
+                    f"{self.mean_inc[order - self.min_order][k]:>13.4e}       |        "
+                    f"{self.min_inc[order - self.min_order][k]:>13.4e}         |       "
+                    f"{self.max_inc[order - self.min_order][k]:>13.4e}\n"
+                )
+                if k < 2:
+                    string += DIVIDER_OUTPUT
+
             string += DIVIDER_OUTPUT + "\n"
-            string += (
-                f" RESULT-{order:d}:      mean increment     |      "
-                "min. abs. increment     |     max. abs. increment\n"
-            )
-            string += DIVIDER_OUTPUT + "\n"
-            string += (
-                f" RESULT-{order:d}:     "
-                f"{self.mean_inc[order - self.min_order][k]:>13.4e}       |        "
-                f"{self.min_inc[order - self.min_order][k]:>13.4e}         |       "
-                f"{self.max_inc[order - self.min_order][k]:>13.4e}\n"
-            )
-            if k < 2:
-                string += DIVIDER_OUTPUT
 
         # set string
-        string += DIVIDER_OUTPUT + "\n"
         string += FILL_OUTPUT + "\n"
         string += DIVIDER_OUTPUT
 

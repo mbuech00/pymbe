@@ -392,11 +392,11 @@ class ExpCls(
                 mbe_end(self.order, self.time["mbe"][self.order - self.min_order])
             )
 
+            # print mbe results
+            logger.info(self._mbe_results(self.order))
+
             # screening and purging
             if not self.closed_form:
-                # print mbe results
-                logger.info(self._mbe_results(self.order))
-
                 # print redundant increment results
                 logger.info(
                     redundant_results(
@@ -482,19 +482,14 @@ class ExpCls(
                 # final order
                 self.final_order = self.order
 
+                # total timing
                 if not self.closed_form:
-                    # total timing
                     self.time["total"] = [
                         mbe + purge
                         for mbe, purge in zip(self.time["mbe"], self.time["purge"])
                     ]
-
                 else:
-                    # total timing
                     self.time["total"] = self.time["mbe"]
-
-                    # calculate final properties
-                    self._tot_prop_cf()
 
                 # final results
                 logger.info("\n\n")
@@ -1748,7 +1743,7 @@ class ExpCls(
 
                 else:
                     # every tuple is unique without symmetry pruning
-                    eqv_tup_set = set(tup)
+                    eqv_tup_set = set([tuple(tup)])
 
                 # get core and cas indices
                 core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
@@ -1819,6 +1814,15 @@ class ExpCls(
         if mpi.global_master:
             # append total property
             self.mbe_tot_prop.append(mbe_tot_prop)
+            for contrib_order in range(self.min_order, self.order):
+                order_inc = self.mbe_tot_prop[contrib_order - self.min_order]
+                if contrib_order > self.min_order:
+                    order_inc -= self.mbe_tot_prop[contrib_order - 1 - self.min_order]
+                self.mbe_tot_prop[self.order - self.min_order] -= (
+                    cf_prefactor(contrib_order, self.order, self.max_order) * order_inc
+                )
+            if self.order > self.min_order:
+                self.mbe_tot_prop[-1] += self.mbe_tot_prop[-2]
 
             # append total number of calculations
             if len(self.n_tuples["calc"]) > self.order - self.min_order:
@@ -2562,19 +2566,6 @@ class ExpCls(
                 np.asarray(self.time["purge"][-1]), "mbe_time_purge", order=self.order
             )
             write_file(np.asarray(self.order), "mbe_start_order")
-
-        return
-
-    def _tot_prop_cf(self) -> None:
-        """
-        this function calculates the total property in closed form
-        """
-        for order in range(self.order, 0, -1):
-            for contrib_order in range(order - 1, 0, -1):
-                self.mbe_tot_prop[order - self.min_order] += (
-                    cf_prefactor(contrib_order, order, self.max_order)
-                    * self.mbe_tot_prop[contrib_order - self.min_order]
-                )
 
         return
 
