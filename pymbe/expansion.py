@@ -2681,7 +2681,7 @@ class ExpCls(
         ref_space_addr: Tuple[np.ndarray, np.ndarray]
         if ref_guess:
             # get addresses of reference space determinants in wavefunction
-            ref_space_addr = get_subspace_det_addr(
+            ref_space_addr_a, ref_space_addr_b, sign_a, sign_b = get_subspace_det_addr(
                 cas_idx, nelec, self.ref_space, self.ref_nelec
             )
 
@@ -2689,7 +2689,9 @@ class ExpCls(
             ci0 = []
             for civec in self.ref_civec:
                 ci0.append(init_wfn(cas_idx.size, nelec, 1).squeeze(axis=0))
-                ci0[-1][ref_space_addr[0].reshape(-1, 1), ref_space_addr[1]] = civec
+                ci0[-1][ref_space_addr_a.reshape(-1, 1), ref_space_addr_b] = (
+                    sign_a.reshape(-1, 1) * sign_b * civec
+                )
         else:
             # hf starting guess
             if self.hf_guess:

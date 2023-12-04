@@ -1649,7 +1649,7 @@ def get_subspace_det_addr(
     cas_nelec: np.ndarray,
     subspace: np.ndarray,
     subspace_nelec: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     this function determines the adresses of subspace determinants in a CAS wavefunction
     """
@@ -1671,14 +1671,23 @@ def get_subspace_det_addr(
     strs_b = fci.cistring.make_strings(inside_idx, subspace_nelec[1])
 
     # add occupied orbitals outside subspace
-    strs_a = [string | outside_str for string in strs_a]
-    strs_b = [string | outside_str for string in strs_b]
+    strs_a |= outside_str
+    strs_b |= outside_str
 
     # get adresses
     subspace_addr_a = fci.cistring.strs2addr(cas.size, cas_nelec[0], strs_a)
     subspace_addr_b = fci.cistring.strs2addr(cas.size, cas_nelec[1], strs_b)
 
-    return subspace_addr_a, subspace_addr_b
+    # get new signs for coefficients
+    sign_a = np.ones(len(strs_a), dtype=np.int64)
+    sign_b = np.ones(len(strs_b), dtype=np.int64)
+    for orb_idx in occ_outside_idx[::-1]:
+        str_shift_a = strs_a >> (orb_idx + 1)
+        str_shift_b = strs_b >> (orb_idx + 1)
+        sign_a *= bit_parity(str_shift_a)
+        sign_b *= bit_parity(str_shift_b)
+
+    return subspace_addr_a, subspace_addr_b, sign_a, sign_b
 
 
 def init_wfn(norb: int, nelec: np.ndarray, length: int) -> np.ndarray:
@@ -1693,3 +1702,32 @@ def init_wfn(norb: int, nelec: np.ndarray, length: int) -> np.ndarray:
     civec = np.zeros((length, na, nb))
 
     return civec
+
+
+def bit_parity(arr: np.ndarray):
+    """
+    this function calculates the bit parity of a numpy array
+    """
+    # try numpy function
+    try:
+        count = np.bitwise_count(arr)  # type: ignore[attr-defined]
+    # otherwise optimal Hamming weight algorithm
+    except:
+        s55 = 0x55555555
+        s33 = 0x33333333
+        s0F = 0x0F0F0F0F
+        s01 = 0x01010101
+
+        arr -= (arr >> 1) & s55
+        arr = (arr & s33) + ((arr >> 2) & s33)
+        arr = (arr + (arr >> 4)) & s0F
+        count = (arr * s01) >> 24
+
+    # boolean mask for odd elements
+    odd_elements = count % 2 != 0
+
+    # correct sign
+    sign = np.ones(arr.size, dtype=np.int64)
+    sign[odd_elements] = -1
+
+    return sign
