@@ -2678,7 +2678,10 @@ class ExpCls(
 
         # starting guess
         ci0: Union[List[np.ndarray], None]
-        ref_space_addr: Tuple[np.ndarray, np.ndarray]
+        ref_space_addr_a: np.ndarray
+        ref_space_addr_b: np.ndarray
+        sign_a: np.ndarray
+        sign_b: np.ndarray
         if ref_guess:
             # get addresses of reference space determinants in wavefunction
             ref_space_addr_a, ref_space_addr_b, sign_a, sign_b = get_subspace_det_addr(
@@ -2721,9 +2724,11 @@ class ExpCls(
             # check if reference space determinants should be used to choose states
             if ref_guess:
                 # get coefficients of reference space determinants for every state
-                inc_ref_civecs = np.stack(c)[
-                    :, ref_space_addr[0].reshape(-1, 1), ref_space_addr[1]
-                ]
+                inc_ref_civecs = (
+                    sign_a.reshape(-1, 1)
+                    * sign_b
+                    * np.stack(c)[:, ref_space_addr_a.reshape(-1, 1), ref_space_addr_b]
+                )
 
                 # determine squared overlaps and incremental norm of coefficients of
                 # the states
@@ -2785,9 +2790,11 @@ class ExpCls(
                     converged = solver.converged
 
                     # get coefficients of reference space determinants
-                    inc_ref_civec = c[-1][
-                        ref_space_addr[0].reshape(-1, 1), ref_space_addr[1]
-                    ]
+                    inc_ref_civec = (
+                        sign_a.reshape(-1, 1)
+                        * sign_b
+                        * c[-1][ref_space_addr_a.reshape(-1, 1), ref_space_addr_b]
+                    )
 
                     # get squared overlap with reference space wavefunctions
                     sq_overlaps = (
