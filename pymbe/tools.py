@@ -34,11 +34,10 @@ if TYPE_CHECKING:
 # restart folder
 RST = os.getcwd() + "/rst"
 
-# pi-orbitals
-PI_SYMM_D2H = np.array(
+# ids for doubly degenerate irreducible representations in linear point groups
+E_IRREPS = np.array(
     [2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27]
 )
-PI_SYMM_C2V = np.array([2, 3, 10, 11, 12, 13, 20, 21, 22, 23])
 
 
 class RDMCls:
@@ -1071,58 +1070,51 @@ def idx_tril(cas_idx: np.ndarray) -> np.ndarray:
     )
 
 
-def pi_space(
-    group: str, orbsym: np.ndarray, exp_space: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+def pi_space(orbsym: np.ndarray, cas: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
-    this function returns pi-orbitals and hashes from total expansion space
+    this function returns doubly degenerate orbitals and hashes from total expansion
+    space
     """
-    # all pi-orbitals
-    if group == "Dooh":
-        pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_D2H)]
-    else:
-        pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_C2V)]
+    # all doubly degenerate orbital pairs
+    e_pairs = cas[np.in1d(orbsym[cas], E_IRREPS)].reshape(-1, 2)
 
-    # get all degenerate pi-pairs
-    pi_pairs = pi_space_arr.reshape(-1, 2)
+    # get hashes of all degenerate orbital pairs
+    e_hashes = hash_2d(e_pairs)
+    e_pairs = e_pairs[np.argsort(e_hashes)]
+    e_hashes.sort()
 
-    # get hashes of all degenerate pi-pairs
-    pi_hashes = hash_2d(pi_pairs)
-    pi_pairs = pi_pairs[np.argsort(pi_hashes)]
-    pi_hashes.sort()
-
-    return (pi_pairs.reshape(-1), pi_hashes)
+    return (e_pairs.reshape(-1), e_hashes)
 
 
-def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
+def _e_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
-    this function returns pi-orbitals from tuple of orbitals
+    this function returns doubly degenerate orbitals from tuple of orbitals
     """
     return tup[np.in1d(tup, pi_space)]
 
 
-def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bool:
+def pi_prune(e_space: np.ndarray, e_hashes: np.ndarray, tup: np.ndarray) -> bool:
     """
     this function returns True for a tuple of orbitals allowed under pruning wrt
-    degenerate pi-orbitals
+    doubly degenerate orbitals
     """
-    # get all pi-orbitals in tup
-    tup_pi_orbs = _pi_orbs(pi_space, tup)
+    # get all doubly degenerate orbitals in tup
+    tup_e_orbs = _e_orbs(e_space, tup)
 
-    if tup_pi_orbs.size == 0:
-        # no pi-orbitals
+    if tup_e_orbs.size == 0:
+        # no doubly degenerate orbitals
         return True
 
-    if tup_pi_orbs.size % 2 > 0:
-        # always prune tuples with an odd number of pi-orbitals
+    if tup_e_orbs.size % 2 > 0:
+        # always prune tuples with an odd number of doubly degenerate orbitals
         return False
 
-    # get hashes of pi-pairs
-    tup_pi_hashes = hash_2d(tup_pi_orbs.reshape(-1, 2))
-    tup_pi_hashes.sort()
+    # get hashes of doubly degenerate orbital pairs
+    tup_e_hashes = hash_2d(tup_e_orbs.reshape(-1, 2))
+    tup_e_hashes.sort()
 
-    # get indices of pi-pairs
-    idx = hash_lookup(pi_hashes, tup_pi_hashes)
+    # get indices of doubly degenerate orbital pairs
+    idx = hash_lookup(e_hashes, tup_e_hashes)
 
     return idx is not None
 

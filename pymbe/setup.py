@@ -714,11 +714,22 @@ def sanity_check(mbe: MBE) -> None:
             "pruning of pi-orbitals (pi_prune keyword argument) must be a bool"
         )
     if mbe.pi_prune:
-        if mbe.point_group not in ["D2h", "C2v"]:
+        if mbe.point_group not in [
+            "Dooh",
+            "Coov",
+            "D2h",
+            "D2",
+            "C2v",
+            "C2h",
+            "Cs",
+            "Ci",
+            "C2",
+            "C1",
+        ]:
             raise ValueError(
                 "pruning of pi-orbitals (pi_prune keyword argument) is only "
-                "implemented for linear D2h and C2v symmetries (point_group keyword "
-                "argument)"
+                "implemented for linear Dooh and Coov symmetries or their Abelian "
+                "subgroups (point_group keyword argument)"
             )
         if not (
             hasattr(mbe, "orbsym_linear") and isinstance(mbe.orbsym_linear, np.ndarray)

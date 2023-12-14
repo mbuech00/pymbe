@@ -286,9 +286,7 @@ class ExpCls(
         if self.pi_prune:
             self.orbsym_linear = mbe.orbsym_linear
             self.pi_orbs, self.pi_hashes = pi_space(
-                "Dooh" if self.point_group == "D2h" else "Coov",
-                self.orbsym_linear,
-                self.exp_space[0],
+                self.orbsym_linear, cas(self.ref_space, self.exp_space[0])
             )
 
         # exclude single excitations
@@ -1029,7 +1027,7 @@ class ExpCls(
 
                         # pi-pruning
                         if self.pi_prune and pi_prune(
-                            self.pi_orbs, self.pi_hashes, tup
+                            self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
                         ):
                             ntuples[tup_nocc] += 1
 
@@ -1346,7 +1344,9 @@ class ExpCls(
                     continue
 
                 # pi-pruning
-                if self.pi_prune and not pi_prune(self.pi_orbs, self.pi_hashes, tup):
+                if self.pi_prune and not pi_prune(
+                    self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
+                ):
                     for screen_func in screen.keys():
                         screen[screen_func][tup] = SCREEN
                     continue
@@ -1719,7 +1719,9 @@ class ExpCls(
 
                 # pi-pruning
                 if self.pi_prune:
-                    if not pi_prune(self.pi_orbs, self.pi_hashes, tup):
+                    if not pi_prune(
+                        self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
+                    ):
                         continue
 
                 # symmetry-pruning
@@ -2419,7 +2421,7 @@ class ExpCls(
 
                     # pi-pruning
                     if self.pi_prune and not pi_prune(
-                        self.pi_orbs, self.pi_hashes, tup
+                        self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
                     ):
                         continue
 
@@ -2871,7 +2873,10 @@ class ExpCls(
         # add tuple to potential candidates for reference space
         if (
             isinstance(self.ref_thres, int)
-            and (self.ref_space.size < self.ref_thres or min_sq_overlap < 0.9)
+            and (
+                (self.ref_space.size < self.ref_thres and cas_idx.size >= 4)
+                or min_sq_overlap < 0.9
+            )
         ) or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres):
             self.tup_sq_overlaps[min_sq_overlap] = np.setdiff1d(cas_idx, self.ref_space)
 
@@ -3272,7 +3277,7 @@ class ExpCls(
 
                     # pi-pruning
                     if self.pi_prune and not pi_prune(
-                        self.pi_orbs, self.pi_hashes, tup
+                        self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
                     ):
                         continue
 
@@ -3400,7 +3405,7 @@ class SingleTargetExpCls(
                     for tup_sub in tuples_with_nocc(tup_occ, tup_virt, k, l):
                         # pi-pruning
                         if self.pi_prune and not pi_prune(
-                            self.pi_orbs, self.pi_hashes, tup_sub
+                            self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup_sub)
                         ):
                             continue
 
