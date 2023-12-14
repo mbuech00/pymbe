@@ -36,7 +36,7 @@ from pymbe.tools import (
     _coor_to_idx,
     idx_tril,
     pi_space,
-    _pi_orbs,
+    _e_orbs,
     pi_prune,
     get_nelec,
     get_nhole,
@@ -428,19 +428,19 @@ def test_pi_space() -> None:
     orbsym_dooh = np.array(
         [14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5], dtype=np.int64
     )
-    exp_space = np.arange(18, dtype=np.int64)
+    cas = np.arange(18, dtype=np.int64)
 
-    pi_pairs, pi_hashes = pi_space("Dooh", orbsym_dooh, exp_space)
+    pi_pairs, pi_hashes = pi_space(orbsym_dooh, cas)
 
     assert (pi_pairs == ref_pairs).all()
     assert (pi_hashes == ref_hashes).all()
 
 
-def test_pi_orbs() -> None:
+def test_e_orbs() -> None:
     """
-    this function tests _pi_orbs
+    this function tests _e_orbs
     """
-    pi_orbs = _pi_orbs(
+    pi_orbs = _e_orbs(
         np.array([1, 2, 4, 5], dtype=np.int64), np.arange(8, dtype=np.int64)
     )
 
