@@ -23,12 +23,12 @@ from typing import TYPE_CHECKING
 
 from pymbe.logger import logger
 from pymbe.parallel import kw_dist, system_dist
-from pymbe.tools import RST, logger_config, ground_state_sym
+from pymbe.tools import RST, TupSqOverlapType, logger_config, ground_state_sym
 from pymbe.output import main_header, ref_space_results
 
 
 if TYPE_CHECKING:
-    from pymbe.pymbe import MBE, Dict, Tuple
+    from pymbe.pymbe import MBE, Tuple
 
 
 def general_setup(mbe: MBE):
@@ -1002,63 +1002,24 @@ def restart_read_system(mbe: MBE) -> MBE:
 
 
 def ref_space_update(
-    tup_sq_overlaps: Dict[float, np.ndarray],
-    ref_space: np.ndarray,
-    exp_space: np.ndarray,
+    tup_sq_overlaps: TupSqOverlapType, ref_space: np.ndarray, exp_space: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     this function adds to orbitals to the reference space
     """
-    # get squared overlap values
-    sq_overlaps = tup_sq_overlaps.keys()
+    if len(tup_sq_overlaps["overlap"]) == 1:
+        # add all orbitals from tuple
+        add_orbs = tup_sq_overlaps["tup"][0]
 
-    # get minimum squared overlap
-    min_sq_overlap = min(sq_overlaps)
-
-    # get all squared overlap values that are close to minimum
-    min_sq_overlaps = [
-        sq_overlap
-        for sq_overlap in sq_overlaps
-        if sq_overlap < (min_sq_overlap + (1.0 - min_sq_overlap) * 1e-2)
-    ]
-
-    # get list of tuples with minimum squared overlap values and remaining tuples
-    min_tups = [tup_sq_overlaps.pop(sq_overlap) for sq_overlap in min_sq_overlaps]
-    remain_tups = list(tup_sq_overlaps.values())
-
-    # get unique orbitals and counts in tuples with minimum squared overlap
-    if len(min_tups) == 1:
-        unique_min, counts_min = min_tups[0], np.ones_like(min_tups[0])
     else:
-        tup_concat = np.concatenate(min_tups)
+        # get unique orbitals and counts in tuples with minimum squared overlap
+        tup_concat = np.concatenate(tup_sq_overlaps["tup"])
         unique_min, counts_min = np.unique(tup_concat, return_counts=True)
 
-    # add overlapping orbitals between tuples with minimum squared overlap values
-    if np.any(counts_min > 1):
-        add_orbs = np.atleast_1d(unique_min[np.argmax(counts_min)])
-    # check if other tuples exist
-    elif len(remain_tups) > 0:
-        # get unique orbitals in remaining tuples
-        if len(remain_tups) == 1:
-            unique, counts = remain_tups[0], np.ones_like(remain_tups[0])
-        else:
-            tup_concat = np.concatenate(remain_tups)
-            unique, counts = np.unique(tup_concat, return_counts=True)
-
-        # extract orbitals that overlap with orbitals in tuples with minimum squared
-        # overlap values
-        intersect = np.isin(unique, unique_min)
-        unique, counts = unique[intersect], counts[intersect]
-
         # add overlapping orbitals between tuples with minimum squared overlap values
-        # and remaining orbitals
-        if np.any(counts > 0):
-            add_orbs = np.atleast_1d(unique[np.argmax(counts)])
-        else:
-            add_orbs = unique_min
-    # add the full tuple with minium squared overlap values
-    else:
-        add_orbs = unique_min
+        add_orbs = np.atleast_1d(
+            unique_min[np.nonzero(counts_min == np.max(counts_min))]
+        )
 
     # add orbitals to reference space
     ref_space = np.append(ref_space, add_orbs)

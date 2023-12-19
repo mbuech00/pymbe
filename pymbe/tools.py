@@ -15,20 +15,36 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
+import sys
 import re
 import operator
 import numpy as np
 from math import comb
 from pyscf import symm, ao2mo, fci
-from itertools import islice, combinations, groupby
+from itertools import islice, combinations, groupby, chain
 from bisect import insort
 from subprocess import Popen, PIPE
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING, overload, TypeVar, List
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 from pymbe.logger import logger
 
 if TYPE_CHECKING:
-    from typing import Tuple, List, Generator, Union, Optional, Dict, Set, Callable
+    from typing import Tuple, Generator, Union, Optional, Dict, Set, Callable
+
+
+# Generic type
+T = TypeVar("T")
+
+
+# Type for dictionary holding tuples and their squared overlap values
+TupSqOverlapType = TypedDict(
+    "TupSqOverlapType", {"overlap": List[float], "tup": List[np.ndarray]}
+)
 
 
 # restart folder
@@ -1723,3 +1739,32 @@ def bit_parity(arr: np.ndarray):
     sign[odd_elements] = -1
 
     return sign
+
+
+def remove_tup_sq_overlaps(
+    tup_sq_overlaps: TupSqOverlapType, min_sq_overlap: float
+) -> TupSqOverlapType:
+    """
+    this function removes all squared overlap values that whitin the upper bound for a
+    similar minimum squared overlap value
+    """
+    ovlps, tups = [], []
+    for ovlp, tup in zip(tup_sq_overlaps["overlap"], tup_sq_overlaps["tup"]):
+        if ovlp < overlap_range(min_sq_overlap):
+            ovlps.append(ovlp)
+            tups.append(tup)
+    return {"overlap": ovlps, "tup": tups}
+
+
+def overlap_range(min_sq_overlap: float) -> float:
+    """
+    this function provides the upper bound for a similar minimum squared overlap value
+    """
+    return min_sq_overlap + (1.0 - min_sq_overlap) * 1e-2
+
+
+def flatten_list(lst: List[List[T]]) -> List[T]:
+    """
+    this function flattens a nested list
+    """
+    return list(chain.from_iterable(lst))

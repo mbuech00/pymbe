@@ -16,7 +16,6 @@ __status__ = "Development"
 
 import os
 import numpy as np
-from pickle import load, dump
 from scipy import optimize
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
@@ -41,6 +40,7 @@ from pymbe.tools import (
     packedRDMCls,
     GenFockCls,
     packedGenFockCls,
+    TupSqOverlapType,
     pi_space,
     natural_keys,
     n_tuples,
@@ -78,6 +78,9 @@ from pymbe.tools import (
     hop_no_singles,
     get_subspace_det_addr,
     cf_prefactor,
+    remove_tup_sq_overlaps,
+    flatten_list,
+    overlap_range,
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
@@ -162,7 +165,7 @@ class ExpCls(
         self.fci_state_root: StateIntType = cast(StateIntType, mbe.fci_state_root)
         if hasattr(mbe, "fci_state_weights"):
             self.fci_state_weights = mbe.fci_state_weights
-        self.tup_sq_overlaps: Dict[float, np.ndarray] = {}
+        self.tup_sq_overlaps: TupSqOverlapType = {"overlap": [], "tup": []}
         self._state_occup()
 
         # optional system parameters for generalized Fock matrix
@@ -247,6 +250,7 @@ class ExpCls(
         self.rst = mbe.rst
         self.rst_freq = mbe.rst_freq
         self.restarted = mbe.restarted
+        self.rst_status = "mbe"
 
         # closed form solution
         self.closed_form = self.screen_perc == 0.0
@@ -374,7 +378,7 @@ class ExpCls(
 
             # main mbe function
             if not self.restarted or (
-                self.order > self.start_order and len(self.mbe_tot_prop) < self.order
+                self.order > self.start_order and self.rst_status == "mbe"
             ):
                 if not self.closed_form:
                     self._mbe(mpi)
@@ -408,7 +412,7 @@ class ExpCls(
 
                 # main screening function
                 if not self.restarted or (
-                    self.order > self.start_order and len(self.exp_space) == self.order
+                    self.order > self.start_order and self.rst_status == "screen"
                 ):
                     self._screen(mpi)
                     self._screen_restart()
@@ -447,7 +451,9 @@ class ExpCls(
                     logger.info(purge_header(self.order))
 
                     # main purging function
-                    if not self.restarted or self.order > self.start_order:
+                    if not self.restarted or (
+                        self.order > self.start_order and self.rst_status == "purge"
+                    ):
                         self._purge(mpi)
 
                     # print purging results
@@ -469,7 +475,9 @@ class ExpCls(
                     self._purge_restart()
 
             # check if overlap is larger than threshold for any tuple
-            if len(self.tup_sq_overlaps) != 0:
+            if len(self.tup_sq_overlaps["overlap"]) != 0 and (
+                not self.restarted or self.order > self.start_order
+            ):
                 break
 
             # convergence check
@@ -897,9 +905,12 @@ class ExpCls(
                     self.orb_contrib.append(np.load(os.path.join(RST, files[i])))
 
                 # read squared overlaps and respective tuples
-                elif "tup_sq_overlaps" in files[i]:
-                    with open(os.path.join(RST, files[i]), "rb") as f:
-                        self.tup_sq_overlaps = load(f)
+                elif "mbe_tup_sq_overlaps" in files[i]:
+                    tup_sq_overlaps = np.load(os.path.join(RST, files[i]))
+                    self.tup_sq_overlaps["overlap"] = tup_sq_overlaps[
+                        "overlap"
+                    ].tolist()
+                    self.tup_sq_overlaps["tup"] = tup_sq_overlaps["tup"].tolist()
 
                 # read timings
                 elif "mbe_time_mbe" in files[i]:
@@ -914,6 +925,11 @@ class ExpCls(
                 # read start order
                 elif "mbe_start_order" in files[i]:
                     self.start_order = np.load(os.path.join(RST, files[i])).item()
+
+                # read restart status
+                elif "mbe_rst_status" in files[i]:
+                    with open(os.path.join(RST, files[i])) as f:
+                        self.rst_status = f.readline()
 
         # bcast exp_space
         if mpi.global_master:
@@ -1282,19 +1298,9 @@ class ExpCls(
                             screen = self._init_screen()
 
                     # gather maximum squared overlaps on global master
-                    if mpi.global_master:
-                        sq_overlaps = cast(
-                            List[Dict[float, np.ndarray]],
-                            mpi.global_comm.gather(self.tup_sq_overlaps, root=0),
-                        )
-                        self.tup_sq_overlaps = {
-                            sq_overlap: tup
-                            for d in sq_overlaps
-                            for sq_overlap, tup in d.items()
-                        }
-                    else:
-                        mpi.global_comm.gather(self.tup_sq_overlaps, root=0)
-                        self.tup_sq_overlaps = {}
+                    self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
+                        mpi.global_comm, mpi.global_master, self.tup_sq_overlaps
+                    )
 
                     # update rst_write
                     rst_write = (
@@ -1322,8 +1328,13 @@ class ExpCls(
                             self._write_inc_file(
                                 inc[-1][tup_nocc], self.order, tup_nocc
                             )
-                        with open(os.path.join(RST, "tup_sq_overlaps.pkl"), "wb") as f:
-                            dump(self.tup_sq_overlaps, f)
+                        write_file_mult(
+                            {
+                                key: np.asarray(value)
+                                for key, value in self.tup_sq_overlaps.items()
+                            },
+                            "mbe_tup_sq_overlaps",
+                        )
                         self.time["mbe"][-1] += MPI.Wtime() - time
                         write_file(
                             np.asarray(self.time["mbe"][-1]),
@@ -1498,16 +1509,9 @@ class ExpCls(
                 )
 
         # gather maximum squared overlaps on global master
-        if mpi.global_master:
-            sq_overlaps = cast(
-                List[Dict[float, np.ndarray]],
-                mpi.global_comm.gather(self.tup_sq_overlaps, root=0),
-            )
-            self.tup_sq_overlaps = {
-                sq_overlap: tup for d in sq_overlaps for sq_overlap, tup in d.items()
-            }
-        else:
-            mpi.global_comm.gather(self.tup_sq_overlaps, root=0)
+        self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
+            mpi.global_comm, mpi.global_master, self.tup_sq_overlaps
+        )
 
         # append window to hashes
         if len(self.hashes) > self.order - self.min_order:
@@ -1576,9 +1580,11 @@ class ExpCls(
         """
         if mpi.global_master:
             # read restart files
-            rst_read = is_file("mbe_idx", self.order) and is_file("mbe_tup", self.order)
+            rst_read = is_file("mbe_tup_idx", self.order) and is_file(
+                "mbe_tup", self.order
+            )
             # start indices
-            tup_idx = read_file("mbe_idx", self.order).item() if rst_read else 0
+            tup_idx = read_file("mbe_tup_idx", self.order).item() if rst_read else 0
             # start tuples
             tup = read_file("mbe_tup", self.order) if rst_read else None
             # wake up slaves
@@ -1653,7 +1659,7 @@ class ExpCls(
                     occ_start,
                     virt_start,
                 ),
-                tup_idx,
+                start=tup_idx,
             ):
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
@@ -1677,6 +1683,11 @@ class ExpCls(
                     ).item()
                     if not mpi.global_master:
                         n_calc = 0
+
+                    # gather maximum squared overlaps on global master
+                    self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
+                        mpi.global_comm, mpi.global_master, self.tup_sq_overlaps
+                    )
 
                     # reduce mbe_idx onto global master
                     mbe_idx = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
@@ -1703,6 +1714,13 @@ class ExpCls(
                         write_file(mbe_tup, "mbe_tup", order=self.order)
                         self._write_target_file(
                             mbe_tot_prop, "mbe_tot_prop", order=self.order
+                        )
+                        write_file_mult(
+                            {
+                                key: np.asarray(value)
+                                for key, value in self.tup_sq_overlaps.items()
+                            },
+                            "mbe_tup_sq_overlaps",
                         )
                         self.time["mbe"][-1] += MPI.Wtime() - time
                         write_file(
@@ -1802,16 +1820,9 @@ class ExpCls(
             self.exp_space.append(np.array([], dtype=np.int64))
 
         # gather maximum squared overlaps on global master
-        if mpi.global_master:
-            sq_overlaps = cast(
-                List[Dict[float, np.ndarray]],
-                mpi.global_comm.gather(self.tup_sq_overlaps, root=0),
-            )
-            self.tup_sq_overlaps = {
-                sq_overlap: tup for d in sq_overlaps for sq_overlap, tup in d.items()
-            }
-        else:
-            mpi.global_comm.gather(self.tup_sq_overlaps, root=0)
+        self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
+            mpi.global_comm, mpi.global_master, self.tup_sq_overlaps
+        )
 
         if mpi.global_master:
             # append total property
@@ -1854,8 +1865,10 @@ class ExpCls(
                 )
                 write_file(hashes, "mbe_hashes", order=self.order, nocc=tup_nocc)
                 self._write_inc_file(inc, self.order, tup_nocc)
-            with open(os.path.join(RST, "tup_sq_overlaps.pkl"), "wb") as f:
-                dump(self.tup_sq_overlaps, f)
+            write_file_mult(
+                {key: np.asarray(value) for key, value in self.tup_sq_overlaps.items()},
+                "mbe_tup_sq_overlaps",
+            )
             self._write_target_file(self.min_inc[-1], "mbe_min_inc", self.order)
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
@@ -1867,6 +1880,8 @@ class ExpCls(
             )
             write_file(np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order)
             self._write_target_file(self.mbe_tot_prop[-1], "mbe_tot_prop", self.order)
+            with open("mbe_rst_status", "w") as f:
+                f.write("screen")
 
         return
 
@@ -1875,6 +1890,10 @@ class ExpCls(
         this function writes restart files for one mbe order
         """
         if self.rst:
+            write_file_mult(
+                {key: np.asarray(value) for key, value in self.tup_sq_overlaps.items()},
+                "mbe_tup_sq_overlaps",
+            )
             write_file(
                 np.asarray(self.n_tuples["van"][-1]), "mbe_tup_idx", order=self.order
             )
@@ -2360,6 +2379,8 @@ class ExpCls(
                     np.asarray(self.mbe_tot_error[-1]), "mbe_tot_error", self.order
                 )
             write_file(self.exp_space[-1], "exp_space", self.order + 1)
+            with open("mbe_rst_status", "w") as f:
+                f.write("purge")
 
         return
 
@@ -2568,6 +2589,8 @@ class ExpCls(
                 np.asarray(self.time["purge"][-1]), "mbe_time_purge", order=self.order
             )
             write_file(np.asarray(self.order), "mbe_start_order")
+            with open("mbe_rst_status", "w") as f:
+                f.write("mbe")
 
         return
 
@@ -2878,7 +2901,22 @@ class ExpCls(
                 or min_sq_overlap < 0.9
             )
         ) or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres):
-            self.tup_sq_overlaps[min_sq_overlap] = np.setdiff1d(cas_idx, self.ref_space)
+            # remove all tuples that are not within range
+            if len(self.tup_sq_overlaps["overlap"]) > 0:
+                all_min_sq_overlap = min(self.tup_sq_overlaps["overlap"])
+                if min_sq_overlap < all_min_sq_overlap:
+                    self.tup_sq_overlaps = remove_tup_sq_overlaps(
+                        self.tup_sq_overlaps, min_sq_overlap
+                    )
+
+            # add tuple
+            if len(
+                self.tup_sq_overlaps["overlap"]
+            ) == 0 or min_sq_overlap < overlap_range(all_min_sq_overlap):
+                self.tup_sq_overlaps["overlap"].append(min_sq_overlap)
+                self.tup_sq_overlaps["tup"].append(
+                    np.setdiff1d(cas_idx, self.ref_space)
+                )
 
         return energies, civecs, solver
 
@@ -3168,6 +3206,40 @@ class ExpCls(
         """
         this function performs a MPI gatherv operation on the increments
         """
+
+    @staticmethod
+    def _mpi_gather_tup_sq_overlaps(
+        comm: MPI.Comm, global_master: bool, tup_sq_overlaps: TupSqOverlapType
+    ) -> TupSqOverlapType:
+        """
+        this function removes all tuples above threshold and gathers the remaining
+        tuples
+        """
+        # remove all tuples that are not within range
+        local_min_sq_overlap = (
+            min(tup_sq_overlaps["overlap"])
+            if len(tup_sq_overlaps["overlap"]) > 0
+            else 1.0
+        )
+        global_min_sq_overlap = comm.allreduce(local_min_sq_overlap, op=MPI.MIN)
+        tup_sq_overlaps = remove_tup_sq_overlaps(tup_sq_overlaps, global_min_sq_overlap)
+
+        # gather all tuples
+        if global_master:
+            tup_sq_overlaps["overlap"] = flatten_list(
+                cast(List[List[float]], comm.gather(tup_sq_overlaps["overlap"], root=0))
+            )
+            tup_sq_overlaps["tup"] = flatten_list(
+                cast(
+                    List[List[np.ndarray]], comm.gather(tup_sq_overlaps["tup"], root=0)
+                )
+            )
+        else:
+            comm.gather(tup_sq_overlaps["overlap"], root=0)
+            comm.gather(tup_sq_overlaps["tup"], root=0)
+            tup_sq_overlaps = {"overlap": [], "tup": []}
+
+        return tup_sq_overlaps
 
     @staticmethod
     @abstractmethod

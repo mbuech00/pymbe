@@ -454,6 +454,7 @@ class MBE:
                     self.ref_space, self.exp_space = ref_space_update(
                         self.exp.tup_sq_overlaps, self.ref_space, self.exp_space
                     )
+                    self.restarted = False
 
             else:
                 # main slave driver
