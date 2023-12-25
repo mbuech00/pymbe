@@ -2379,7 +2379,7 @@ class ExpCls(
                     np.asarray(self.mbe_tot_error[-1]), "mbe_tot_error", self.order
                 )
             write_file(self.exp_space[-1], "exp_space", self.order + 1)
-            with open("mbe_rst_status", "w") as f:
+            with open(os.path.join(RST, "mbe_rst_status"), "w") as f:
                 f.write("purge")
 
         return
@@ -2589,7 +2589,7 @@ class ExpCls(
                 np.asarray(self.time["purge"][-1]), "mbe_time_purge", order=self.order
             )
             write_file(np.asarray(self.order), "mbe_start_order")
-            with open("mbe_rst_status", "w") as f:
+            with open(os.path.join(RST, "mbe_rst_status"), "w") as f:
                 f.write("mbe")
 
         return
