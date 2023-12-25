@@ -1880,7 +1880,7 @@ class ExpCls(
             )
             write_file(np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order)
             self._write_target_file(self.mbe_tot_prop[-1], "mbe_tot_prop", self.order)
-            with open("mbe_rst_status", "w") as f:
+            with open(os.path.join(RST, "mbe_rst_status"), "w") as f:
                 f.write("screen")
 
         return
