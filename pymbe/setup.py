@@ -28,7 +28,7 @@ from pymbe.output import main_header, ref_space_results
 
 
 if TYPE_CHECKING:
-    from pymbe.pymbe import MBE, Tuple
+    from pymbe.pymbe import MBE, Tuple, List
 
 
 def general_setup(mbe: MBE):
@@ -400,15 +400,23 @@ def sanity_check(mbe: MBE) -> None:
                 "all partially occupied orbitals have to be included in the reference "
                 "space (ref_space keyword argument)"
             )
-    if not isinstance(mbe.exp_space, np.ndarray):
+    if not isinstance(mbe.exp_space, list) or not all(
+        isinstance(cluster, np.ndarray) for cluster in mbe.exp_space
+    ):
         raise TypeError(
             "expansion space (exp_space keyword argument) must be a np.ndarray of "
-            "orbital indices"
+            "orbital indices or a list of np.ndarrays of orbital cluster indices"
         )
-    if np.intersect1d(mbe.ref_space, mbe.exp_space).size != 0:
+    exp_space = np.hstack(mbe.exp_space)
+    if np.intersect1d(mbe.ref_space, exp_space).size != 0:
         raise ValueError(
             "reference space (ref_space keyword argument) and expansion space "
             "(exp_space keyword argument) must be mutually exclusive"
+        )
+    if np.unique(exp_space).size < exp_space.size:
+        raise ValueError(
+            "expansion space clusters (exp_space keyword argument) must be mutually "
+            "exclusive"
         )
     if (
         not isinstance(mbe.ref_thres, float)
@@ -944,7 +952,7 @@ def restart_write_system(mbe: MBE) -> None:
     for attr in system:
         if hasattr(mbe, attr):
             attr_value = getattr(mbe, attr)
-            if not isinstance(attr_value, tuple):
+            if not isinstance(attr_value, (tuple, list)):
                 system_dict[attr] = attr_value
             else:
                 for idx in range(len(attr_value)):
@@ -978,7 +986,7 @@ def restart_read_system(mbe: MBE) -> MBE:
     if system["orbsym"].dtype == object:
         system["orbsym"] = list(system["orbsym"])
 
-    # revert to tuple
+    # revert to tuple or list
     tuple_keys = set()
     for key in system.keys():
         key_split = key.split("_")
@@ -992,7 +1000,10 @@ def restart_read_system(mbe: MBE) -> MBE:
             attr_list.append(attr_value)
             n += 1
             attr_value = system.pop(key + "_" + str(n), None)
-        system[key] = tuple(attr_list)
+        if key == "exp_space":
+            system[key] = list(attr_list)
+        else:
+            system[key] = tuple(attr_list)
 
     # set system quantities as MBE attributes
     for key, val in system.items():
@@ -1002,8 +1013,10 @@ def restart_read_system(mbe: MBE) -> MBE:
 
 
 def ref_space_update(
-    tup_sq_overlaps: TupSqOverlapType, ref_space: np.ndarray, exp_space: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+    tup_sq_overlaps: TupSqOverlapType,
+    ref_space: np.ndarray,
+    exp_space: List[np.ndarray],
+) -> Tuple[np.ndarray, List[np.ndarray]]:
     """
     this function adds to orbitals to the reference space
     """
@@ -1026,7 +1039,14 @@ def ref_space_update(
     ref_space.sort()
 
     # remove orbitals from expansion space
-    exp_space = np.setdiff1d(exp_space, add_orbs)
+    exp_space = []
+    for cluster in exp_space:
+        add_cluster = np.isin(cluster, add_orbs)
+        if np.any(add_cluster):
+            if not np.all(add_cluster):
+                raise NotImplementedError("Partial cluster is added to reference space")
+        else:
+            exp_space.append(cluster)
 
     # log results
     logger.info(ref_space_results(add_orbs, ref_space))

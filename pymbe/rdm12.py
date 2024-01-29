@@ -39,7 +39,7 @@ from pymbe.tools import (
     RDMCls,
     packedRDMCls,
     get_nelec,
-    tuples_with_nocc,
+    tuples_idx_with_nocc,
     hash_1d,
     hash_lookup,
     get_occup,
@@ -182,6 +182,7 @@ class RDMExpCls(
         inc: List[List[packedRDMCls]],
         hashes: List[List[np.ndarray]],
         tup: np.ndarray,
+        tup_clusters: List[np.ndarray],
     ) -> RDMCls:
         """
         this function performs a recursive summation and returns the final increment
@@ -204,29 +205,37 @@ class RDMExpCls(
             ),
         )
 
-        # occupied and virtual subspaces of tuple
-        tup_occ = tup[tup < self.nocc]
-        tup_virt = tup[self.nocc <= tup]
-
         # rank of reference space and occupied and virtual tuple orbitals
         rank = np.argsort(np.argsort(np.concatenate((self.ref_space, tup))))
-        ind_ref = rank[: self.ref_space.size]
-        ind_tup_occ = rank[self.ref_space.size : self.ref_space.size + tup_occ.size]
-        ind_tup_virt = rank[self.ref_space.size + tup_occ.size :]
+        ref_idx = rank[: self.ref_space.size]
+        exp_idx = rank[self.ref_space.size :]
+
+        # get cluster indices in tuple space
+        cluster_idx = 0
+        exp_clusters_idx: List[np.ndarray] = []
+        for cluster in tup_clusters:
+            exp_clusters_idx.append(ref_idx[cluster_idx : cluster_idx + cluster.size])
+            cluster_idx += cluster.size
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
             # rank of all orbitals in casci space
-            ind_casci = np.empty(self.ref_space.size + k, dtype=np.int64)
+            idx_casci = np.empty(self.ref_space.size + k, dtype=np.int64)
 
             # loop over number of occupied orbitals
             for l in range(k + 1):
                 # check if hashes are available
                 if hashes[k - self.min_order][l].size > 0:
                     # loop over subtuples
-                    for tup_sub, ind_sub in zip(
-                        tuples_with_nocc(tup_occ, tup_virt, k, l),
-                        tuples_with_nocc(ind_tup_occ, ind_tup_virt, k, l),
+                    for tup_sub, idx_sub in tuples_idx_with_nocc(
+                        tup,
+                        tup_clusters,
+                        exp_idx,
+                        exp_clusters_idx,
+                        self.exp_single_orbs,
+                        self.nocc,
+                        k,
+                        l,
                     ):
                         # compute index
                         idx = hash_lookup(
@@ -236,16 +245,19 @@ class RDMExpCls(
                         # sum up order increments
                         if idx is not None:
                             # add rank of reference space orbitals
-                            ind_casci[: self.ref_space.size] = ind_ref
+                            idx_casci[: self.ref_space.size] = ref_idx
 
                             # add rank of subtuple orbitals
-                            ind_casci[self.ref_space.size :] = ind_sub
+                            idx_casci[self.ref_space.size :] = idx_sub
 
                             # sort indices for faster assignment
-                            ind_casci.sort()
+                            idx_casci.sort()
 
                             # add subtuple rdms
-                            res[ind_casci] += inc[k - self.min_order][l][idx]
+                            res[idx_casci] += inc[k - self.min_order][l][idx]
+
+                        else:
+                            raise RuntimeError("Subtuple not found:", tup_sub)
 
         return res
 

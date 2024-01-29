@@ -759,103 +759,118 @@ def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray
 
 
 def tuples(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     vanish_exc: int,
     order: int,
-    order_start: int = 0,
-    occ_start: int = 0,
-    virt_start: int = 0,
-) -> Generator[np.ndarray, None, None]:
+    start_tup: Optional[np.ndarray] = None,
+    start_idx: int = 0,
+) -> Generator[Tuple[np.ndarray, List[np.ndarray]], None, None]:
     """
     this function is the main generator for tuples
     """
-    for k in range(order_start, order + 1):
-        if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-            if k == 0:
-                # only virtual MOs
-                for tup_virt in islice(
-                    combinations(virt_space, order), virt_start, None
-                ):
-                    yield np.array(tup_virt, dtype=np.int64)
-                virt_start = 0
-            elif 0 < k < order:
-                # combinations of occupied and virtual MOs
-                for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual expansion spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
+
+        # start tuples
+        start_tup_occ: Optional[np.ndarray]
+        start_tup_virt: Optional[np.ndarray]
+        if start_tup is not None:
+            start_tup_occ = start_tup[start_tup < nocc]
+            start_tup_virt = start_tup[nocc <= start_tup]
+            if start_tup_occ.size == 0:
+                start_tup_occ = None
+            if start_tup_virt.size == 0:
+                start_tup_virt = None
+        else:
+            start_tup_occ = start_tup_virt = None
+        nocc_start, occ_start, virt_start = _start_idx(
+            occ_space, virt_space, start_tup_occ, start_tup_virt
+        )
+
+        # loop over number of occupied orbitals
+        for tup_nocc in range(nocc_start, order + 1):
+            # check if occupation produces valid increment
+            if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+                if tup_nocc == 0:
+                    # only virtual MOs
                     for tup_virt in islice(
-                        combinations(virt_space, order - k), virt_start, None
+                        combinations(virt_space, order), virt_start, None
                     ):
-                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                        yield np.array(tup_virt, dtype=np.int64), [
+                            np.array(orb, dtype=np.int64) for orb in tup_virt
+                        ]
                     virt_start = 0
-                occ_start = 0
-            elif k == order:
-                # only occupied MOs
-                for tup_occ in islice(combinations(occ_space, order), occ_start, None):
-                    yield np.array(tup_occ, dtype=np.int64)
-                occ_start = 0
+                elif 0 < tup_nocc < order:
+                    # combinations of occupied and virtual MOs
+                    for tup_occ in islice(
+                        combinations(occ_space, tup_nocc), occ_start, None
+                    ):
+                        for tup_virt in islice(
+                            combinations(virt_space, order - tup_nocc), virt_start, None
+                        ):
+                            yield np.array(tup_occ + tup_virt, dtype=np.int64), [
+                                np.array(orb, dtype=np.int64)
+                                for orb in tup_occ + tup_virt
+                            ]
+                        virt_start = 0
+                    occ_start = 0
+                elif tup_nocc == order:
+                    # only occupied MOs
+                    for tup_occ in islice(
+                        combinations(occ_space, order), occ_start, None
+                    ):
+                        yield np.array(tup_occ, dtype=np.int64), [
+                            np.array(orb, dtype=np.int64) for orb in tup_occ
+                        ]
+                    occ_start = 0
 
-
-def orb_tuples_with_nocc(
-    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int, orb: int
-) -> Generator[np.ndarray, None, None]:
-    """
-    this function is the main generator for tuples for a given occupation that include
-    a certain orbital
-    """
-    # orbital is occupied
-    if orb in occ_space:
-        # remove orbital
-        occ_space = np.delete(occ_space, np.where(occ_space == orb)[0][0])
-
-        # only virtual orbitals
-        if nocc == 1:
-            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
-                yield np.array([orb] + tup_virt, dtype=np.int64)
-
-        # combinations of occupied and virtual MOs
-        elif 1 < nocc < order:
-            for tup_occ in (list(tup) for tup in combinations(occ_space, nocc - 1)):
-                insort(tup_occ, orb)
-                for tup_virt in (
-                    list(tup) for tup in combinations(virt_space, order - nocc)
+    else:
+        # determine start_idx by counting number of tuples per nocc before this
+        if start_idx > 0:
+            nclusters = _nclusters(orb_clusters, nocc)
+            for tup_nocc in range(0, order + 1):
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
                 ):
-                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                    idx = _recursive_ntuples(nclusters, 0, 1, order, order - tup_nocc)
+                    if idx < start_idx:
+                        start_idx -= idx
+                        nocc_start = tup_nocc
+                    else:
+                        break
+        else:
+            nocc_start = 0
 
-        # only occupied MOs
-        elif nocc == order:
-            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
-                insort(tup_occ, orb)
-                yield np.array(tup_occ, dtype=np.int64)
+        # put expansion space clusters into sublists by size and determine the number
+        # of virtual orbitals for every cluster
+        cluster_size_list, cluster_nvirt = _cluster_size_list_and_nvirt(
+            orb_clusters, nocc
+        )
 
-    # orbital is virtual
-    elif orb in virt_space:
-        # remove orbital
-        virt_space = np.delete(virt_space, np.where(virt_space == orb)[0][0])
-
-        # only virtual MOs
-        if nocc == 0:
-            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
-                insort(tup_virt, orb)
-                yield np.array(tup_virt, dtype=np.int64)
-
-        # combinations of occupied and virtual MOs
-        elif 0 < nocc < order - 1:
-            for tup_occ in (list(tup) for tup in combinations(occ_space, nocc)):
-                for tup_virt in (
-                    list(tup) for tup in combinations(virt_space, order - 1 - nocc)
+        # loop over number of occupied orbitals in tuple
+        for tup_nocc in range(nocc_start, order + 1):
+            # check if occupation produces valid increment
+            if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+                # loop over tuples
+                for tup in islice(
+                    _recursive_tuples(
+                        cluster_size_list, cluster_nvirt, [], order, order - tup_nocc
+                    ),
+                    start_idx,
+                    None,
                 ):
-                    insort(tup_virt, orb)
-                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
-
-        # only occupied MOs
-        elif nocc == order - 1:
-            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
-                yield np.array(tup_occ + [orb], dtype=np.int64)
+                    yield np.sort(np.hstack(tup)), tup
 
 
-def start_idx(
+def _start_idx(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
     tup_occ: Optional[np.ndarray],
@@ -882,50 +897,394 @@ def start_idx(
     return order_start, occ_start, virt_start
 
 
-def tuples_with_nocc(
-    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int
+def orb_tuples_with_nocc(
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
+    cluster_idx: int,
+    order: int,
+    tup_nocc: int,
 ) -> Generator[np.ndarray, None, None]:
     """
-    this function is the main generator for tuples for a given number of occupied
-    orbitals
+    this function is the main generator for tuples for a given occupation that include
+    a certain orbital
     """
-    # only virtual MOs
-    if nocc == 0:
-        for tup_virt in combinations(virt_space, order):
-            yield np.array(tup_virt, dtype=np.int64)
-    # combinations of occupied and virtual MOs
-    elif 0 < nocc < order:
-        for tup_occ in combinations(occ_space, nocc):
-            for tup_virt in combinations(virt_space, order - nocc):
-                yield np.array(tup_occ + tup_virt, dtype=np.int64)
-    # only occupied MOs
-    elif nocc == order:
-        for tup_occ in combinations(occ_space, order):
-            yield np.array(tup_occ, dtype=np.int64)
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual expansion spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
+
+        # orbital
+        orb = orb_space[cluster_idx]
+
+        # orbital is occupied
+        if orb < nocc:
+            # remove orbital
+            occ_space = np.delete(occ_space, np.where(occ_space == orb)[0][0])
+
+            # only virtual orbitals
+            if tup_nocc == 1:
+                for tup_virt in (
+                    list(tup) for tup in combinations(virt_space, order - 1)
+                ):
+                    yield np.array([orb] + tup_virt, dtype=np.int64)
+
+            # combinations of occupied and virtual MOs
+            elif 1 < tup_nocc < order:
+                for tup_occ in (
+                    list(tup) for tup in combinations(occ_space, tup_nocc - 1)
+                ):
+                    insort(tup_occ, orb)
+                    for tup_virt in (
+                        list(tup) for tup in combinations(virt_space, order - tup_nocc)
+                    ):
+                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+            # only occupied MOs
+            elif tup_nocc == order:
+                for tup_occ in (
+                    list(tup) for tup in combinations(occ_space, order - 1)
+                ):
+                    insort(tup_occ, orb)
+                    yield np.array(tup_occ, dtype=np.int64)
+
+        # orbital is virtual
+        elif nocc <= orb:
+            # remove orbital
+            virt_space = np.delete(virt_space, np.where(virt_space == orb)[0][0])
+
+            # only virtual MOs
+            if tup_nocc == 0:
+                for tup_virt in (
+                    list(tup) for tup in combinations(virt_space, order - 1)
+                ):
+                    insort(tup_virt, orb)
+                    yield np.array(tup_virt, dtype=np.int64)
+
+            # combinations of occupied and virtual MOs
+            elif 0 < tup_nocc < order - 1:
+                for tup_occ in (list(tup) for tup in combinations(occ_space, tup_nocc)):
+                    for tup_virt in (
+                        list(tup)
+                        for tup in combinations(virt_space, order - 1 - tup_nocc)
+                    ):
+                        insort(tup_virt, orb)
+                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+            # only occupied MOs
+            elif tup_nocc == order - 1:
+                for tup_occ in (
+                    list(tup) for tup in combinations(occ_space, order - 1)
+                ):
+                    yield np.array(tup_occ + [orb], dtype=np.int64)
+
+    else:
+        # get cluster
+        cluster = orb_clusters[cluster_idx]
+
+        # get cluster size and number of virtual orbitals in cluster
+        size = cluster.size
+        nvirt = (nocc <= cluster).sum()
+
+        # remove cluster from local expansion space
+        orb_clusters = orb_clusters[:cluster_idx] + orb_clusters[cluster_idx + 1 :]
+
+        # put expansion space clusters into sublists by size and determine the number
+        # of virtual orbitals for every cluster
+        cluster_size_list, cluster_nvirt = _cluster_size_list_and_nvirt(
+            orb_clusters, nocc
+        )
+
+        # loop over tuples
+        for tup in _recursive_tuples(
+            cluster_size_list, cluster_nvirt, [], order - size, order - tup_nocc - nvirt
+        ):
+            yield np.sort(np.hstack(tup + [cluster]))
 
 
-def tuples_and_virt_with_nocc(
-    occ_space: np.ndarray, virt_space: np.ndarray, order: int, nocc: int
+def tuples_with_nocc(
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
+    order: int,
+    tup_nocc: int,
+) -> Generator[np.ndarray, None, None]:
+    """
+    this function a generator for tuples for a given number of occupied orbitals
+    """
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual orbital spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
+
+        # only virtual MOs
+        if tup_nocc == 0:
+            for tup_virt in combinations(virt_space, order):
+                yield np.array(tup_virt, dtype=np.int64)
+        # combinations of occupied and virtual MOs
+        elif 0 < tup_nocc < order:
+            for tup_occ in combinations(occ_space, tup_nocc):
+                for tup_virt in combinations(virt_space, order - tup_nocc):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+        # only occupied MOs
+        elif tup_nocc == order:
+            for tup_occ in combinations(occ_space, order):
+                yield np.array(tup_occ, dtype=np.int64)
+
+    else:
+        # put expansion space clusters into sublists by size and determine the number
+        # of virtual orbitals for every cluster
+        cluster_size_list, cluster_nvirt = _cluster_size_list_and_nvirt(
+            orb_clusters, nocc
+        )
+
+        # loop over tuples
+        for tup in _recursive_tuples(
+            cluster_size_list, cluster_nvirt, [], order, order - tup_nocc
+        ):
+            yield np.sort(np.hstack(tup))
+
+
+def tuples_idx_with_nocc(
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    space_idx: np.ndarray,
+    clusters_idx: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
+    order: int,
+    tup_nocc: int,
 ) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
-    this function is the main generator for tuples and their corresponding virtual
-    subset for a given number of occupied orbitals
+    this function is a generator for tuples and their indices in a given active space
+    for a given number of occupied orbitals
     """
-    # only virtual MOs
-    if nocc == 0:
-        for tup_virt in combinations(virt_space, order):
-            yield np.array(tup_virt, dtype=np.int64), np.array(tup_virt, dtype=np.int64)
-    # combinations of occupied and virtual MOs
-    elif 0 < nocc < order:
-        for tup_occ in combinations(occ_space, nocc):
-            for tup_virt in combinations(virt_space, order - nocc):
-                yield np.array(tup_occ + tup_virt, dtype=np.int64), np.array(
-                    tup_virt, dtype=np.int64
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual orbital spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
+
+        # occupied and virtual index spaces
+        occ_idx = space_idx[: occ_space.size]
+        virt_idx = space_idx[occ_space.size :]
+
+        # only virtual MOs
+        if tup_nocc == 0:
+            for tup_virt, tup_virt_idx in zip(
+                combinations(virt_space, order), combinations(virt_idx, order)
+            ):
+                yield np.array(tup_virt, dtype=np.int64), np.array(
+                    tup_virt_idx, dtype=np.int64
                 )
-    # only occupied MOs
-    elif nocc == order:
-        for tup_occ in combinations(occ_space, order):
-            yield np.array(tup_occ, dtype=np.int64), np.array([], dtype=np.int64)
+        # combinations of occupied and virtual MOs
+        elif 0 < tup_nocc < order:
+            for tup_occ, tup_occ_idx in zip(
+                combinations(occ_space, tup_nocc), combinations(occ_idx, tup_nocc)
+            ):
+                for tup_virt, tup_virt_idx in zip(
+                    combinations(virt_space, order - tup_nocc),
+                    combinations(virt_idx, order - tup_nocc),
+                ):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64), np.array(
+                        tup_occ_idx + tup_virt_idx, dtype=np.int64
+                    )
+        # only occupied MOs
+        elif tup_nocc == order:
+            for tup_occ, tup_occ_idx in zip(
+                combinations(occ_space, tup_nocc), combinations(occ_idx, tup_nocc)
+            ):
+                yield np.array(tup_occ, dtype=np.int64), np.array(
+                    tup_occ_idx, dtype=np.int64
+                )
+
+    else:
+        # put orbital space clusters into sublists by size and determine the number
+        # of virtual orbitals for every cluster
+        orb_clusters_size: List[List[np.ndarray]] = []
+        orb_clusters_idx_size: List[List[np.ndarray]] = []
+        orb_clusters_nvirt: List[List[int]] = []
+        for idx in range(len(orb_clusters)):
+            if idx == 0 or orb_clusters[idx].size > orb_clusters[idx - 1].size:
+                orb_clusters_size.append([])
+                orb_clusters_idx_size.append([])
+                orb_clusters_nvirt.append([])
+            orb_clusters_size[-1].append(orb_clusters[idx])
+            orb_clusters_idx_size[-1].append(clusters_idx[idx])
+            orb_clusters_nvirt[-1].append((orb_clusters[idx] >= nocc).sum())
+
+        # loop over tuples
+        for tup_clusters, tup_clusters_idx in zip(
+            _recursive_tuples(
+                orb_clusters_size, orb_clusters_nvirt, [], order, order - tup_nocc
+            ),
+            _recursive_tuples(
+                orb_clusters_idx_size, orb_clusters_nvirt, [], order, order - tup_nocc
+            ),
+        ):
+            tup = np.hstack(tup_clusters)
+            sort_idx = np.argsort(tup)
+            tup = tup[sort_idx]
+            tup_idx = np.hstack(tup_clusters_idx)[sort_idx]
+            yield tup, tup_idx
+
+
+def tuples_idx_virt_idx_with_nocc(
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    space_idx: np.ndarray,
+    clusters_idx: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
+    order: int,
+    tup_nocc: int,
+) -> Generator[Tuple[np.ndarray, np.ndarray, np.ndarray], None, None]:
+    """
+    this function is a generator for tuples, their indices and the virtual indices in a
+    given active space for a given number of occupied orbitals
+    """
+    # check if only single orbitals in orbital space
+    if exp_single_orbs:
+        # occupied and virtual orbital spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
+
+        # occupied and virtual index spaces
+        occ_idx = space_idx[: occ_space.size]
+        virt_idx = space_idx[occ_space.size :]
+
+        # only virtual MOs
+        if tup_nocc == 0:
+            for tup_virt, tup_virt_idx in zip(
+                combinations(virt_space, order), combinations(virt_idx, order)
+            ):
+                yield np.array(tup_virt, dtype=np.int64), np.array(
+                    tup_virt_idx, dtype=np.int64
+                ), np.array(tup_virt_idx, dtype=np.int64)
+        # combinations of occupied and virtual MOs
+        elif 0 < tup_nocc < order:
+            for tup_occ, tup_occ_idx in zip(
+                combinations(occ_space, tup_nocc), combinations(occ_idx, tup_nocc)
+            ):
+                for tup_virt, tup_virt_idx in zip(
+                    combinations(virt_space, order - tup_nocc),
+                    combinations(virt_idx, order - tup_nocc),
+                ):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64), np.array(
+                        tup_occ_idx + tup_virt_idx, dtype=np.int64
+                    ), np.array(tup_virt_idx, dtype=np.int64)
+        # only occupied MOs
+        elif tup_nocc == order:
+            for tup_occ, tup_occ_idx in zip(
+                combinations(occ_space, tup_nocc), combinations(occ_idx, tup_nocc)
+            ):
+                yield np.array(tup_occ, dtype=np.int64), np.array(
+                    tup_occ_idx, dtype=np.int64
+                ), np.array([], dtype=np.int64)
+
+    else:
+        # put orbital space clusters into sublists by size and determine the number
+        # of virtual orbitals for every cluster
+        orb_clusters_size: List[List[np.ndarray]] = []
+        orb_clusters_idx_size: List[List[np.ndarray]] = []
+        orb_clusters_nvirt: List[List[int]] = []
+        for idx in range(len(orb_clusters)):
+            if idx == 0 or orb_clusters[idx].size > orb_clusters[idx - 1].size:
+                orb_clusters_size.append([])
+                orb_clusters_idx_size.append([])
+                orb_clusters_nvirt.append([])
+            orb_clusters_size[-1].append(orb_clusters[idx])
+            orb_clusters_idx_size[-1].append(clusters_idx[idx])
+            orb_clusters_nvirt[-1].append((orb_clusters[idx] >= nocc).sum())
+
+        # loop over tuples
+        for tup_clusters, tup_clusters_idx in zip(
+            _recursive_tuples(
+                orb_clusters_size, orb_clusters_nvirt, [], order, order - tup_nocc
+            ),
+            _recursive_tuples(
+                orb_clusters_idx_size, orb_clusters_nvirt, [], order, order - tup_nocc
+            ),
+        ):
+            tup = np.hstack(tup_clusters)
+            sort_idx = np.argsort(tup)
+            tup = tup[sort_idx]
+            tup_idx = np.hstack(tup_clusters_idx)[sort_idx]
+            yield tup, tup_idx, tup_idx[tup >= nocc]
+
+
+def _recursive_tuples(
+    clusters_size_list: List[List[np.ndarray]],
+    clusters_nvirt: List[List[int]],
+    tup: List[np.ndarray],
+    remain_norb: int,
+    remain_nvirt: int,
+) -> Generator[List[np.ndarray], None, None]:
+    """
+    this function generates tuples through recursion
+    """
+    # loop over different cluster size blocks
+    for size_idx, (size_block, size_block_nvirt) in enumerate(
+        zip(clusters_size_list, clusters_nvirt)
+    ):
+        # loop over orbital cluster in size block
+        for idx, (cluster, cluster_nvirt) in enumerate(
+            zip(size_block, size_block_nvirt)
+        ):
+            # check if active space is smaller than mbe order
+            if remain_norb > cluster.size:
+                # add an additional cluster while adding current cluster to tuple and
+                # subtracting cluster size from remaining number of orbitals
+                yield from _recursive_tuples(
+                    [clusters_size_list[size_idx][idx + 1 :]]
+                    + clusters_size_list[size_idx + 1 :],
+                    [clusters_nvirt[size_idx][idx + 1 :]]
+                    + clusters_nvirt[size_idx + 1 :],
+                    tup + [cluster],
+                    remain_norb - cluster.size,
+                    remain_nvirt - cluster_nvirt,
+                )
+
+            # check if active space is equal to mbe order
+            elif remain_norb == cluster.size:
+                # check if number of added virtual orbitals is equal to remaining
+                # number in tuple
+                if remain_nvirt == cluster_nvirt:
+                    # add cluster and yield tuple
+                    yield tup + [cluster]
+                # check if number of added virtual orbitals is larger than remaining
+                # number in tuple
+                elif remain_nvirt < cluster_nvirt:
+                    # go to next cluster size block
+                    break
+
+            # active space is larger than mbe order
+            else:
+                # go to previous recursion function
+                return
+
+
+def _cluster_size_list_and_nvirt(
+    cluster_list: List[np.ndarray], nocc: int
+) -> Tuple[List[List[np.ndarray]], List[List[int]]]:
+    """
+    this function puts clusters into sublists by size and determines the number of
+    of virtual orbitals for every cluster
+    """
+    cluster_size_list: List[List[np.ndarray]] = []
+    cluster_nvirt: List[List[int]] = []
+    for idx in range(len(cluster_list)):
+        if idx == 0 or cluster_list[idx].size > cluster_list[idx - 1].size:
+            cluster_size_list.append([])
+            cluster_nvirt.append([])
+        cluster_size_list[-1].append(cluster_list[idx])
+        cluster_nvirt[-1].append((cluster_list[idx] >= nocc).sum())
+
+    return cluster_size_list, cluster_nvirt
 
 
 def _comb_idx(space: np.ndarray, tup: np.ndarray) -> int:
@@ -952,8 +1311,10 @@ def _idx(space: np.ndarray, idx: int, order: int) -> int:
 
 
 def n_tuples(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     vanish_exc: int,
@@ -965,16 +1326,40 @@ def n_tuples(
     # init n_tuples
     n = 0
 
-    for k in range(order + 1):
-        if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-            n += comb(occ_space.size, k) * comb(virt_space.size, order - k)
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual expansion spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
+
+        # loop over number of occupied orbitals
+        for tup_nocc in range(order + 1):
+            # check if occupation produces valid increment
+            if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+                n += comb(occ_space.size, tup_nocc) * comb(
+                    virt_space.size, order - tup_nocc
+                )
+
+    else:
+        # get number of expansion space clusters for every cluster size and number of
+        # virtual orbitals
+        nclusters = _nclusters(orb_clusters, nocc)
+
+        # loop over number of occupied orbitals
+        for tup_nocc in range(order + 1):
+            # check if occupation produces valid increment
+            if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+                # count tuples
+                n += _recursive_ntuples(nclusters, 0, 1, order, order - tup_nocc)
 
     return n
 
 
 def n_tuples_with_nocc(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     vanish_exc: int,
@@ -987,52 +1372,290 @@ def n_tuples_with_nocc(
     """
     # check if tuple is valid for chosen method
     if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
-        return comb(occ_space.size, tup_nocc) * comb(virt_space.size, order - tup_nocc)
+        # check if only single orbitals in expansion space
+        if exp_single_orbs:
+            # occupied and virtual expansion spaces
+            occ_space = orb_space[orb_space < nocc]
+            virt_space = orb_space[nocc <= orb_space]
+
+            return comb(occ_space.size, tup_nocc) * comb(
+                virt_space.size, order - tup_nocc
+            )
+
+        else:
+            # get number of expansion space clusters for every cluster size and number
+            # of virtual orbitals
+            nclusters = _nclusters(orb_clusters, nocc)
+
+            return _recursive_ntuples(nclusters, 0, 1, order, order - tup_nocc)
+
     else:
         return 0
 
 
-def orb_n_tuples(
-    occ_space: np.ndarray,
-    virt_space: np.ndarray,
+def cluster_n_tuples(
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    exp_single_orbs: bool,
+    nocc: int,
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     vanish_exc: int,
     order: int,
-    occ_type: str,
-) -> int:
+) -> np.ndarray:
     """
     this function returns the both the total number of tuples of a given order that
     include a specific occupied or a specific virtual orbital
     """
-    # initialize ntup_occ
-    ntup = 0
+    # initialize ntup
+    ntup = np.zeros(len(orb_clusters), dtype=np.int64)
 
-    if occ_type == "occ" and occ_space.size > 0:
-        # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                ntup += comb(occ_space.size - 1, k - 1) * comb(
-                    virt_space.size, order - k
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual expansion spaces
+        occ_idx = orb_space < nocc
+        virt_idx = nocc <= orb_space
+        occ_space = orb_space[occ_idx]
+        virt_space = orb_space[virt_idx]
+
+        if occ_space.size > 0:
+            # combinations of occupied and virtual MOs
+            for tup_nocc in range(1, order):
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
+                ):
+                    ntup[occ_idx] += comb(occ_space.size - 1, tup_nocc - 1) * comb(
+                        virt_space.size, order - tup_nocc
+                    )
+
+            # only occupied MOs
+            if valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
+                ntup[occ_idx] += comb(occ_space.size - 1, order - 1)
+
+        if virt_space.size > 0:
+            # combinations of occupied and virtual MOs
+            for tup_nocc in range(1, order):
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
+                ):
+                    ntup[virt_idx] += comb(occ_space.size, tup_nocc) * comb(
+                        virt_space.size - 1, order - tup_nocc - 1
+                    )
+
+            # only virtual MOs
+            if valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
+                ntup[virt_idx] += comb(virt_space.size - 1, order - 1)
+
+    else:
+        # get number of expansion space clusters for every cluster size and number of
+        # virtual orbitals
+        nclusters = _nclusters(orb_clusters, nocc)
+
+        # cluster index
+        cluster_idx = 0
+
+        # loop over different cluster size blocks
+        for size_idx, (size, size_block) in enumerate(nclusters):
+            # loop over different cluster blocks with differing number of virtual orbitals
+            for idx, (nvirt, ncluster) in enumerate(size_block):
+                # remove one cluster
+                nclusters[size_idx][1][idx] = (
+                    nclusters[size_idx][1][idx][0],
+                    nclusters[size_idx][1][idx][1] - 1,
                 )
 
-        # only occupied MOs
-        if valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
-            ntup += comb(occ_space.size - 1, order - 1)
+                # loop over number of occupied orbitals
+                for tup_nocc in range(0, order + 1):
+                    # check if occupation produces valid increment
+                    if valid_tup(
+                        ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
+                    ):
+                        # count tuples
+                        ntup[
+                            cluster_idx : cluster_idx + ncluster
+                        ] += _recursive_ntuples(
+                            nclusters, 0, 1, order - size, order - tup_nocc - nvirt
+                        )
 
-    elif occ_type == "virt" and virt_space.size > 0:
-        # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            if valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
-                ntup += comb(occ_space.size, k) * comb(
-                    virt_space.size - 1, order - k - 1
+                # add cluster again
+                nclusters[size_idx][1][idx] = (
+                    nclusters[size_idx][1][idx][0],
+                    nclusters[size_idx][1][idx][1] + 1,
                 )
 
-        # only virtual MOs
-        if valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
-            ntup += comb(virt_space.size - 1, order - 1)
+                # increment cluster index
+                cluster_idx += ncluster
 
     return ntup
+
+
+def single_cluster_n_tuples(
+    orb_space: np.ndarray,
+    orb_clusters: List[np.ndarray],
+    cluster_idx: int,
+    exp_single_orbs: bool,
+    nocc: int,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
+    vanish_exc: int,
+    order: int,
+) -> int:
+    """
+    this function returns the total number of tuples of a given order that include a
+    specific orbital cluster
+    """
+    # initialize ntup
+    ntup = 0
+
+    # check if only single orbitals in expansion space
+    if exp_single_orbs:
+        # occupied and virtual expansion spaces
+        occ_idx = orb_space < nocc
+        virt_idx = nocc <= orb_space
+        occ_space = orb_space[occ_idx]
+        virt_space = orb_space[virt_idx]
+
+        if orb_space[cluster_idx] < nocc and occ_space.size > 0:
+            # combinations of occupied and virtual MOs
+            for tup_nocc in range(1, order):
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
+                ):
+                    ntup += comb(occ_space.size - 1, tup_nocc - 1) * comb(
+                        virt_space.size, order - tup_nocc
+                    )
+
+            # only occupied MOs
+            if valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
+                ntup += comb(occ_space.size - 1, order - 1)
+
+        if nocc <= orb_space[cluster_idx] and virt_space.size > 0:
+            # combinations of occupied and virtual MOs
+            for tup_nocc in range(1, order):
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
+                ):
+                    ntup += comb(occ_space.size, tup_nocc) * comb(
+                        virt_space.size - 1, order - tup_nocc - 1
+                    )
+
+            # only virtual MOs
+            if valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
+                ntup += comb(virt_space.size - 1, order - 1)
+
+    else:
+        # get cluster size and number of virtual orbitals in cluster
+        size = orb_clusters[cluster_idx].size
+        nvirt = (nocc <= orb_clusters[cluster_idx]).sum()
+
+        # remove cluster from local expansion space
+        orb_clusters = orb_clusters[:cluster_idx] + orb_clusters[cluster_idx + 1 :]
+
+        # get number of expansion space clusters for every cluster size and number of
+        # virtual orbitals
+        nclusters = _nclusters(orb_clusters, nocc)
+
+        # loop over number of occupied orbitals
+        for tup_nocc in range(0, order + 1):
+            # check if occupation produces valid increment
+            if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
+                # count tuples
+                ntup += _recursive_ntuples(
+                    nclusters, 0, 1, order - size, order - tup_nocc - nvirt
+                )
+
+    return ntup
+
+
+def _recursive_ntuples(
+    nclusters: List[Tuple[int, List[Tuple[int, int]]]],
+    tot_ntup: int,
+    ntup: int,
+    remain_norb: int,
+    remain_nvirt: int,
+) -> int:
+    """
+    this function generates the number of tuples through recursion
+    """
+    # loop over different cluster size blocks
+    for size_idx, (size, size_block) in enumerate(nclusters):
+        # loop over different cluster blocks with differing number of virtual orbitals
+        for idx, (nvirt, ncluster) in enumerate(size_block):
+            # loop over differing numbers of clusters
+            for n in range(1, ncluster + 1):
+                # check if active space is smaller than mbe order
+                if remain_norb > n * size:
+                    # add an additional cluster while adding number of possible tuples
+                    # and subtracting cluster size from remaining number of orbitals
+                    tot_ntup = _recursive_ntuples(
+                        [
+                            (
+                                nclusters[size_idx][0],
+                                nclusters[size_idx][1][idx + 1 :],
+                            )
+                        ]
+                        + nclusters[size_idx + 1 :],
+                        tot_ntup,
+                        ntup * comb(ncluster, n),
+                        remain_norb - n * size,
+                        remain_nvirt - n * nvirt,
+                    )
+
+                # check if active space is equal to mbe order
+                elif remain_norb == n * size:
+                    # check if number of added virtual orbitals is equal to remaining
+                    # number in tuple
+                    if remain_nvirt == n * nvirt:
+                        # multiply with possible combinations and add to total
+                        tot_ntup += ntup * comb(ncluster, n)
+                        # stop adding more clusters
+                        break
+
+                    # check if number of added virtual orbitals is larger than remaining
+                    # number in tuple
+                    elif remain_nvirt < n * nvirt:
+                        # stop adding more clusters
+                        break
+
+                # active space is larger than mbe order and only single cluster was
+                # included
+                elif n == 1:
+                    # go to previous recursion function
+                    return tot_ntup
+
+                # active space is larger than mbe order
+                else:
+                    # stop adding more clusters
+                    break
+
+            # multiple clusters are available but only one was used
+            if ncluster > 1 and n == 1:
+                # go to next cluster size block
+                break
+
+    # go to previous recursion function
+    return tot_ntup
+
+
+def _nclusters(
+    cluster_list: List[np.ndarray], nocc: int
+) -> List[Tuple[int, List[Tuple[int, int]]]]:
+    """
+    this function returns number of clusters by size and number of virtual orbitals
+    """
+    nclusters: List[Tuple[int, List[Tuple[int, int]]]] = []
+    last_nvirt = 0
+    for idx in range(len(cluster_list)):
+        nvirt = (cluster_list[idx] >= nocc).sum()
+        if idx == 0 or cluster_list[idx].size > cluster_list[idx - 1].size:
+            nclusters.append((cluster_list[idx].size, []))
+            nclusters[-1] = (nclusters[-1][0], nclusters[-1][1] + [(nvirt, 0)])
+        elif nvirt > last_nvirt:
+            nclusters[-1] = (nclusters[-1][0], nclusters[-1][1] + [(nvirt, 0)])
+        nclusters[-1][1][-1] = (nclusters[-1][1][-1][0], nclusters[-1][1][-1][1] + 1)
+        last_nvirt = nvirt
+
+    return nclusters
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -1481,16 +2104,23 @@ def write_file(
 
 
 def write_file_mult(
-    arrs: Dict[str, np.ndarray], string: str, order: Optional[int] = None
+    arrs: Union[List[np.ndarray], Dict[str, np.ndarray]],
+    string: str,
+    order: Optional[int] = None,
 ) -> None:
     """
     this function writes a general restart file corresponding to the input string for
     multiple arrays
     """
     if order is None:
-        np.savez(os.path.join(RST, f"{string}"), **arrs)
+        filename = os.path.join(RST, f"{string}")
     else:
-        np.savez(os.path.join(RST, f"{string}_{order}"), **arrs)
+        filename = os.path.join(RST, f"{string}_{order}")
+
+    if isinstance(arrs, list):
+        np.savez(os.path.join(RST, filename), *arrs)
+    else:
+        np.savez(os.path.join(RST, filename), **arrs)
 
 
 def read_file(string: str, order: Optional[int] = None) -> np.ndarray:

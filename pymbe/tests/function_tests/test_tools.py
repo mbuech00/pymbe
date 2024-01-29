@@ -25,7 +25,7 @@ from pymbe.tools import (
     hash_1d,
     hash_lookup,
     tuples,
-    start_idx,
+    _start_idx,
     _comb_idx,
     _idx,
     n_tuples,
@@ -251,17 +251,11 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
     order = 3
     occup = np.array([2.0] * 4 + [0.0] * 4, dtype=np.float64)
     exp_space = np.array([0, 1, 2, 5, 6, 7], dtype=np.int64)
+    exp_clusters = [np.array(orb, dtype=np.int64) for orb in exp_space]
     ref_nelec = get_nelec(occup, ref_space)
     ref_nhole = get_nhole(ref_nelec, ref_space)
 
-    gen = tuples(
-        exp_space[exp_space < nocc],
-        exp_space[nocc <= exp_space],
-        ref_nelec,
-        ref_nhole,
-        1,
-        order,
-    )
+    gen = tuples(exp_space, exp_clusters, True, nocc, ref_nelec, ref_nhole, 1, order)
 
     assert isinstance(gen, GeneratorType)
     assert sum(1 for _ in gen) == ref_n_tuples
@@ -278,12 +272,12 @@ def test_start_idx(
     ref_start_idx: Tuple[int, int, int],
 ) -> None:
     """
-    this function tests start_idx
+    this function tests _start_idx
     """
     occ_space = np.array([0, 1, 2, 5], dtype=np.int64)
     virt_space = np.array([6, 7, 9, 12], dtype=np.int64)
 
-    assert start_idx(occ_space, virt_space, tup_occ, tup_virt) == ref_start_idx
+    assert _start_idx(occ_space, virt_space, tup_occ, tup_virt) == ref_start_idx
 
 
 @pytest.mark.parametrize(
@@ -325,12 +319,14 @@ def test_n_tuples(
     """
     this function tests n_tuples
     """
+    nocc = 10
     order = 5
-    occ_space = np.arange(10, dtype=np.int64)
-    virt_space = np.arange(10, 50, dtype=np.int64)
+    exp_space = np.arange(50, dtype=np.int64)
+    exp_clusters = [np.array(orb, dtype=np.int64) for orb in exp_space]
 
     assert (
-        n_tuples(occ_space, virt_space, ref_nelec, ref_nhole, 1, order) == ref_n_tuples
+        n_tuples(exp_space, exp_clusters, True, nocc, ref_nelec, ref_nhole, 1, order)
+        == ref_n_tuples
     )
 
 
@@ -345,14 +341,23 @@ def test_n_tuples_with_nocc(
     """
     this function tests n_tuples
     """
+    nocc = 10
     order = 5
-    occ_space = np.arange(10, dtype=np.int64)
-    virt_space = np.arange(10, 50, dtype=np.int64)
+    exp_space = np.arange(50, dtype=np.int64)
+    exp_clusters = [np.array(orb, dtype=np.int64) for orb in exp_space]
 
     ntuples = 0
     for tup_nocc in range(order + 1):
         ntuples += n_tuples_with_nocc(
-            occ_space, virt_space, ref_nelec, ref_nhole, 1, order, tup_nocc
+            exp_space,
+            exp_clusters,
+            True,
+            nocc,
+            ref_nelec,
+            ref_nhole,
+            1,
+            order,
+            tup_nocc,
         )
 
     assert ntuples == ref_n_tuples

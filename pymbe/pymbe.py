@@ -67,7 +67,7 @@ class MBE:
         hcore: Optional[np.ndarray] = None,
         eri: Optional[np.ndarray] = None,
         ref_space: np.ndarray = np.array([], dtype=np.int64),
-        exp_space: Optional[np.ndarray] = None,
+        exp_space: Optional[Union[np.ndarray, List[np.ndarray]]] = None,
         ref_thres: Union[int, float] = 0,
         base_method: Optional[str] = None,
         base_prop: Optional[
@@ -273,13 +273,14 @@ class MBE:
                 # reference space
                 self.ref_space = ref_space
                 if exp_space is not None:
-                    self.exp_space = exp_space
+                    self.exp_space = [np.atleast_1d(cluster) for cluster in exp_space]
                 elif hasattr(self, "norb"):
                     # set default value for expansion space
-                    self.exp_space = np.array(
-                        [i for i in range(self.norb) if i not in self.ref_space],
-                        dtype=np.int64,
-                    )
+                    self.exp_space = [
+                        np.array(orb, dtype=np.int64)
+                        for orb in range(self.norb)
+                        if orb not in self.ref_space
+                    ]
                 self.ref_thres = ref_thres
 
                 # base model
@@ -316,12 +317,12 @@ class MBE:
                 self.screen_thres = screen_thres
                 self.screen_func = screen_func
                 if max_order is not None and hasattr(self, "exp_space"):
-                    self.max_order = min(self.exp_space.size, max_order)
+                    self.max_order = min(np.hstack(self.exp_space).size, max_order)
                 elif max_order is not None:
                     self.max_order = max_order
                 elif hasattr(self, "exp_space"):
                     # set default value for maximum expansion order
-                    self.max_order = self.exp_space.size
+                    self.max_order = np.hstack(self.exp_space).size
 
                 # restart
                 self.rst = rst

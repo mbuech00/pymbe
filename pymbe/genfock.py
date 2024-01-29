@@ -42,8 +42,7 @@ from pymbe.tools import (
     packedGenFockCls,
     RDMCls,
     get_nelec,
-    tuples_with_nocc,
-    tuples_and_virt_with_nocc,
+    tuples_idx_virt_idx_with_nocc,
     hash_1d,
     hash_lookup,
     get_occup,
@@ -357,20 +356,17 @@ class GenFockExpCls(
         inc: List[List[packedGenFockCls]],
         hashes: List[List[np.ndarray]],
         tup: np.ndarray,
+        tup_clusters: List[np.ndarray],
     ) -> GenFockCls:
         """
         this function performs a recursive summation and returns the final increment
         associated with a given tuple
         """
-        # occupied and virtual subspaces of tuple
-        tup_occ = tup[tup < self.nocc]
-        tup_virt = tup[self.nocc <= tup]
-
         # size of cas
         cas_size = self.ref_space.size + tup.size
 
         # number of occupied orbitals outside cas space
-        ncore = self.nocc - self.ref_occ.size - tup_occ.size
+        ncore = self.nocc - self.ref_occ.size - (tup < self.nocc).sum()
 
         # init res
         res = GenFockCls(
@@ -381,32 +377,44 @@ class GenFockExpCls(
 
         # rank of reference space and occupied and virtual tuple orbitals
         rank = np.argsort(np.argsort(np.concatenate((self.ref_space, tup))))
-        ind_ref = rank[: self.ref_space.size]
-        ind_ref_virt = rank[self.ref_occ.size : self.ref_space.size]
-        ind_tup_occ = rank[self.ref_space.size : self.ref_space.size + tup_occ.size]
-        ind_tup_virt = rank[self.ref_space.size + tup_occ.size :]
+        ref_idx = rank[: self.ref_space.size]
+        ref_virt_idx = rank[self.ref_occ.size : self.ref_space.size]
+        exp_idx = rank[self.ref_space.size :]
+
+        # get cluster indices in tuple space
+        cluster_idx = 0
+        exp_clusters_idx: List[np.ndarray] = []
+        for cluster in tup_clusters:
+            exp_clusters_idx.append(ref_idx[cluster_idx : cluster_idx + cluster.size])
+            cluster_idx += cluster.size
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
             # rank of all orbitals in casci space
-            ind_casci = np.empty(self.ref_space.size + k, dtype=np.int64)
+            idx_casci = np.empty(self.ref_space.size + k, dtype=np.int64)
 
             # loop over number of occupied orbitals
             for l in range(k + 1):
                 # check if hashes are available
                 if hashes[k - self.min_order][l].size > 0:
                     # indices of generalized Fock matrix subspace in full space
-                    ind_gen_fock = np.empty(
+                    idx_gen_fock = np.empty(
                         self.nocc + self.ref_virt.size + k - l, dtype=np.int64
                     )
 
                     # add all occupied orbitals
-                    ind_gen_fock[: self.nocc] = np.arange(self.nocc)
+                    idx_gen_fock[: self.nocc] = np.arange(self.nocc)
 
                     # loop over subtuples
-                    for tup_sub, (ind_sub, ind_sub_virt) in zip(
-                        tuples_with_nocc(tup_occ, tup_virt, k, l),
-                        tuples_and_virt_with_nocc(ind_tup_occ, ind_tup_virt, k, l),
+                    for tup_sub, idx_sub, idx_sub_virt in tuples_idx_virt_idx_with_nocc(
+                        tup,
+                        tup_clusters,
+                        exp_idx,
+                        exp_clusters_idx,
+                        self.exp_single_orbs,
+                        self.nocc,
+                        k,
+                        l,
                     ):
                         # compute index
                         idx = hash_lookup(
@@ -416,29 +424,32 @@ class GenFockExpCls(
                         # sum up order increments
                         if idx is not None:
                             # add rank of reference space orbitals
-                            ind_casci[: self.ref_space.size] = ind_ref
+                            idx_casci[: self.ref_space.size] = ref_idx
 
                             # add rank of subtuple orbitals
-                            ind_casci[self.ref_space.size :] = ind_sub
+                            idx_casci[self.ref_space.size :] = idx_sub
 
                             # add rank of reference space virtual orbitals
-                            ind_gen_fock[self.nocc : self.nocc + self.ref_virt.size] = (
-                                ncore + ind_ref_virt
+                            idx_gen_fock[self.nocc : self.nocc + self.ref_virt.size] = (
+                                ncore + ref_virt_idx
                             )
 
                             # add rank of subtuple virtual orbitals
-                            ind_gen_fock[self.nocc + self.ref_virt.size :] = (
-                                ncore + ind_sub_virt
+                            idx_gen_fock[self.nocc + self.ref_virt.size :] = (
+                                ncore + idx_sub_virt
                             )
 
                             # sort indices for faster assignment
-                            ind_casci.sort()
-                            ind_gen_fock[self.nocc :].sort()
+                            idx_casci.sort()
+                            idx_gen_fock[self.nocc :].sort()
 
                             # add subtuple rdms
-                            res[ind_casci, ind_gen_fock] += inc[k - self.min_order][l][
+                            res[idx_casci, idx_gen_fock] += inc[k - self.min_order][l][
                                 idx
                             ]
+
+                        else:
+                            raise RuntimeError("Subtuple not found:", tup_sub)
 
         return res
 
