@@ -836,14 +836,13 @@ def tuples(
         # determine start_idx by counting number of tuples per nocc before this
         if start_idx > 0:
             nclusters = _nclusters(orb_clusters, nocc)
-            for tup_nocc in range(0, order + 1):
+            for nocc_start in range(0, order + 1):
                 if valid_tup(
-                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
+                    ref_nelec, ref_nhole, nocc_start, order - nocc_start, vanish_exc
                 ):
-                    idx = _recursive_ntuples(nclusters, 0, 1, order, order - tup_nocc)
+                    idx = _recursive_ntuples(nclusters, 0, 1, order, order - nocc_start)
                     if idx < start_idx:
                         start_idx -= idx
-                        nocc_start = tup_nocc
                     else:
                         break
         else:
@@ -868,6 +867,8 @@ def tuples(
                     None,
                 ):
                     yield np.sort(np.hstack(tup)), tup
+            # reset start index
+            start_idx = 0
 
 
 def _start_idx(
