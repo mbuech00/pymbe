@@ -251,11 +251,10 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
     order = 3
     occup = np.array([2.0] * 4 + [0.0] * 4, dtype=np.float64)
     exp_space = np.array([0, 1, 2, 5, 6, 7], dtype=np.int64)
-    exp_clusters = [np.array(orb, dtype=np.int64) for orb in exp_space]
     ref_nelec = get_nelec(occup, ref_space)
     ref_nhole = get_nhole(ref_nelec, ref_space)
 
-    gen = tuples(exp_space, exp_clusters, True, nocc, ref_nelec, ref_nhole, 1, order)
+    gen = tuples(exp_space, None, nocc, ref_nelec, ref_nhole, 1, order)
 
     assert isinstance(gen, GeneratorType)
     assert sum(1 for _ in gen) == ref_n_tuples
@@ -322,11 +321,9 @@ def test_n_tuples(
     nocc = 10
     order = 5
     exp_space = np.arange(50, dtype=np.int64)
-    exp_clusters = [np.array(orb, dtype=np.int64) for orb in exp_space]
 
     assert (
-        n_tuples(exp_space, exp_clusters, True, nocc, ref_nelec, ref_nhole, 1, order)
-        == ref_n_tuples
+        n_tuples(exp_space, None, nocc, ref_nelec, ref_nhole, 1, order) == ref_n_tuples
     )
 
 
@@ -344,20 +341,11 @@ def test_n_tuples_with_nocc(
     nocc = 10
     order = 5
     exp_space = np.arange(50, dtype=np.int64)
-    exp_clusters = [np.array(orb, dtype=np.int64) for orb in exp_space]
 
     ntuples = 0
     for tup_nocc in range(order + 1):
         ntuples += n_tuples_with_nocc(
-            exp_space,
-            exp_clusters,
-            True,
-            nocc,
-            ref_nelec,
-            ref_nhole,
-            1,
-            order,
-            tup_nocc,
+            exp_space, None, nocc, ref_nelec, ref_nhole, 1, order, tup_nocc
         )
 
     assert ntuples == ref_n_tuples

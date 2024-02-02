@@ -16,10 +16,8 @@ __status__ = "Development"
 
 import os
 import numpy as np
-from scipy import optimize
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
-from numpy.polynomial.polynomial import Polynomial
 from pyscf import gto, scf, cc, fci
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union, Dict
 
@@ -46,7 +44,6 @@ from pymbe.tools import (
     n_tuples,
     n_tuples_with_nocc,
     cluster_n_tuples,
-    single_cluster_n_tuples,
     is_file,
     read_file,
     write_file,
@@ -54,7 +51,7 @@ from pymbe.tools import (
     pi_prune,
     tuples,
     tuples_with_nocc,
-    orb_tuples_with_nocc,
+    cluster_tuples_with_nocc,
     valid_tup,
     get_nelec,
     get_nhole,
@@ -84,6 +81,7 @@ from pymbe.tools import (
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
+from pymbe.screen import fixed_screen, adaptive_screen
 
 if TYPE_CHECKING:
     from pyscf import gto
@@ -981,8 +979,7 @@ class ExpCls(
                 self.n_tuples["theo"].append(
                     n_tuples(
                         self.exp_space[0],
-                        self.exp_clusters[0],
-                        self.exp_single_orbs,
+                        self.exp_clusters[0] if not self.exp_single_orbs else None,
                         self.nocc,
                         self.ref_nelec,
                         self.ref_nhole,
@@ -996,8 +993,7 @@ class ExpCls(
                 self.n_tuples["screen"].append(
                     n_tuples(
                         self.exp_space[-1],
-                        self.exp_clusters[-1],
-                        self.exp_single_orbs,
+                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
                         self.nocc,
                         self.ref_nelec,
                         self.ref_nhole,
@@ -1011,8 +1007,7 @@ class ExpCls(
             self.n_tuples["van"].append(
                 n_tuples(
                     self.exp_space[-1],
-                    self.exp_clusters[-1],
-                    self.exp_single_orbs,
+                    self.exp_clusters[-1] if not self.exp_single_orbs else None,
                     self.nocc,
                     self.ref_nelec,
                     self.ref_nhole,
@@ -1051,8 +1046,7 @@ class ExpCls(
                     for tup_idx, tup in enumerate(
                         tuples_with_nocc(
                             self.exp_space[-1],
-                            self.exp_clusters[-1],
-                            self.exp_single_orbs,
+                            self.exp_clusters[-1] if not self.exp_single_orbs else None,
                             self.nocc,
                             self.order,
                             tup_nocc,
@@ -1090,8 +1084,7 @@ class ExpCls(
                     for tup_nocc in range(self.order + 1):
                         self.n_incs[-1][tup_nocc] = n_tuples_with_nocc(
                             self.exp_space[-1],
-                            self.exp_clusters[-1],
-                            self.exp_single_orbs,
+                            self.exp_clusters[-1] if not self.exp_single_orbs else None,
                             self.nocc,
                             self.ref_nelec,
                             self.ref_nhole,
@@ -1192,15 +1185,21 @@ class ExpCls(
             max_inc = self._init_target_inst(0.0, self.norb, self.nocc)
 
         # init screen arrays
-        screen = self._init_screen()
-        if rst_read:
-            if mpi.global_master:
-                screen = self.screen[-1]
-        else:
-            self.screen.append(screen)
+        for order_idx in range(self.order):
+            if len(self.screen) == order_idx:
+                self.screen.append(self._init_screen())
+            elif not mpi.global_master:
+                self.screen[order_idx] = self._init_screen()
 
         # set screening function for mpi
-        screen_mpi_func = {"sum_abs": MPI.SUM, "sum": MPI.SUM, "max": MPI.MAX}
+        screen_mpi_func = {
+            "sum_abs": MPI.SUM,
+            "sum": MPI.SUM,
+            "max": MPI.MAX,
+            "cluster_norm_sum_abs": MPI.SUM,
+            "cluster_sum_abs": MPI.SUM,
+            "cluster_sum": MPI.SUM,
+        }
 
         # set rst_write
         rst_write = (
@@ -1217,8 +1216,7 @@ class ExpCls(
             for tup_idx, (tup, tup_clusters) in enumerate(
                 tuples(
                     self.exp_space[-1],
-                    self.exp_clusters[-1],
-                    self.exp_single_orbs,
+                    self.exp_clusters[-1] if not self.exp_single_orbs else None,
                     self.nocc,
                     self.ref_nelec,
                     self.ref_nhole,
@@ -1290,16 +1288,18 @@ class ExpCls(
                         max_inc = self._init_target_inst(0.0, self.norb, self.nocc)
 
                     # reduce screen onto global master
-                    if screen_mpi_func is not None:
-                        for screen_func, screen_array in screen.items():
-                            screen[screen_func] = mpi_reduce(
+                    for idx in range(len(self.screen)):
+                        for screen_func, screen_array in zip(
+                            self.screen[-1].keys(), self.screen[idx].values()
+                        ):
+                            self.screen[idx][screen_func] = mpi_reduce(
                                 mpi.global_comm,
                                 screen_array,
                                 root=0,
                                 op=screen_mpi_func[screen_func],
                             )
                         if not mpi.global_master:
-                            screen = self._init_screen()
+                            self.screen[idx] = self._init_screen()
 
                     # gather maximum squared overlaps on global master
                     self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
@@ -1317,7 +1317,8 @@ class ExpCls(
                         self._write_target_file(min_inc, "mbe_min_inc", self.order)
                         self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
                         self._write_target_file(max_inc, "mbe_max_inc", self.order)
-                        write_file_mult(screen, "mbe_screen", self.order)
+                        for order in range(1, self.order + 1):
+                            write_file_mult(self.screen[order - 1], "mbe_screen", order)
                         write_file(np.asarray(tup_idx), "mbe_tup_idx", self.order)
                         write_file(inc_idx, "mbe_inc_idx", self.order)
                         write_file(np.asarray(n_calc), "mbe_n_tuples_calc", self.order)
@@ -1362,8 +1363,8 @@ class ExpCls(
                 if self.pi_prune and not pi_prune(
                     self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
                 ):
-                    for screen_func in screen.keys():
-                        screen[screen_func][tup] = SCREEN
+                    for screen_func in self.screen[-1].keys():
+                        self.screen[-1][screen_func][tup] = SCREEN
                     continue
 
                 # symmetry-pruning
@@ -1421,6 +1422,9 @@ class ExpCls(
                 # increment calculation counter
                 n_calc += 1
 
+                # get number of clusters
+                ncluster = tup.size if tup_clusters is None else len(tup_clusters)
+
                 # loop over equivalent increment sets
                 for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
                     # calculate increment
@@ -1431,12 +1435,15 @@ class ExpCls(
                     inc_lst[nocc_tup].append(inc_tup)
 
                     # screening procedure
-                    if screen_mpi_func is not None:
-                        for eqv_tup in eqv_set:
-                            for screen_func in screen.keys():
-                                screen[screen_func][eqv_tup] = self._add_screen(
-                                    inc_tup, screen[screen_func], eqv_tup, screen_func
-                                )
+                    for eqv_tup in eqv_set:
+                        self.screen = self._add_screen(
+                            inc_tup,
+                            self.screen,
+                            eqv_tup,
+                            self.order,
+                            ncluster,
+                            nocc_tup,
+                        )
 
                     # debug print
                     logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
@@ -1504,11 +1511,14 @@ class ExpCls(
                 mean_inc /= self.n_tuples["van"][-1]
 
         # reduce screen
-        if screen_mpi_func is not None:
-            for screen_func, screen_array in screen.items():
-                screen[screen_func] = mpi_reduce(
+        for idx in range(len(self.screen)):
+            for screen_func, screen_array in zip(
+                self.screen[-1].keys(), self.screen[idx].values()
+            ):
+                self.screen[idx][screen_func] = mpi_reduce(
                     mpi.global_comm,
                     screen_array,
+                    root=0,
                     op=screen_mpi_func[screen_func],
                 )
 
@@ -1551,12 +1561,6 @@ class ExpCls(
                 self.mean_inc.append(mean_inc)
                 self.min_inc.append(min_inc)
                 self.max_inc.append(max_inc)
-
-            # append screening arrays
-            if len(self.screen) > self.order - self.min_order:
-                self.screen[-1] = screen
-            else:
-                self.screen.append(screen)
 
             self.time["mbe"][-1] += MPI.Wtime() - time
 
@@ -1624,8 +1628,7 @@ class ExpCls(
             for tup_idx, (tup, _) in enumerate(
                 tuples(
                     self.exp_space[-1],
-                    self.exp_clusters[-1],
-                    self.exp_single_orbs,
+                    self.exp_clusters[-1] if not self.exp_single_orbs else None,
                     self.nocc,
                     self.ref_nelec,
                     self.ref_nhole,
@@ -1849,7 +1852,8 @@ class ExpCls(
             self._write_target_file(self.min_inc[-1], "mbe_min_inc", self.order)
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
-            write_file_mult(self.screen[-1], "mbe_screen", self.order)
+            for order in range(1, self.order + 1):
+                write_file_mult(self.screen[order - 1], "mbe_screen", order)
             write_file(np.asarray(self.n_tuples["van"][-1]), "mbe_tup_idx", self.order)
             write_file(
                 np.asarray(self.n_tuples["calc"][-1]), "mbe_n_tuples_calc", self.order
@@ -1900,33 +1904,16 @@ class ExpCls(
         if self.screen_type == "fixed":
             # start screening
             if mpi.global_master:
-                thres = 1.0 if self.order < self.screen_start else self.screen_perc
-                nscreen = self.exp_space[-1].size - int(thres * self.exp_space[-1].size)
-                if self.screen_func == "rnd":
-                    rng = np.random.default_rng()
-                    norb = 0
-                    remove_idx = []
-                    while norb < nscreen:
-                        idx = rng.integers(len(self.exp_clusters[-1]))
-                        norb += self.exp_clusters[-1][idx].size
-                        remove_idx.append(idx)
-
-                else:
-                    cluster_screen = [
-                        np.abs(self.screen[-1][self.screen_func][cluster[0]])
-                        for cluster in self.exp_clusters[-1]
-                    ]
-                    # stable sorting algorithm is important to ensure that the same
-                    # clusters are screened away every time in case of equality
-                    cluster_significance = np.argsort(cluster_screen, kind="stable")
-
-                    norb = 0
-                    remove_idx = []
-                    for idx in cluster_significance:
-                        if norb >= nscreen:
-                            break
-                        norb += self.exp_clusters[-1][idx].size
-                        remove_idx.append(idx)
+                # fixed screening procedure
+                remove_idx = fixed_screen(
+                    self.screen_func,
+                    self.screen_start,
+                    self.screen_perc,
+                    self.screen[-1],
+                    self.exp_clusters[-1],
+                    self.exp_space[-1],
+                    self.order,
+                )
 
                 # update expansion space wrt screened clusters
                 self.exp_clusters.append(
@@ -1963,314 +1950,74 @@ class ExpCls(
                     self.mbe_tot_error[-1] if self.order > self.min_order else 0.0
                 )
 
-                # get number of tuples per cluster
-                ntup = cluster_n_tuples(
-                    self.exp_space[-1],
-                    self.exp_clusters[-1],
-                    self.exp_single_orbs,
-                    self.nocc,
-                    self.ref_nelec,
-                    self.ref_nhole,
-                    self.vanish_exc,
-                    self.order,
-                )
-
                 # get cluster indices in full orbital space
                 cluster_idxs = np.array(
                     [cluster[0] for cluster in self.exp_clusters[-1]], dtype=np.int64
                 )
 
-                # calculate relative factor
-                self.screen[-1]["rel_factor"] = np.divide(
-                    np.abs(self.screen[-1]["sum"][cluster_idxs]),
-                    self.screen[-1]["sum_abs"][cluster_idxs],
-                    out=np.zeros(self.norb, dtype=np.float64),
-                    where=self.screen[-1]["sum_abs"][cluster_idxs] != 0.0,
-                )
+                # print empty line
+                logger.info2("")
 
-                # calculate mean absolute increment
-                self.screen[-1]["mean_abs_inc"] = np.divide(
-                    self.screen[-1]["sum_abs"][cluster_idxs],
-                    ntup,
-                    out=np.zeros(len(self.exp_clusters[-1]), dtype=np.float64),
-                    where=ntup != 0,
-                )
+                # loop over number of clusters
+                for ncluster_idx, screen in enumerate(self.screen):
+                    # number of clusters
+                    ncluster = ncluster_idx + 1
 
-                # log individual cluster contributions
-                logger.info2(" -----------------------------------------------")
-                logger.info2("  Orbitals | Mean absolute increment |  Factor  ")
-                logger.info2(" -----------------------------------------------")
-                for cluster in self.exp_clusters[-1]:
-                    if cluster.size == 1:
-                        cluster_str = str(cluster.item())
-                    else:
-                        cluster_str = np.array2string(cluster, separator=", ")
-                    logger.info2(
-                        f"  {cluster_str:>8} | "
-                        f"       {self.screen[-1]['mean_abs_inc'][cluster]:>10.4e}       | "
-                        f"{self.screen[-1]['rel_factor'][cluster]:>8.2e}     "
+                    # calculate relative factor
+                    self.screen[ncluster_idx]["rel_factor"] = np.divide(
+                        np.abs(screen["cluster_sum"][cluster_idxs]),
+                        screen["cluster_sum_abs"][cluster_idxs],
+                        out=np.zeros(cluster_idxs.size, dtype=np.float64),
+                        where=screen["cluster_sum_abs"][cluster_idxs] != 0.0,
                     )
-                logger.info2(" ----------------------------------------------")
+
+                    # get number of tuples per cluster
+                    ntup = cluster_n_tuples(
+                        self.exp_space[-1],
+                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
+                        self.nocc,
+                        self.ref_nelec,
+                        self.ref_nhole,
+                        self.vanish_exc,
+                        ncluster,
+                        self.order,
+                    )
+
+                    # calculate mean absolute increment
+                    self.screen[ncluster_idx]["mean_norm_abs_inc"] = np.divide(
+                        screen["cluster_norm_sum_abs"][cluster_idxs],
+                        ntup,
+                        out=np.zeros(cluster_idxs.size, dtype=np.float64),
+                        where=ntup != 0,
+                    )
 
                 # initialize boolean to keep screening
-                keep_screening = True
+                min_idx: Optional[int] = 0
 
                 # remove clusters until minimum cluster contribution is larger than
                 # threshold
-                while keep_screening:
-                    # define maximum possible order
-                    max_order = self.exp_space[-1].size
+                while min_idx is not None:
+                    # adaptive screening
+                    min_idx, self.mbe_tot_error[-1] = adaptive_screen(
+                        self.mbe_tot_error[-1],
+                        self.screen_thres,
+                        self.screen,
+                        self.exp_clusters[-1],
+                        self.exp_space[-1],
+                        self.exp_single_orbs,
+                        self.nocc,
+                        self.ref_nelec,
+                        self.ref_nhole,
+                        self.vanish_exc,
+                        self.order,
+                        CONV_TOL,
+                    )
 
-                    # check if expansion has ended
-                    if self.order >= max_order:
-                        keep_screening = False
-                        break
+                    # bcast cluster to screen away
+                    mpi.global_comm.bcast(min_idx, root=0)
 
-                    # define allowed error
-                    error_thresh = self.screen_thres - self.mbe_tot_error[-1]
-
-                    # get screening array
-                    exp_screen = self.screen[-1]["mean_abs_inc"]
-
-                    # get index in expansion space clusters for minimum mean absolute
-                    # increment
-                    min_idx = int(np.argmin(exp_screen))
-
-                    # check if minimum mean absolute increment comes close to
-                    # convergence threshold
-                    if 0.0 < exp_screen[min_idx] < 1e1 * CONV_TOL:
-                        # log screening
-                        if self.exp_clusters[-1][min_idx].size == 1:
-                            logger.info2(
-                                f" Orbital {self.exp_clusters[-1][min_idx].item()} is "
-                                "screened away due to the majority of increments getting "
-                                "close to convergence\n criterium"
-                            )
-                        else:
-                            cluster_str = np.array2string(
-                                self.exp_clusters[-1][min_idx], separator=", "
-                            )
-                            logger.info2(
-                                f" Orbital cluster {cluster_str} is screened away due "
-                                "to the majority of increments getting close to "
-                                "convergence\n criterium"
-                            )
-
-                    else:
-                        # initialize array for estimated quantities
-                        est_error = np.zeros(
-                            (len(self.exp_clusters[-1]), max_order - self.order),
-                            dtype=np.float64,
-                        )
-                        est_rel_factor = np.zeros_like(est_error)
-                        est_mean_abs_inc = np.zeros_like(est_error)
-
-                        # initialize array for cluster contribution errors
-                        tot_error = np.zeros(
-                            len(self.exp_clusters[-1]), dtype=np.float64
-                        )
-
-                        # initialize array for error difference to threshold
-                        error_diff = np.zeros_like(tot_error)
-
-                        # loop over clusters
-                        for cluster_idx, cluster in enumerate(self.exp_clusters[-1]):
-                            # get mean absolute increments and relative factor for
-                            # cluster
-                            mean_abs_inc = np.array(
-                                [
-                                    screen["mean_abs_inc"][cluster_idx]
-                                    for screen in self.screen
-                                ],
-                                dtype=np.float64,
-                            )
-                            rel_factor = np.array(
-                                [
-                                    screen["rel_factor"][cluster_idx]
-                                    for screen in self.screen
-                                ],
-                                dtype=np.float64,
-                            )
-
-                            # log transform mean absolute increments
-                            log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
-
-                            # get corresponding relative factors
-                            rel_factor = rel_factor[mean_abs_inc > 0.0]
-
-                            # get orders for fit
-                            orders = self.min_order + np.argwhere(
-                                mean_abs_inc > 0.0
-                            ).reshape(-1)
-
-                            # require at least 3 points to fit
-                            if orders.size > 2:
-                                # fit logarithmic mean absolute increment
-                                (opt_slope, opt_zero), cov = np.polyfit(
-                                    orders, log_mean_abs_inc, 1, cov=True
-                                )
-                                err_slope, err_zero = np.sqrt(np.diag(cov))
-                                opt_slope += 2 * err_slope
-                                opt_zero += 2 * err_zero
-
-                                # assume mean absolute increment does not decrease
-                                mean_abs_inc_fit = Polynomial([opt_zero, opt_slope])
-
-                                # define fitting function for relative factor
-                                def rel_factor_fit(x, half, slope):
-                                    return 1.0 / (
-                                        1.0 + ((x - orders[0]) / half) ** slope
-                                    )
-
-                                # fit relative factor
-                                if np.count_nonzero(rel_factor < 0.5) > 2:
-                                    (opt_half, opt_slope), cov = optimize.curve_fit(
-                                        rel_factor_fit,
-                                        orders,
-                                        rel_factor,
-                                        bounds=([0.5, 1.0], [max_order + 1, np.inf]),
-                                        maxfev=1000000,
-                                    )
-                                    err_half, err_slope = np.sqrt(np.diag(cov))
-
-                                    opt_half = min(
-                                        opt_half + 2 * err_half, max_order + 1
-                                    )
-                                    opt_slope = max(opt_slope - 2 * err_slope, 1.0)
-                                else:
-                                    opt_half = opt_slope = 0.0
-                                    rel_factor_fit = lambda *args: 1.0
-
-                                # initialize number of tuples for cluster for remaining
-                                # orders
-                                ntup_all_cluster = 0
-
-                                # initialize number of total tuples for remaining orders
-                                ntup_all_total = 0
-
-                                # loop over remaining orders
-                                for order_idx, order in enumerate(
-                                    range(self.order + 1, max_order + 1)
-                                ):
-                                    ntup_order_cluster = single_cluster_n_tuples(
-                                        self.exp_space[-1],
-                                        self.exp_clusters[-1],
-                                        cluster_idx,
-                                        self.exp_single_orbs,
-                                        self.nocc,
-                                        self.ref_nelec,
-                                        self.ref_nhole,
-                                        self.vanish_exc,
-                                        order,
-                                    )
-                                    ntup_all_cluster += ntup_order_cluster
-                                    ntup_all_total += n_tuples(
-                                        self.exp_space[-1],
-                                        self.exp_clusters[-1],
-                                        self.exp_single_orbs,
-                                        self.nocc,
-                                        self.ref_nelec,
-                                        self.ref_nhole,
-                                        self.vanish_exc,
-                                        order,
-                                    )
-
-                                    est_rel_factor[
-                                        cluster_idx, order_idx
-                                    ] = rel_factor_fit(order, opt_half, opt_slope)
-
-                                    est_mean_abs_inc[cluster_idx, order_idx] = np.exp(
-                                        mean_abs_inc_fit(order)
-                                    )
-
-                                    # calculate the error for this order
-                                    est_error[cluster_idx, order_idx] = (
-                                        est_rel_factor[cluster_idx, order_idx]
-                                        * ntup_order_cluster
-                                        * est_mean_abs_inc[cluster_idx, order_idx]
-                                    )
-
-                                    # add to total error
-                                    tot_error[cluster_idx] += est_error[
-                                        cluster_idx, order_idx
-                                    ]
-
-                                    # stop if order contributes less than 1%
-                                    if (
-                                        est_error[cluster_idx, order_idx]
-                                        / tot_error[cluster_idx]
-                                        < 0.01
-                                    ):
-                                        break
-
-                                # calculate difference to allowed error
-                                error_diff[cluster_idx] = (
-                                    ntup_all_cluster / ntup_all_total
-                                ) * error_thresh - tot_error[cluster_idx]
-
-                            # expansion is too short
-                            else:
-                                keep_screening = False
-                                break
-
-                        # stop screening if expansion is too short
-                        if not keep_screening:
-                            break
-
-                        # get index in expansion space for minimum cluster contribution
-                        min_idx = int(np.argmax(error_diff))
-
-                        # screen cluster away if contribution is smaller than threshold
-                        if error_diff[min_idx] > 0.0:
-                            # log screening
-                            if self.exp_clusters[-1][min_idx].size == 1:
-                                logger.info2(
-                                    f" Orbital {self.exp_clusters[-1][min_idx].item()} "
-                                    f"is screened away (Error = "
-                                    f"{tot_error[min_idx]:>10.4e})"
-                                )
-                            else:
-                                cluster_str = np.array2string(
-                                    self.exp_clusters[-1][min_idx], separator=", "
-                                )
-                                logger.info2(
-                                    f" Orbital cluster {cluster_str} is screened away "
-                                    f"(Error = {tot_error[min_idx]:>10.4e})"
-                                )
-                            logger.info2(" " + 70 * "-")
-                            logger.info2(
-                                "  Order | Est. relative factor | Est. mean abs. "
-                                "increment | Est. error"
-                            )
-                            logger.info2(" " + 70 * "-")
-                            for order, factor, mean_abs_inc, error in zip(
-                                range(self.order + 1, max_order + 1),
-                                est_rel_factor[min_idx],
-                                est_mean_abs_inc[min_idx],
-                                est_error[min_idx],
-                            ):
-                                if error == 0.0:
-                                    break
-                                logger.info2(
-                                    f"  {order:5} |      {factor:>10.4e}      |        "
-                                    f"{mean_abs_inc:>10.4e}        | {error:>10.4e}"
-                                )
-                            logger.info2(" " + 70 * "-" + "\n")
-
-                            # add screened cluster contribution to error
-                            self.mbe_tot_error[-1] += tot_error[min_idx]
-
-                        # cluster with minimum contribution is not screened away
-                        else:
-                            keep_screening = False
-
-                    if keep_screening:
-                        # signal other processes to continue screening
-                        mpi.global_comm.bcast(keep_screening, root=0)
-
-                        # bcast cluster to screen away
-                        mpi.global_comm.bcast(min_idx, root=0)
-
+                    # check if minimum index is returned
+                    if min_idx is not None:
                         # remove cluster contributions
                         self._screen_remove_cluster_contrib(mpi, min_idx)
 
@@ -2278,22 +2025,8 @@ class ExpCls(
                         self.exp_clusters[-1].pop(min_idx)
                         self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
 
-                        # loop over all orders
-                        for order_idx, order in enumerate(
-                            range(self.min_order, self.order + 1)
-                        ):
-                            # get number of tuples per cluster
-                            ntup = cluster_n_tuples(
-                                self.exp_space[-1],
-                                self.exp_clusters[-1],
-                                self.exp_single_orbs,
-                                self.nocc,
-                                self.ref_nelec,
-                                self.ref_nhole,
-                                self.vanish_exc,
-                                self.order,
-                            )
-
+                        # loop over number of clusters
+                        for ncluster in range(1, self.order + 1):
                             # get cluster indices in full orbital space
                             cluster_idxs = np.array(
                                 [cluster[0] for cluster in self.exp_clusters[-1]],
@@ -2301,60 +2034,75 @@ class ExpCls(
                             )
 
                             # calculate relative factor
-                            self.screen[-1]["rel_factor"] = np.divide(
-                                np.abs(self.screen[-1]["sum"][cluster_idxs]),
-                                self.screen[-1]["sum_abs"][cluster_idxs],
-                                out=np.zeros(self.norb, dtype=np.float64),
-                                where=self.screen[-1]["sum_abs"][cluster_idxs] != 0.0,
+                            self.screen[ncluster - 1]["rel_factor"] = np.divide(
+                                np.abs(
+                                    self.screen[ncluster - 1]["cluster_sum"][
+                                        cluster_idxs
+                                    ]
+                                ),
+                                self.screen[ncluster - 1]["cluster_sum_abs"][
+                                    cluster_idxs
+                                ],
+                                out=np.zeros(cluster_idxs.size, dtype=np.float64),
+                                where=self.screen[ncluster - 1]["cluster_sum_abs"][
+                                    cluster_idxs
+                                ]
+                                != 0.0,
+                            )
+
+                            # get number of tuples per cluster
+                            ntup = cluster_n_tuples(
+                                self.exp_space[-1],
+                                self.exp_clusters[-1]
+                                if not self.exp_single_orbs
+                                else None,
+                                self.nocc,
+                                self.ref_nelec,
+                                self.ref_nhole,
+                                self.vanish_exc,
+                                ncluster,
+                                self.order,
                             )
 
                             # calculate mean absolute increment
-                            self.screen[-1]["mean_abs_inc"] = np.divide(
-                                self.screen[-1]["sum_abs"][cluster_idxs],
+                            self.screen[ncluster - 1]["mean_norm_abs_inc"] = np.divide(
+                                self.screen[ncluster - 1]["cluster_norm_sum_abs"][
+                                    cluster_idxs
+                                ],
                                 ntup,
-                                out=np.zeros(
-                                    len(self.exp_clusters[-1]), dtype=np.float64
-                                ),
+                                out=np.zeros(cluster_idxs.size, dtype=np.float64),
                                 where=ntup != 0,
                             )
 
-                            # remove remaining clusters if expansion space no longer
-                            # produces valid increments
-                            if np.all(self.screen[-1]["mean_abs_inc"] == 0.0):
-                                self.exp_clusters[-1] = []
-                                self.exp_space[-1] = np.array([])
-
-                    # stop screening if no other clusters contribute above threshold
-                    else:
-                        keep_screening = False
-
-                # signal other processes to stop screening
-                mpi.global_comm.bcast(keep_screening, root=0)
+                        # remove remaining clusters if expansion space no longer
+                        # produces valid increments
+                        if all(
+                            np.all(screen["mean_norm_abs_inc"] == 0.0)
+                            for screen in self.screen
+                        ):
+                            self.exp_clusters[-1] = []
+                            self.exp_space[-1] = np.array([])
 
                 # log screening
                 if np.array_equal(self.exp_space[-1], self.exp_space[-2]):
                     logger.info2(f" No orbital clusters were screened away.")
 
             else:
-                # initialize boolean to keep screening
-                keep_screening = True
+                # determine if still screening
+                min_idx = mpi.global_comm.bcast(None, root=0)
 
                 # remove clusters until minimum cluster contribution is larger than
                 # threshold
-                while keep_screening:
-                    # determine if still screening
-                    keep_screening = mpi.global_comm.bcast(None, root=0)
+                while min_idx is not None:
+                    # remove cluster contributions
+                    self._screen_remove_cluster_contrib(mpi, min_idx)
 
-                    if keep_screening:
-                        # get minimum cluster
-                        min_idx = mpi.global_comm.bcast(None, root=0)
+                    # remove cluster from expansion space
+                    self.exp_clusters[-1].pop(min_idx)
+                    self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
 
-                        # remove cluster contributions
-                        self._screen_remove_cluster_contrib(mpi, min_idx)
-
-                        # remove cluster from expansion space
-                        self.exp_clusters[-1].pop(min_idx)
-                        self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
+                    # get minimum cluster
+                    min_idx = mpi.global_comm.bcast(None, root=0)
 
         # update symmetry-equivalent orbitals wrt screened clusters
         if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
@@ -2379,7 +2127,7 @@ class ExpCls(
         # write restart file
         if self.rst:
             if self.screen_type == "adaptive":
-                for k in range(self.order - self.min_order + 1):
+                for k in range(self.order):
                     write_file_mult(self.screen[k], "mbe_screen", k + self.min_order)
                 write_file(
                     np.asarray(self.mbe_tot_error[-1]), "mbe_tot_error", self.order
@@ -2440,8 +2188,7 @@ class ExpCls(
                 for tup_idx, tup in enumerate(
                     tuples_with_nocc(
                         self.exp_space[-1],
-                        self.exp_clusters[-1],
-                        self.exp_single_orbs,
+                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
                         self.nocc,
                         order,
                         tup_nocc,
@@ -3023,7 +2770,7 @@ class ExpCls(
         inc: List[List[IncType]],
         hashes: List[List[np.ndarray]],
         tup: np.ndarray,
-        tup_clusters: List[np.ndarray],
+        tup_clusters: Optional[List[np.ndarray]],
     ) -> TargetType:
         """
         this function performs a recursive summation and returns the final increment
@@ -3264,11 +3011,16 @@ class ExpCls(
         this function frees the supplied increment windows
         """
 
-    @staticmethod
     @abstractmethod
     def _add_screen(
-        inc_tup: TargetType, screen: np.ndarray, tup: np.ndarray, screen_func: str
-    ) -> np.ndarray:
+        self,
+        inc_tup: TargetType,
+        screen: List[Dict[str, np.ndarray]],
+        tup: np.ndarray,
+        order: int,
+        ncluster: int,
+        tup_nocc: int,
+    ) -> List[Dict[str, np.ndarray]]:
         """
         this function modifies the screening array
         """
@@ -3324,14 +3076,16 @@ class ExpCls(
         """
         this function removes cluster contributions to the screening arrays
         """
+        # initialize list of arrays for contributions to be removed
+        remove_screen = []
+
         # loop over all orders
         for order in range(1, self.order + 1):
             # order index
             k = order - 1
 
-            # initialize arrays for contributions to be removed
-            remove_sum_abs = np.zeros(self.norb, dtype=np.float64)
-            remove_sum = np.zeros(self.norb, dtype=np.float64)
+            # append new element to list of contributions to be removed
+            remove_screen.append(self._init_screen())
 
             # loop over number of occupied orbitals
             for tup_nocc in range(order + 1):
@@ -3354,11 +3108,10 @@ class ExpCls(
                 )
 
                 # loop over tuples
-                for tup_idx, tup in enumerate(
-                    orb_tuples_with_nocc(
+                for tup_idx, (tup, tup_clusters) in enumerate(
+                    cluster_tuples_with_nocc(
                         self.exp_space[-1],
-                        self.exp_clusters[-1],
-                        self.exp_single_orbs,
+                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
                         self.nocc,
                         cluster_idx,
                         order,
@@ -3407,23 +3160,29 @@ class ExpCls(
 
                     # remove inc_tup from the screen arrays
                     if idx is not None:
-                        remove_sum_abs[tup] = self._add_screen(
-                            inc[idx.item()], remove_sum_abs, tup, "sum_abs"
-                        )
-                        remove_sum[tup] = self._add_screen(
-                            inc[idx.item()], remove_sum, tup, "sum"
+                        remove_screen = self._add_screen(
+                            inc[idx.item()],
+                            remove_screen,
+                            tup,
+                            order,
+                            tup.size if tup_clusters is None else len(tup_clusters),
+                            tup_nocc,
                         )
                     else:
                         raise RuntimeError("Last order tuple not found:", tup_last)
 
-            # reduce contributions
-            remove_sum_abs = mpi_reduce(mpi.global_comm, remove_sum_abs, op=MPI.SUM)
-            remove_sum = mpi_reduce(mpi.global_comm, remove_sum, op=MPI.SUM)
-
-            # remove contributions to screening functions
+        # reduce screen onto global master and remove contributions
+        for order_idx, screen_arrays in enumerate(remove_screen):
+            for screen_func in [
+                "cluster_norm_sum_abs",
+                "cluster_sum_abs",
+                "cluster_sum",
+            ]:
+                remove_screen[order_idx][screen_func] = mpi_reduce(
+                    mpi.global_comm, screen_arrays[screen_func], root=0, op=MPI.SUM
+                )
             if mpi.global_master:
-                self.screen[k]["sum_abs"] -= remove_sum_abs
-                self.screen[k]["sum"] -= remove_sum
+                self.screen[order_idx][screen_func] -= screen_arrays[screen_func]
 
         return
 
@@ -3477,7 +3236,7 @@ class SingleTargetExpCls(
         inc: List[List[np.ndarray]],
         hashes: List[List[np.ndarray]],
         tup: np.ndarray,
-        tup_clusters: List[np.ndarray],
+        tup_clusters: Optional[List[np.ndarray]],
     ) -> SingleTargetType:
         """
         this function performs a recursive summation and returns the final increment
@@ -3493,9 +3252,7 @@ class SingleTargetExpCls(
                 # check if hashes are available
                 if hashes[k - self.min_order][l].size > 0:
                     # loop over subtuples
-                    for tup_sub in tuples_with_nocc(
-                        tup, tup_clusters, self.exp_single_orbs, self.nocc, k, l
-                    ):
+                    for tup_sub in tuples_with_nocc(tup, tup_clusters, self.nocc, k, l):
                         # pi-pruning
                         if self.pi_prune and not pi_prune(
                             self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup_sub)

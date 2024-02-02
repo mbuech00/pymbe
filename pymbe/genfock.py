@@ -356,7 +356,7 @@ class GenFockExpCls(
         inc: List[List[packedGenFockCls]],
         hashes: List[List[np.ndarray]],
         tup: np.ndarray,
-        tup_clusters: List[np.ndarray],
+        tup_clusters: Optional[List[np.ndarray]],
     ) -> GenFockCls:
         """
         this function performs a recursive summation and returns the final increment
@@ -382,11 +382,17 @@ class GenFockExpCls(
         exp_idx = rank[self.ref_space.size :]
 
         # get cluster indices in tuple space
-        cluster_idx = 0
-        exp_clusters_idx: List[np.ndarray] = []
-        for cluster in tup_clusters:
-            exp_clusters_idx.append(ref_idx[cluster_idx : cluster_idx + cluster.size])
-            cluster_idx += cluster.size
+        exp_clusters_idx: Optional[List[np.ndarray]]
+        if tup_clusters is not None:
+            cluster_idx = 0
+            exp_clusters_idx = []
+            for cluster in tup_clusters:
+                exp_clusters_idx.append(
+                    ref_idx[cluster_idx : cluster_idx + cluster.size]
+                )
+                cluster_idx += cluster.size
+        else:
+            exp_clusters_idx = None
 
         # compute contributions from lower-order increments
         for k in range(self.order - 1, self.min_order - 1, -1):
@@ -407,14 +413,7 @@ class GenFockExpCls(
 
                     # loop over subtuples
                     for tup_sub, idx_sub, idx_sub_virt in tuples_idx_virt_idx_with_nocc(
-                        tup,
-                        tup_clusters,
-                        exp_idx,
-                        exp_clusters_idx,
-                        self.exp_single_orbs,
-                        self.nocc,
-                        k,
-                        l,
+                        tup, tup_clusters, exp_idx, exp_clusters_idx, self.nocc, k, l
                     ):
                         # compute index
                         idx = hash_lookup(
@@ -846,22 +845,23 @@ class GenFockExpCls(
         inc_win[1].Free()
         inc_win[2].Free()
 
-    @staticmethod
     def _add_screen(
+        self,
         inc_tup: Union[GenFockCls, packedGenFockCls],
-        screen: np.ndarray,
+        screen: List[Dict[str, np.ndarray]],
         tup: np.ndarray,
-        screen_func: str,
-    ) -> np.ndarray:
+        order: int,
+        *args: int,
+    ) -> List[Dict[str, np.ndarray]]:
         """
         this function modifies the screening array
         """
-        if screen_func == "max":
-            return np.maximum(screen[tup], np.max(np.abs(inc_tup.rdm1)))
-        elif screen_func == "sum_abs":
-            return screen[tup] + np.sum(np.abs(inc_tup.gen_fock))
-        else:
-            raise ValueError
+        screen[order - 1]["max"][tup] = np.maximum(
+            screen[order - 1]["max"][tup], np.max(np.abs(inc_tup.rdm1))
+        )
+        screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup.gen_fock))
+
+        return screen
 
     def _update_inc_stats(
         self,

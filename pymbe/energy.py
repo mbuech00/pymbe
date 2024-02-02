@@ -16,6 +16,7 @@ __status__ = "Development"
 
 import os
 import numpy as np
+from math import comb
 from mpi4py import MPI
 from pyscf import ao2mo
 from typing import TYPE_CHECKING
@@ -268,11 +269,20 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         this function initializes the screening arrays
         """
-        return {
-            "sum_abs": np.zeros(self.norb, dtype=np.float64),
-            "sum": np.zeros(self.norb, dtype=np.float64),
-            "max": np.zeros(self.norb, dtype=np.float64),
-        }
+        if self.screen_type == "fixed":
+            return {
+                "sum_abs": np.zeros(self.norb, dtype=np.float64),
+                "sum": np.zeros(self.norb, dtype=np.float64),
+                "max": np.zeros(self.norb, dtype=np.float64),
+            }
+        else:
+            return {
+                "sum_abs": np.zeros(self.norb, dtype=np.float64),
+                "max": np.zeros(self.norb, dtype=np.float64),
+                "cluster_norm_sum_abs": np.zeros(self.norb, dtype=np.float64),
+                "cluster_sum_abs": np.zeros(self.norb, dtype=np.float64),
+                "cluster_sum": np.zeros(self.norb, dtype=np.float64),
+            }
 
     def _zero_target_arr(self, length: int):
         """
@@ -305,21 +315,31 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         return open_shared_win(window, np.float64, (n_incs,))
 
-    @staticmethod
     def _add_screen(
-        inc_tup: float, screen: np.ndarray, tup: np.ndarray, screen_func: str
-    ) -> np.ndarray:
+        self,
+        inc_tup: float,
+        screen: List[Dict[str, np.ndarray]],
+        tup: np.ndarray,
+        order: int,
+        ncluster: int,
+        tup_nocc: int,
+    ) -> List[Dict[str, np.ndarray]]:
         """
         this function modifies the screening array
         """
-        if screen_func == "max":
-            return np.maximum(screen[tup], np.abs(inc_tup))
-        elif screen_func == "sum_abs":
-            return screen[tup] + np.abs(inc_tup)
-        elif screen_func == "sum":
-            return screen[tup] + inc_tup
-        else:
-            raise ValueError
+        screen[order - 1]["max"][tup] = np.maximum(
+            screen[order - 1]["max"][tup], np.abs(inc_tup)
+        )
+        screen[order - 1]["sum_abs"][tup] += np.abs(inc_tup)
+        screen[order - 1]["abs"][tup] += inc_tup
+        if self.screen_type == "adaptive":
+            screen[ncluster - 1]["cluster_norm_sum_abs"][tup] += (
+                np.abs(inc_tup) / comb(order, tup_nocc) ** 2
+            )
+            screen[ncluster - 1]["cluster_sum_abs"][tup] += np.abs(inc_tup)
+            screen[ncluster - 1]["cluster_sum"][tup] += inc_tup
+
+        return screen
 
     @staticmethod
     def _total_inc(inc: List[np.ndarray], mean_inc: float) -> float:

@@ -33,7 +33,7 @@ from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import Optional, Tuple, Union, List
+    from typing import Optional, Tuple, Union, List, Dict
 
     from pymbe.parallel import MPICls
 
@@ -342,19 +342,23 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         return open_shared_win(window, np.float64, (n_incs, 3))
 
-    @staticmethod
     def _add_screen(
-        inc_tup: np.ndarray, screen: np.ndarray, tup: np.ndarray, screen_func: str
-    ) -> np.ndarray:
+        self,
+        inc_tup: np.ndarray,
+        screen: List[Dict[str, np.ndarray]],
+        tup: np.ndarray,
+        order: int,
+        *args: int,
+    ) -> List[Dict[str, np.ndarray]]:
         """
         this function modifies the screening array
         """
-        if screen_func == "max":
-            return np.maximum(screen[tup], np.max(np.abs(inc_tup)))
-        elif screen_func == "sum_abs":
-            return screen[tup] + np.sum(np.abs(inc_tup))
-        else:
-            raise ValueError
+        screen[order - 1]["max"][tup] = np.maximum(
+            screen[order - 1]["max"][tup], np.max(np.abs(inc_tup))
+        )
+        screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup))
+
+        return screen
 
     @staticmethod
     def _total_inc(inc: List[np.ndarray], mean_inc: np.ndarray) -> np.ndarray:
