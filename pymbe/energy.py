@@ -331,7 +331,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             screen[order - 1]["max"][tup], np.abs(inc_tup)
         )
         screen[order - 1]["sum_abs"][tup] += np.abs(inc_tup)
-        screen[order - 1]["abs"][tup] += inc_tup
+        screen[order - 1]["sum"][tup] += inc_tup
         if self.screen_type == "adaptive":
             screen[ncluster - 1]["cluster_norm_sum_abs"][tup] += (
                 np.abs(inc_tup) / comb(order, tup_nocc) ** 2
