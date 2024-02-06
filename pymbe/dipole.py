@@ -71,9 +71,11 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         # array of total MBE dipole moment
         dipole = self._prop_conv(
             nuc_prop,
-            self.hf_prop
-            if y_axis in ["electronic", "total"]
-            else self._init_target_inst(0.0),
+            (
+                self.hf_prop
+                if y_axis in ["electronic", "total"]
+                else self._init_target_inst(0.0)
+            ),
         )
         dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
         for i in range(dipole.shape[0]):

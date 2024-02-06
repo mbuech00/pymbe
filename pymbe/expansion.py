@@ -439,9 +439,11 @@ class ExpCls(
                                 self.exp_space[self.order - self.min_order + 1],
                             ).size,
                             self.screen_type,
-                            self.mbe_tot_error[self.order - self.min_order]
-                            if self.screen_type == "adaptive"
-                            else 0.0,
+                            (
+                                self.mbe_tot_error[self.order - self.min_order]
+                                if self.screen_type == "adaptive"
+                                else 0.0
+                            ),
                         )
                     )
 
@@ -955,9 +957,11 @@ class ExpCls(
                 self.symm_eqv_orbs.append(
                     reduce_symm_eqv_orbs(
                         self.symm_eqv_orbs[-1],
-                        exp_space
-                        if self.symm_inv_ref_space
-                        else cas(self.ref_space, exp_space),
+                        (
+                            exp_space
+                            if self.symm_inv_ref_space
+                            else cas(self.ref_space, exp_space)
+                        ),
                     )
                 )
                 self.eqv_inc_orbs.append(
@@ -2053,9 +2057,11 @@ class ExpCls(
                             # get number of tuples per cluster
                             ntup = cluster_n_tuples(
                                 self.exp_space[-1],
-                                self.exp_clusters[-1]
-                                if not self.exp_single_orbs
-                                else None,
+                                (
+                                    self.exp_clusters[-1]
+                                    if not self.exp_single_orbs
+                                    else None
+                                ),
                                 self.nocc,
                                 self.ref_nelec,
                                 self.ref_nhole,
@@ -2109,9 +2115,11 @@ class ExpCls(
             self.symm_eqv_orbs.append(
                 reduce_symm_eqv_orbs(
                     self.symm_eqv_orbs[-1],
-                    self.exp_space[-1]
-                    if self.symm_inv_ref_space
-                    else cas(self.ref_space, self.exp_space[-1]),
+                    (
+                        self.exp_space[-1]
+                        if self.symm_inv_ref_space
+                        else cas(self.ref_space, self.exp_space[-1])
+                    ),
                 )
             )
             self.eqv_inc_orbs.append(

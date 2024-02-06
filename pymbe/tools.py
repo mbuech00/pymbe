@@ -311,12 +311,10 @@ class packedRDMCls:
         cls.unpack_rdm2.append(unpack_rdm2)
 
     @overload
-    def __getitem__(self, idx: Union[int, np.int64]) -> RDMCls:
-        ...
+    def __getitem__(self, idx: Union[int, np.int64]) -> RDMCls: ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedRDMCls:
-        ...
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedRDMCls: ...
 
     def __getitem__(
         self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
@@ -590,12 +588,12 @@ class packedGenFockCls:
         cls.unpack_rdm1.append(unpack_rdm1)
 
     @overload
-    def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls:
-        ...
+    def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls: ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedGenFockCls:
-        ...
+    def __getitem__(
+        self, idx: Union[slice, np.ndarray, List[int]]
+    ) -> packedGenFockCls: ...
 
     def __getitem__(
         self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]

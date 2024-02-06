@@ -161,23 +161,29 @@ class GenFockExpCls(
 
         # allocate additional integrals in shared mem
         self.inact_fock_win: MPI.Win = MPI.Win.Allocate_shared(
-            8 * self.full_norb * (self.full_nocc + self.norb)
-            if mpi.local_master
-            else 0,
+            (
+                8 * self.full_norb * (self.full_nocc + self.norb)
+                if mpi.local_master
+                else 0
+            ),
             8,
             comm=mpi.local_comm,  # type: ignore
         )
         self.eri_goaa_win: MPI.Win = MPI.Win.Allocate_shared(
-            8 * self.full_norb * self.full_nocc * self.norb**2
-            if mpi.local_master
-            else 0,
+            (
+                8 * self.full_norb * self.full_nocc * self.norb**2
+                if mpi.local_master
+                else 0
+            ),
             8,
             comm=mpi.local_comm,  # type: ignore
         )
         self.eri_gaao_win: MPI.Win = MPI.Win.Allocate_shared(
-            8 * self.full_norb * self.norb**2 * self.full_nocc
-            if mpi.local_master
-            else 0,
+            (
+                8 * self.full_norb * self.norb**2 * self.full_nocc
+                if mpi.local_master
+                else 0
+            ),
             8,
             comm=mpi.local_comm,  # type: ignore
         )

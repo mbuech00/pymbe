@@ -144,9 +144,11 @@ class MBE:
                     self.nelec = np.asarray(nelec, dtype=np.int64)
                 elif isinstance(nelec, list):
                     self.nelec = [
-                        np.asarray(state, dtype=np.int64)
-                        if isinstance(state, tuple)
-                        else state
+                        (
+                            np.asarray(state, dtype=np.int64)
+                            if isinstance(state, tuple)
+                            else state
+                        )
                         for state in nelec
                     ]
                 elif nelec is not None:

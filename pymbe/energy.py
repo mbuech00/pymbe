@@ -64,9 +64,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         return results_plt(
             self._prop_conv(
                 nuc_prop,
-                self.hf_prop
-                if y_axis in ["electronic", "total"]
-                else self._init_target_inst(0.0),
+                (
+                    self.hf_prop
+                    if y_axis in ["electronic", "total"]
+                    else self._init_target_inst(0.0)
+                ),
             ),
             self.min_order,
             self.final_order,
