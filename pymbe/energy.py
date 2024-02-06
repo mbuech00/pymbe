@@ -280,6 +280,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         else:
             return {
                 "sum_abs": np.zeros(self.norb, dtype=np.float64),
+                "sum": np.zeros(self.norb, dtype=np.float64),
                 "max": np.zeros(self.norb, dtype=np.float64),
                 "cluster_norm_sum_abs": np.zeros(self.norb, dtype=np.float64),
                 "cluster_sum_abs": np.zeros(self.norb, dtype=np.float64),
