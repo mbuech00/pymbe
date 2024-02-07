@@ -136,8 +136,8 @@ def adaptive_screen(
         # get number of clusters for fit
         nclusters = np.argwhere(mean_norm_abs_inc > 0.0).reshape(-1) + 1
 
-        # require at least 3 points to fit
-        if nclusters.size > 2:
+        # require a certain number of points to fit
+        if nclusters.size > max(2, round(-np.log10(screen_thres) + 1)):
             # fit logarithmic mean absolute increment
             (opt_slope, opt_zero), cov = np.polyfit(
                 nclusters, log_mean_norm_abs_inc, 1, cov=True
@@ -315,13 +315,15 @@ def adaptive_screen(
             "  Order | Est. relative factor | Est. mean abs. increment | Est. error"
         )
         logger.info2(" " + 70 * "-")
-        for order, factor, mean_norm_abs_inc, error in zip(
-            range(curr_order + 1, max_order + 1),
-            est_rel_factor[min_idx],
-            est_mean_norm_abs_inc[min_idx],
-            est_error[min_idx],
+        for order_idx, (order, factor, mean_norm_abs_inc, error) in enumerate(
+            zip(
+                range(curr_order + 1, max_order + 1),
+                est_rel_factor[min_idx],
+                est_mean_norm_abs_inc[min_idx],
+                est_error[min_idx],
+            )
         ):
-            if error == 0.0:
+            if sum(est_error[min_idx][order_idx:]) == 0.0:
                 break
             logger.info2(
                 f"  {order:5} |      {factor:>10.4e}      |        "

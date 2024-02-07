@@ -34,7 +34,7 @@ FILL = " " + "|" * 92
 BAR_LENGTH = 50
 
 
-def main_header(mpi: MPICls, method: str) -> str:
+def main_header(mpi: MPICls) -> str:
     """
     this function prints the main pymbe header
     """
@@ -67,11 +67,6 @@ def main_header(mpi: MPICls, method: str) -> str:
             )
 
     string += "\n\n"
-
-    # method
-    string += HEADER + "\n"
-    string += f"{method.upper() + ' expansion':^87s}\n"
-    string += HEADER
 
     return string
 

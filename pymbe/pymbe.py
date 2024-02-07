@@ -471,6 +471,35 @@ class MBE:
 
         return prop
 
+    def cluster_orbs(
+        self, cluster_size: int, max_order: int
+    ) -> Optional[List[np.ndarray]]:
+        """
+        this function clusters the expansion space orbitals up to some given cluster
+        size
+        """
+        # general settings
+        if self.mpi.global_master:
+            general_setup(self, "cluster_orbs")
+
+        # calculation setup
+        self = calc_setup(self)
+
+        # initialize exp object
+        if self.target == "energy":
+            self.exp = EnergyExpCls(self)
+        else:
+            raise NotImplementedError
+
+        # determine clusters
+        exp_clusters = self.exp.cluster_driver(self.mpi, cluster_size, max_order)
+
+        # set expansion space
+        if isinstance(exp_clusters, list):
+            self.exp_space = exp_clusters
+
+        return self.exp_space
+
     def results(self) -> str:
         """
         this function returns pymbe results as a string

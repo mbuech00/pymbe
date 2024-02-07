@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from pymbe.pymbe import MBE, Tuple, List
 
 
-def general_setup(mbe: MBE):
+def general_setup(mbe: MBE, calc_type: str = "mbe"):
     """
     this function performs the general setup at the start of every calculation
     """
@@ -41,36 +41,37 @@ def general_setup(mbe: MBE):
     # sanity check
     sanity_check(mbe)
 
-    # print expansion headers
-    logger.info(main_header(mbe.mpi, mbe.method))
+    if calc_type == "mbe":
+        # print expansion headers
+        logger.info(main_header(mbe.mpi))
 
-    # dump flags
-    for key, value in vars(mbe).items():
-        if key in [
-            "mol",
-            "hcore",
-            "eri",
-            "mpi",
-            "exp",
-            "dipole_ints",
-            "inact_fock",
-            "eri_goaa",
-            "eri_gaao",
-            "eri_gaaa",
-        ]:
-            logger.debug(f"   -- {key:<15}: {str(value)}")
-        else:
-            logger.info(f"   -- {key:<15}: {str(value)}")
-    logger.debug("")
-    for key, value in vars(mbe.mpi).items():
-        logger.debug(" " + key + " = " + str(value))
-    logger.info("")
-    logger.info("")
+        # dump flags
+        for key, value in vars(mbe).items():
+            if key in [
+                "mol",
+                "hcore",
+                "eri",
+                "mpi",
+                "exp",
+                "dipole_ints",
+                "inact_fock",
+                "eri_goaa",
+                "eri_gaao",
+                "eri_gaaa",
+            ]:
+                logger.debug(f"   -- {key:<15}: {str(value)}")
+            else:
+                logger.info(f"   -- {key:<15}: {str(value)}")
+        logger.debug("")
+        for key, value in vars(mbe.mpi).items():
+            logger.debug(" " + key + " = " + str(value))
+        logger.info("")
+        logger.info("")
 
-    # method
-    logger.info(f"{('-' * 45):^87}")
-    logger.info(f"{mbe.method.upper() + ' expansion':^87s}")
-    logger.info(f"{('-' * 45):^87}")
+        # method
+        logger.info(f"{('-' * 45):^87}")
+        logger.info(f"{mbe.method.upper() + ' expansion':^87s}")
+        logger.info(f"{('-' * 45):^87}")
 
 
 def sanity_check(mbe: MBE) -> None:
