@@ -478,6 +478,10 @@ class MBE:
         this function clusters the expansion space orbitals up to some given cluster
         size
         """
+        # do not generate clusters if calculation is restarted
+        if mbe.restarted:
+            return None
+
         # general settings
         if self.mpi.global_master:
             general_setup(self, "cluster_orbs")
