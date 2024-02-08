@@ -73,6 +73,17 @@ def general_setup(mbe: MBE, calc_type: str = "mbe"):
         logger.info(f"{mbe.method.upper() + ' expansion':^87s}")
         logger.info(f"{('-' * 45):^87}")
 
+        # write restart files
+        if mbe.rst and not mbe.restarted:
+            # create restart folder
+            os.mkdir(RST)
+
+            # write keywords
+            restart_write_kw(mbe)
+
+            # write system quantities
+            restart_write_system(mbe)
+
 
 def sanity_check(mbe: MBE) -> None:
     """
@@ -845,16 +856,6 @@ def calc_setup(mbe: MBE) -> MBE:
     this function writes the restart files and distributes all the information between
     processes
     """
-    if mbe.mpi.global_master and mbe.rst and not mbe.restarted:
-        # create restart folder
-        os.mkdir(RST)
-
-        # write keywords
-        restart_write_kw(mbe)
-
-        # write system quantities
-        restart_write_system(mbe)
-
     # bcast keywords
     mbe = kw_dist(mbe)
 
