@@ -479,7 +479,7 @@ class MBE:
         size
         """
         # do not generate clusters if calculation is restarted
-        if mbe.restarted:
+        if self.restarted:
             return None
 
         # general settings
