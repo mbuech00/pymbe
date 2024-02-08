@@ -279,7 +279,7 @@ class MBE:
                 elif hasattr(self, "norb"):
                     # set default value for expansion space
                     self.exp_space = [
-                        np.array(orb, dtype=np.int64)
+                        np.atleast_1d(orb)
                         for orb in range(self.norb)
                         if orb not in self.ref_space
                     ]
