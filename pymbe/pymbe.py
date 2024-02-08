@@ -478,8 +478,8 @@ class MBE:
         this function clusters the expansion space orbitals up to some given cluster
         size
         """
-        # do not generate clusters if calculation is restarted
-        if self.restarted:
+        # do not generate clusters if restart folder exists
+        if os.path.isdir(RST):
             return None
 
         # general settings
