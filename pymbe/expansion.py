@@ -43,7 +43,6 @@ from pymbe.tools import (
     natural_keys,
     n_tuples,
     n_tuples_with_nocc,
-    cluster_n_tuples,
     is_file,
     read_file,
     write_file,
@@ -78,8 +77,16 @@ from pymbe.tools import (
     remove_tup_sq_overlaps,
     flatten_list,
     overlap_range,
+    add_inc_stats,
+    adaptive_screen_dict,
 )
-from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
+from pymbe.parallel import (
+    mpi_reduce,
+    mpi_allreduce,
+    mpi_bcast,
+    open_shared_win,
+    mpi_reduce_screen_dict,
+)
 from pymbe.results import timings_prt
 from pymbe.screen import fixed_screen, adaptive_screen
 
@@ -248,6 +255,12 @@ class ExpCls(
         self.screen_thres = mbe.screen_thres
         self.screen_func = mbe.screen_func
         self.screen: List[Dict[str, np.ndarray]] = []
+        self.adaptive_screen: Dict[
+            Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ] = {}
+        self.screen_bins = np.logspace(-10, 0, 31)
+        self.screen_ntot_bins = np.zeros_like(self.screen_bins, dtype=np.int64)
+        self.screen_npos_bins = np.zeros_like(self.screen_bins, dtype=np.int64)
         self.screen_orbs = np.array([], dtype=np.int64)
         self.mbe_tot_error: List[float] = []
 
@@ -893,6 +906,29 @@ class ExpCls(
                 elif "mbe_screen" in files[i]:
                     self.screen.append(dict(np.load(os.path.join(RST, files[i]))))
 
+                # read adaptive screening array
+                elif "mbe_adaptive_screen" in files[i]:
+                    array_dict = np.load(os.path.join(RST, files[i]))
+                    for (
+                        predictors,
+                        inc_count,
+                        inc_sum,
+                        log_inc_sum,
+                        log_inc_sum2,
+                    ) in zip(
+                        array_dict["predictors"],
+                        array_dict["inc_count"],
+                        array_dict["inc_sum"],
+                        array_dict["log_inc_sum"],
+                        array_dict["log_inc_sum2"],
+                    ):
+                        self.adaptive_screen[tuple(predictors)] = (
+                            inc_count,
+                            inc_sum,
+                            log_inc_sum,
+                            log_inc_sum2,
+                        )
+
                 # read total properties
                 elif "mbe_tot_prop" in files[i]:
                     self.mbe_tot_prop.append(self._read_target_file(files[i]))
@@ -1197,14 +1233,7 @@ class ExpCls(
                 self.screen[order_idx] = self._init_screen()
 
         # set screening function for mpi
-        screen_mpi_func = {
-            "sum_abs": MPI.SUM,
-            "sum": MPI.SUM,
-            "max": MPI.MAX,
-            "cluster_norm_sum_abs": MPI.SUM,
-            "cluster_sum_abs": MPI.SUM,
-            "cluster_sum": MPI.SUM,
-        }
+        screen_mpi_func = {"sum_abs": MPI.SUM, "sum": MPI.SUM, "max": MPI.MAX}
 
         # set rst_write
         rst_write = (
@@ -1293,18 +1322,22 @@ class ExpCls(
                         max_inc = self._init_target_inst(0.0, self.norb, self.nocc)
 
                     # reduce screen onto global master
-                    for idx in range(len(self.screen)):
-                        for screen_func, screen_array in zip(
-                            self.screen[-1].keys(), self.screen[idx].values()
-                        ):
-                            self.screen[idx][screen_func] = mpi_reduce(
-                                mpi.global_comm,
-                                screen_array,
-                                root=0,
-                                op=screen_mpi_func[screen_func],
-                            )
-                        if not mpi.global_master:
-                            self.screen[idx] = self._init_screen()
+                    for screen_func, screen_array in self.screen[-1].items():
+                        self.screen[-1][screen_func] = mpi_reduce(
+                            mpi.global_comm,
+                            screen_array,
+                            root=0,
+                            op=screen_mpi_func[screen_func],
+                        )
+                    if not mpi.global_master:
+                        self.screen[-1] = self._init_screen()
+
+                    # reduce adaptive screening data onto global master
+                    self.adaptive_screen = mpi_reduce_screen_dict(
+                        self.adaptive_screen, mpi.global_comm, self.norb
+                    )
+                    if not mpi.global_master:
+                        self.adaptive_screen = {}
 
                     # gather maximum squared overlaps on global master
                     self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
@@ -1322,8 +1355,12 @@ class ExpCls(
                         self._write_target_file(min_inc, "mbe_min_inc", self.order)
                         self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
                         self._write_target_file(max_inc, "mbe_max_inc", self.order)
-                        for order in range(1, self.order + 1):
-                            write_file_mult(self.screen[order - 1], "mbe_screen", order)
+                        write_file_mult(self.screen[-1], "mbe_screen", self.order)
+                        if self.screen_type == "adaptive":
+                            write_file_mult(
+                                adaptive_screen_dict(self.adaptive_screen, self.norb),
+                                "mbe_adaptive_screen",
+                            )
                         write_file(np.asarray(tup_idx), "mbe_tup_idx", self.order)
                         write_file(inc_idx, "mbe_inc_idx", self.order)
                         write_file(np.asarray(n_calc), "mbe_n_tuples_calc", self.order)
@@ -1427,9 +1464,6 @@ class ExpCls(
                 # increment calculation counter
                 n_calc += 1
 
-                # get number of clusters
-                ncluster = tup.size if tup_clusters is None else len(tup_clusters)
-
                 # loop over equivalent increment sets
                 for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
                     # calculate increment
@@ -1441,14 +1475,7 @@ class ExpCls(
 
                     # screening procedure
                     for eqv_tup in eqv_set:
-                        self.screen = self._add_screen(
-                            inc_tup,
-                            self.screen,
-                            eqv_tup,
-                            self.order,
-                            ncluster,
-                            nocc_tup,
-                        )
+                        self._add_screen(inc_tup, self.order, eqv_tup, tup_clusters)
 
                     # debug print
                     logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
@@ -1516,16 +1543,17 @@ class ExpCls(
                 mean_inc /= self.n_tuples["van"][-1]
 
         # reduce screen
-        for idx in range(len(self.screen)):
-            for screen_func, screen_array in zip(
-                self.screen[-1].keys(), self.screen[idx].values()
-            ):
-                self.screen[idx][screen_func] = mpi_reduce(
-                    mpi.global_comm,
-                    screen_array,
-                    root=0,
-                    op=screen_mpi_func[screen_func],
-                )
+        for screen_func, screen_array in self.screen[-1].items():
+            self.screen[-1][screen_func] = mpi_reduce(
+                mpi.global_comm, screen_array, root=0, op=screen_mpi_func[screen_func]
+            )
+
+        # reduce adaptive screening data
+        self.adaptive_screen = mpi_reduce_screen_dict(
+            self.adaptive_screen, mpi.global_comm, self.norb
+        )
+        if not mpi.global_master:
+            self.adaptive_screen = {}
 
         # gather maximum squared overlaps on global master
         self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
@@ -2106,8 +2134,12 @@ class ExpCls(
             self._write_target_file(self.min_inc[-1], "mbe_min_inc", self.order)
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
-            for order in range(1, self.order + 1):
-                write_file_mult(self.screen[order - 1], "mbe_screen", order)
+            write_file_mult(self.screen[-1], "mbe_screen", self.order)
+            if self.screen_type == "adaptive":
+                write_file_mult(
+                    adaptive_screen_dict(self.adaptive_screen, self.norb),
+                    "mbe_adaptive_screen",
+                )
             write_file(np.asarray(self.n_tuples["van"][-1]), "mbe_tup_idx", self.order)
             write_file(
                 np.asarray(self.n_tuples["calc"][-1]), "mbe_n_tuples_calc", self.order
@@ -2204,46 +2236,11 @@ class ExpCls(
                     self.mbe_tot_error[-1] if self.order > self.min_order else 0.0
                 )
 
-                # get cluster indices in full orbital space
-                cluster_idxs = np.array(
-                    [cluster[0] for cluster in self.exp_clusters[-1]], dtype=np.int64
-                )
-
                 # print empty line
                 logger.info2("")
 
-                # loop over number of clusters
-                for ncluster_idx, screen in enumerate(self.screen):
-                    # number of clusters
-                    ncluster = ncluster_idx + 1
-
-                    # calculate relative factor
-                    self.screen[ncluster_idx]["rel_factor"] = np.divide(
-                        np.abs(screen["cluster_sum"][cluster_idxs]),
-                        screen["cluster_sum_abs"][cluster_idxs],
-                        out=np.zeros(cluster_idxs.size, dtype=np.float64),
-                        where=screen["cluster_sum_abs"][cluster_idxs] != 0.0,
-                    )
-
-                    # get number of tuples per cluster
-                    ntup = cluster_n_tuples(
-                        self.exp_space[-1],
-                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
-                        self.nocc,
-                        self.ref_nelec,
-                        self.ref_nhole,
-                        self.vanish_exc,
-                        ncluster,
-                        self.order,
-                    )
-
-                    # calculate mean absolute increment
-                    self.screen[ncluster_idx]["mean_norm_abs_inc"] = np.divide(
-                        screen["cluster_norm_sum_abs"][cluster_idxs],
-                        ntup,
-                        out=np.zeros(cluster_idxs.size, dtype=np.float64),
-                        where=ntup != 0,
-                    )
+                # get sign balance up to current order
+                signs = self._get_sign_balance()
 
                 # initialize boolean to keep screening
                 min_idx: Optional[int] = 0
@@ -2255,7 +2252,10 @@ class ExpCls(
                     min_idx, self.mbe_tot_error[-1] = adaptive_screen(
                         self.mbe_tot_error[-1],
                         self.screen_thres,
-                        self.screen,
+                        adaptive_screen_dict(self.adaptive_screen, self.norb),
+                        self.screen_bins,
+                        self.screen_ntot_bins,
+                        signs,
                         self.exp_clusters[-1],
                         self.exp_space[-1],
                         self.exp_single_orbs,
@@ -2279,62 +2279,13 @@ class ExpCls(
                         self.exp_clusters[-1].pop(min_idx)
                         self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
 
-                        # loop over number of clusters
-                        for ncluster in range(1, self.order + 1):
-                            # get cluster indices in full orbital space
-                            cluster_idxs = np.array(
-                                [cluster[0] for cluster in self.exp_clusters[-1]],
-                                dtype=np.int64,
-                            )
-
-                            # calculate relative factor
-                            self.screen[ncluster - 1]["rel_factor"] = np.divide(
-                                np.abs(
-                                    self.screen[ncluster - 1]["cluster_sum"][
-                                        cluster_idxs
-                                    ]
-                                ),
-                                self.screen[ncluster - 1]["cluster_sum_abs"][
-                                    cluster_idxs
-                                ],
-                                out=np.zeros(cluster_idxs.size, dtype=np.float64),
-                                where=self.screen[ncluster - 1]["cluster_sum_abs"][
-                                    cluster_idxs
-                                ]
-                                != 0.0,
-                            )
-
-                            # get number of tuples per cluster
-                            ntup = cluster_n_tuples(
-                                self.exp_space[-1],
-                                (
-                                    self.exp_clusters[-1]
-                                    if not self.exp_single_orbs
-                                    else None
-                                ),
-                                self.nocc,
-                                self.ref_nelec,
-                                self.ref_nhole,
-                                self.vanish_exc,
-                                ncluster,
-                                self.order,
-                            )
-
-                            # calculate mean absolute increment
-                            self.screen[ncluster - 1]["mean_norm_abs_inc"] = np.divide(
-                                self.screen[ncluster - 1]["cluster_norm_sum_abs"][
-                                    cluster_idxs
-                                ],
-                                ntup,
-                                out=np.zeros(cluster_idxs.size, dtype=np.float64),
-                                where=ntup != 0,
-                            )
-
                         # remove remaining clusters if expansion space no longer
                         # produces valid increments
                         if all(
-                            np.all(screen["mean_norm_abs_inc"] == 0.0)
-                            for screen in self.screen
+                            [
+                                np.all(value[0] == 0)
+                                for value in self.adaptive_screen.values()
+                            ]
                         ):
                             self.exp_clusters[-1] = []
                             self.exp_space[-1] = np.array([])
@@ -2385,8 +2336,10 @@ class ExpCls(
         # write restart file
         if self.rst:
             if self.screen_type == "adaptive":
-                for k in range(self.order):
-                    write_file_mult(self.screen[k], "mbe_screen", k + self.min_order)
+                write_file_mult(
+                    adaptive_screen_dict(self.adaptive_screen, self.norb),
+                    "mbe_adaptive_screen",
+                )
                 write_file(
                     np.asarray(self.mbe_tot_error[-1]), "mbe_tot_error", self.order
                 )
@@ -2450,6 +2403,7 @@ class ExpCls(
                         self.nocc,
                         order,
                         tup_nocc,
+                        cached=True,
                     )
                 ):
                     # distribute tuples
@@ -3273,12 +3227,10 @@ class ExpCls(
     def _add_screen(
         self,
         inc_tup: TargetType,
-        screen: List[Dict[str, np.ndarray]],
-        tup: np.ndarray,
         order: int,
-        ncluster: int,
-        tup_nocc: int,
-    ) -> List[Dict[str, np.ndarray]]:
+        tup: np.ndarray,
+        tup_clusters: Optional[List[np.ndarray]],
+    ) -> None:
         """
         this function modifies the screening array
         """
@@ -3330,20 +3282,26 @@ class ExpCls(
         this function prints mbe results statistics for a target calculation
         """
 
+    @abstractmethod
+    def _get_sign_balance(self) -> np.ndarray:
+        """
+        this function adds current-order increments to the sign counter variables and
+        returns the current sign balance for the different bins
+        """
+
     def _screen_remove_cluster_contrib(self, mpi: MPICls, cluster_idx: int) -> None:
         """
         this function removes cluster contributions to the screening arrays
         """
-        # initialize list of arrays for contributions to be removed
-        remove_screen = []
+        # initialize dictionary of arrays for contributions to be removed
+        remove_screen: Dict[
+            Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ] = {}
 
         # loop over all orders
         for order in range(1, self.order + 1):
             # order index
             k = order - 1
-
-            # append new element to list of contributions to be removed
-            remove_screen.append(self._init_screen())
 
             # loop over number of occupied orbitals
             for tup_nocc in range(order + 1):
@@ -3418,29 +3376,34 @@ class ExpCls(
 
                     # remove inc_tup from the screen arrays
                     if idx is not None:
-                        remove_screen = self._add_screen(
-                            inc[idx.item()],
-                            remove_screen,
+                        # add values for increment
+                        remove_screen = add_inc_stats(
+                            np.abs(inc[idx.item()]),
                             tup,
+                            tup_clusters,
+                            remove_screen,
+                            self.nocc,
                             order,
-                            tup.size if tup_clusters is None else len(tup_clusters),
-                            tup_nocc,
+                            self.norb,
+                            self.ref_nelec,
+                            self.ref_nhole,
+                            self.vanish_exc,
                         )
                     else:
                         raise RuntimeError("Last order tuple not found:", tup_last)
 
-        # reduce screen onto global master and remove contributions
-        for order_idx, screen_arrays in enumerate(remove_screen):
-            for screen_func in [
-                "cluster_norm_sum_abs",
-                "cluster_sum_abs",
-                "cluster_sum",
-            ]:
-                remove_screen[order_idx][screen_func] = mpi_reduce(
-                    mpi.global_comm, screen_arrays[screen_func], root=0, op=MPI.SUM
+        # reduce adaptive screening data onto global master and remove contributions
+        remove_screen = mpi_reduce_screen_dict(
+            remove_screen, mpi.global_comm, self.norb
+        )
+        if mpi.global_master:
+            for key in remove_screen.keys():
+                self.adaptive_screen[key] = (
+                    self.adaptive_screen[key][0] - remove_screen[key][0],
+                    self.adaptive_screen[key][1] - remove_screen[key][1],
+                    self.adaptive_screen[key][2] - remove_screen[key][2],
+                    self.adaptive_screen[key][3] - remove_screen[key][3],
                 )
-            if mpi.global_master:
-                self.screen[order_idx][screen_func] -= screen_arrays[screen_func]
 
         return
 
@@ -3510,7 +3473,9 @@ class SingleTargetExpCls(
                 # check if hashes are available
                 if hashes[k - self.min_order][l].size > 0:
                     # loop over subtuples
-                    for tup_sub in tuples_with_nocc(tup, tup_clusters, self.nocc, k, l):
+                    for tup_sub in tuples_with_nocc(
+                        tup, tup_clusters, self.nocc, k, l, cached=True
+                    ):
                         # pi-pruning
                         if self.pi_prune and not pi_prune(
                             self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup_sub)

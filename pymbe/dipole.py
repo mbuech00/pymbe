@@ -347,20 +347,17 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
     def _add_screen(
         self,
         inc_tup: np.ndarray,
-        screen: List[Dict[str, np.ndarray]],
-        tup: np.ndarray,
         order: int,
-        *args: int,
-    ) -> List[Dict[str, np.ndarray]]:
+        tup: np.ndarray,
+        *args: Optional[List[np.ndarray]],
+    ) -> None:
         """
         this function modifies the screening array
         """
-        screen[order - 1]["max"][tup] = np.maximum(
-            screen[order - 1]["max"][tup], np.max(np.abs(inc_tup))
+        self.screen[order - 1]["max"][tup] = np.maximum(
+            self.screen[order - 1]["max"][tup], np.max(np.abs(inc_tup))
         )
-        screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup))
-
-        return screen
+        self.screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup))
 
     @staticmethod
     def _total_inc(inc: List[np.ndarray], mean_inc: np.ndarray) -> np.ndarray:
@@ -450,6 +447,13 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         string += DIVIDER_OUTPUT
 
         return string
+    
+    def _get_sign_balance(self) -> np.ndarray:
+        """
+        this function adds current-order increments to the sign counter variables and
+        returns the current sign balance for the different bins
+        """
+        raise NotImplementedError
 
     def _prop_summ(
         self,

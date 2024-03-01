@@ -16,21 +16,20 @@ __status__ = "Development"
 
 import os
 import numpy as np
-from math import comb
 from mpi4py import MPI
 from pyscf import ao2mo
 from typing import TYPE_CHECKING
 
 from pymbe.expansion import SingleTargetExpCls
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, idx_tril, get_nhole, get_nexc
+from pymbe.tools import RST, write_file, idx_tril, get_nhole, get_nexc, add_inc_stats
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import Optional, Tuple, Union, Dict, List
+    from typing import Tuple, Union, Dict, List, Optional
 
 
 class EnergyExpCls(SingleTargetExpCls[float]):
@@ -271,21 +270,11 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         this function initializes the screening arrays
         """
-        if self.screen_type == "fixed":
-            return {
-                "sum_abs": np.zeros(self.norb, dtype=np.float64),
-                "sum": np.zeros(self.norb, dtype=np.float64),
-                "max": np.zeros(self.norb, dtype=np.float64),
-            }
-        else:
-            return {
-                "sum_abs": np.zeros(self.norb, dtype=np.float64),
-                "sum": np.zeros(self.norb, dtype=np.float64),
-                "max": np.zeros(self.norb, dtype=np.float64),
-                "cluster_norm_sum_abs": np.zeros(self.norb, dtype=np.float64),
-                "cluster_sum_abs": np.zeros(self.norb, dtype=np.float64),
-                "cluster_sum": np.zeros(self.norb, dtype=np.float64),
-            }
+        return {
+            "sum_abs": np.zeros(self.norb, dtype=np.float64),
+            "sum": np.zeros(self.norb, dtype=np.float64),
+            "max": np.zeros(self.norb, dtype=np.float64),
+        }
 
     def _zero_target_arr(self, length: int):
         """
@@ -321,28 +310,77 @@ class EnergyExpCls(SingleTargetExpCls[float]):
     def _add_screen(
         self,
         inc_tup: float,
-        screen: List[Dict[str, np.ndarray]],
-        tup: np.ndarray,
         order: int,
-        ncluster: int,
-        tup_nocc: int,
-    ) -> List[Dict[str, np.ndarray]]:
+        tup: np.ndarray,
+        tup_clusters: Optional[List[np.ndarray]],
+    ) -> None:
         """
         this function modifies the screening array
         """
-        screen[order - 1]["max"][tup] = np.maximum(
-            screen[order - 1]["max"][tup], np.abs(inc_tup)
-        )
-        screen[order - 1]["sum_abs"][tup] += np.abs(inc_tup)
-        screen[order - 1]["sum"][tup] += inc_tup
-        if self.screen_type == "adaptive":
-            screen[ncluster - 1]["cluster_norm_sum_abs"][tup] += (
-                np.abs(inc_tup) / comb(order, tup_nocc) ** 2
-            )
-            screen[ncluster - 1]["cluster_sum_abs"][tup] += np.abs(inc_tup)
-            screen[ncluster - 1]["cluster_sum"][tup] += inc_tup
+        # get absolute increment
+        abs_inc_tup = np.abs(inc_tup)
 
-        return screen
+        # get screening values for static screening
+        self.screen[order - 1]["max"][tup] = np.maximum(
+            self.screen[order - 1]["max"][tup], abs_inc_tup
+        )
+        self.screen[order - 1]["sum_abs"][tup] += abs_inc_tup
+        self.screen[order - 1]["sum"][tup] += inc_tup
+
+        # get screening values for adaptive screening
+        if self.screen_type == "adaptive":
+            # add values for increment
+            self.adaptive_screen = add_inc_stats(
+                abs_inc_tup,
+                tup,
+                tup_clusters,
+                self.adaptive_screen,
+                self.nocc,
+                self.order,
+                self.norb,
+                self.ref_nelec,
+                self.ref_nhole,
+                self.vanish_exc,
+            )
+
+    def _get_sign_balance(self) -> np.ndarray:
+        """
+        this function adds current-order increments to the sign counter variables and
+        returns the current sign balance for the different bins
+        """
+        # get current-order increments
+        incs = []
+        for tup_nocc in range(self.order + 1):
+            incs.append(
+                self._open_shared_inc(
+                    self.incs[-1][tup_nocc],
+                    self.n_incs[-1][tup_nocc],
+                    self.order,
+                    tup_nocc,
+                )
+            )
+        order_incs: np.ndarray = np.concatenate(incs)
+
+        # get sign balance until current order
+        digitize = np.digitize(np.abs(order_incs), self.screen_bins)
+        signs = np.empty_like(self.screen_bins, dtype=np.float64)
+        for bin_idx in range(len(self.screen_bins)):
+            bin_incs = order_incs[digitize == bin_idx]
+            self.screen_ntot_bins[bin_idx] += bin_incs.size
+            self.screen_npos_bins[bin_idx] += (bin_incs > 0.0).sum()
+            if self.screen_ntot_bins[bin_idx] > 0:
+                signs[bin_idx] = (
+                    max(
+                        self.screen_npos_bins[bin_idx],
+                        self.screen_ntot_bins[bin_idx] - self.screen_npos_bins[bin_idx],
+                    )
+                    / self.screen_ntot_bins[bin_idx]
+                    - 0.5
+                ) * 2
+            else:
+                signs[bin_idx] = 1.0
+
+        return signs
 
     @staticmethod
     def _total_inc(inc: List[np.ndarray], mean_inc: float) -> float:

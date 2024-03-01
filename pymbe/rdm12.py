@@ -234,7 +234,14 @@ class RDMExpCls(
                 if hashes[k - self.min_order][l].size > 0:
                     # loop over subtuples
                     for tup_sub, idx_sub in tuples_idx_with_nocc(
-                        tup, tup_clusters, exp_idx, exp_clusters_idx, self.nocc, k, l
+                        tup,
+                        tup_clusters,
+                        exp_idx,
+                        exp_clusters_idx,
+                        self.nocc,
+                        k,
+                        l,
+                        cached=True,
                     ):
                         # compute index
                         idx = hash_lookup(
@@ -487,20 +494,17 @@ class RDMExpCls(
     def _add_screen(
         self,
         inc_tup: RDMCls,
-        screen: List[Dict[str, np.ndarray]],
-        tup: np.ndarray,
         order: int,
-        *args: int,
-    ) -> List[Dict[str, np.ndarray]]:
+        tup: np.ndarray,
+        *args: Optional[List[np.ndarray]],
+    ) -> None:
         """
         this function modifies the screening array
         """
-        screen[order - 1]["max"][tup] = np.maximum(
-            screen[order - 1]["max"][tup], np.max(np.abs(inc_tup.rdm1))
+        self.screen[order - 1]["max"][tup] = np.maximum(
+            self.screen[order - 1]["max"][tup], np.max(np.abs(inc_tup.rdm1))
         )
-        screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup.rdm1))
-
-        return screen
+        self.screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup.rdm1))
 
     def _update_inc_stats(
         self,
@@ -571,6 +575,13 @@ class RDMExpCls(
         string += DIVIDER_OUTPUT
 
         return string
+
+    def _get_sign_balance(self) -> np.ndarray:
+        """
+        this function adds current-order increments to the sign counter variables and
+        returns the current sign balance for the different bins
+        """
+        raise NotImplementedError
 
     def _prop_summ(
         self,

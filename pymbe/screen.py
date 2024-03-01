@@ -15,19 +15,12 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from math import comb
 from scipy import optimize
-from numpy.polynomial.polynomial import Polynomial
 from typing import TYPE_CHECKING
 
 from pymbe.logger import logger
 
-from pymbe.tools import (
-    n_tuples,
-    get_ncluster_blks,
-    single_cluster_n_tuples_with_nocc,
-    valid_tup,
-)
+from pymbe.tools import n_tuples, n_tuples_predictors
 
 
 if TYPE_CHECKING:
@@ -79,7 +72,10 @@ def fixed_screen(
 def adaptive_screen(
     mbe_tot_error: float,
     screen_thres: float,
-    screen: List[Dict[str, np.ndarray]],
+    screen: Dict[str, np.ndarray],
+    bins: np.ndarray,
+    ntot_bins: np.ndarray,
+    signs: np.ndarray,
     exp_clusters: List[np.ndarray],
     exp_space: np.ndarray,
     exp_single_orbs: bool,
@@ -106,7 +102,7 @@ def adaptive_screen(
     # initialize array for estimated quantities
     est_error = np.zeros((len(exp_clusters), max_order - curr_order), dtype=np.float64)
     est_rel_factor = np.zeros_like(est_error)
-    est_mean_norm_abs_inc = np.zeros_like(est_error)
+    est_mean_abs_inc = np.zeros_like(est_error)
 
     # initialize array for cluster contribution errors
     tot_error = np.zeros(len(exp_clusters), dtype=np.float64)
@@ -115,60 +111,82 @@ def adaptive_screen(
     error_diff = np.zeros_like(tot_error)
 
     # loop over clusters
-    for cluster_idx in range(len(exp_clusters)):
-        # get mean absolute increments and relative factor for
-        # cluster
-        mean_norm_abs_inc = np.array(
-            [screen["mean_norm_abs_inc"][cluster_idx] for screen in screen],
-            dtype=np.float64,
+    for cluster_idx, cluster_orbs in enumerate(exp_clusters):
+        # get mask for predictors with more than single sample
+        mask = screen["inc_count"][:, cluster_orbs[0]] > 1
+
+        # get corresponding predictors
+        predictors = screen["predictors"][mask].astype(np.float64)
+        predictors[:, 1] = np.log(predictors[:, 1])
+
+        # calculate logarithm of mean increment magnitude
+        mean = np.log(
+            screen["inc_sum"][mask, cluster_orbs[0]]
+            / screen["inc_count"][mask, cluster_orbs[0]]
         )
-        rel_factor = np.array(
-            [screen["rel_factor"][cluster_idx] for screen in screen],
-            dtype=np.float64,
-        )
 
-        # log transform mean absolute increments
-        log_mean_norm_abs_inc = np.log(mean_norm_abs_inc[mean_norm_abs_inc > 0.0])
+        # calculate variance of the logarithm of mean increment magnitude
+        variance = (
+            screen["log_inc_sum2"][mask, cluster_orbs[0]]
+            - 2 * mean * screen["log_inc_sum"][mask, cluster_orbs[0]]
+        ) / screen["inc_count"][mask, cluster_orbs[0]] + mean**2
+        variance /= screen["inc_count"][mask, cluster_orbs[0]]
 
-        # get corresponding relative factors
-        rel_factor = rel_factor[mean_norm_abs_inc > 0.0]
+        # require at least 3 points to fit and ensure all two-orbital correlations have
+        # been calculated
+        if (
+            predictors.shape[0] > 3
+            and curr_order
+            >= (exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :])[-1].size
+            + cluster_orbs.size
+        ):
+            # fit parameters
+            fit_params: Tuple[int, ...]
 
-        # get number of clusters for fit
-        nclusters = np.argwhere(mean_norm_abs_inc > 0.0).reshape(-1) + 1
+            # check if second predictor is unique
+            if len(np.unique(predictors[:, 1], return_counts=True)[0]) == 1:
+                # define fit function
+                def fit(x: np.ndarray, *args: float):
+                    return args[0] + args[1] * x[:, 0]
 
-        # require a certain number of points to fit
-        if nclusters.size > max(2, round(-np.log10(screen_thres) + 1)):
-            # fit logarithmic mean absolute increment
-            (opt_slope, opt_zero), cov = np.polyfit(
-                nclusters, log_mean_norm_abs_inc, 1, cov=True
-            )
-            err_slope, err_zero = np.sqrt(np.diag(cov))
-            opt_slope += 2 * err_slope
-            opt_zero += 2 * err_zero
-
-            # assume mean absolute increment does not decrease
-            mean_norm_abs_inc_fit = Polynomial([opt_zero, opt_slope])
-
-            # define fitting function for relative factor
-            def rel_factor_fit(x, half, slope):
-                return 1.0 / (1.0 + ((x - nclusters[0]) / half) ** slope)
-
-            # fit relative factor
-            if np.count_nonzero(rel_factor < 0.5) > 2:
-                (opt_half, opt_slope), cov = optimize.curve_fit(
-                    rel_factor_fit,
-                    nclusters,
-                    rel_factor,
-                    bounds=([0.5, 1.0], [max_order + 1, np.inf]),
+                # fit logarithmic mean increment magnitude
+                (intercept, ncluster_slope), cov = optimize.curve_fit(
+                    fit,
+                    predictors,
+                    mean,
+                    p0=(-1, -1),
+                    bounds=([-np.inf, -np.inf], [np.inf, 0]),
                     maxfev=1000000,
+                    sigma=np.sqrt(variance),
+                    absolute_sigma=True,
                 )
-                err_half, err_slope = np.sqrt(np.diag(cov))
-
-                opt_half = min(opt_half + 2 * err_half, max_order + 1)
-                opt_slope = max(opt_slope - 2 * err_slope, 1.0)
+                intercept_err, ncluster_slope_err = np.sqrt(np.diag(cov))
+                intercept += 2 * intercept_err
+                ncluster_slope += 2 * ncluster_slope_err
+                fit_params = (intercept, ncluster_slope)
             else:
-                opt_half = opt_slope = 0.0
-                rel_factor_fit = lambda *args: 1.0
+                # define fit function
+                def fit(x: np.ndarray, *args: float):
+                    return args[0] + args[1] * x[:, 0] + args[2] * x[:, 1]
+
+                # fit logarithmic mean increment magnitude
+                (intercept, ncluster_slope, ncontrib_slope), cov = optimize.curve_fit(
+                    fit,
+                    predictors,
+                    mean,
+                    p0=(-1, -1, 1),
+                    bounds=([-np.inf, -np.inf, 0], [np.inf, 0, np.inf]),
+                    maxfev=1000000,
+                    sigma=np.sqrt(variance),
+                    absolute_sigma=True,
+                )
+                intercept_err, ncluster_slope_err, ncontrib_slope_err = np.sqrt(
+                    np.diag(cov)
+                )
+                intercept += 2 * intercept_err
+                ncluster_slope += 2 * ncluster_slope_err
+                ncontrib_slope += 2 * ncontrib_slope_err
+                fit_params = (intercept, ncluster_slope, ncontrib_slope)
 
             # initialize number of tuples for cluster for remaining
             # orders
@@ -190,73 +208,63 @@ def adaptive_screen(
                     order,
                 )
 
-                # estimate the relative factor for this order
-                est_rel_factor[cluster_idx, order_idx] = rel_factor_fit(
-                    order, opt_half, opt_slope
-                )
-
                 # initialize number of tuples for cluster for this order
                 ntup_order_cluster = 0
 
-                # get cluster size and number of virtual orbitals in cluster
-                cluster_size = exp_clusters[cluster_idx].size
-                cluster_nvirt = (nocc <= exp_clusters[cluster_idx]).sum()
+                # loop over number of tuples and predictors
+                for ntup, ncluster, ncontrib in n_tuples_predictors(
+                    exp_space,
+                    exp_clusters if not exp_single_orbs else None,
+                    cluster_idx,
+                    nocc,
+                    ref_nelec,
+                    ref_nhole,
+                    vanish_exc,
+                    order,
+                ):
+                    # check if any tuples for this cluster at this order contribute
+                    if ntup > 0:
+                        # add to number of tuples for cluster for this order
+                        ntup_order_cluster += ntup
 
-                # get number of expansion space clusters for every cluster size and
-                # number of virtual orbitals with current cluster removed
-                if not exp_single_orbs:
-                    size_nvirt_blks = get_ncluster_blks(
-                        exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :],
-                        nocc,
-                    )
+                        # estimate mean increment magnitude for given predictors
+                        mean_abs_inc = np.exp(
+                            fit(np.array([[ncluster, np.log(ncontrib)]]), *fit_params)
+                        )
 
-                # loop over a certain number of clusters
-                for ncluster in range(1, order + 1):
-                    # loop over occupations
-                    for tup_nocc in range(order + 1):
-                        # check if tuple is valid for chosen method
-                        if valid_tup(
-                            ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
-                        ):
-                            # get number of tuples for this cluster for a given order and
-                            # occupation
-                            ntup = single_cluster_n_tuples_with_nocc(
-                                exp_space,
-                                size_nvirt_blks if not exp_single_orbs else None,
-                                cluster_size,
-                                cluster_nvirt,
-                                nocc,
-                                ncluster,
-                                order,
-                                tup_nocc,
+                        # get factor due to sign cancellation
+                        insert_idx = np.digitize(mean_abs_inc, bins).item()
+                        if insert_idx < signs.size and ntot_bins[insert_idx] > 0:
+                            prev_bin_slice = slice(
+                                insert_idx, min(insert_idx + 3, signs.size)
                             )
+                            sign_factor = np.average(
+                                signs[prev_bin_slice], weights=ntot_bins[prev_bin_slice]
+                            )
+                        else:
+                            sign_factor = 1.0
 
-                            # add to number of tuples for cluster for this order
-                            ntup_order_cluster += ntup
-
-                            # calculate the error for this order
-                            if ntup > 0:
-                                est_error[cluster_idx, order_idx] += (
-                                    est_rel_factor[cluster_idx, order_idx]
-                                    * ntup
-                                    * np.exp(mean_norm_abs_inc_fit(ncluster))
-                                    * comb(order, tup_nocc) ** 2
-                                )
+                        # calculate the error for this order
+                        est_error[cluster_idx, order_idx] += (
+                            sign_factor * ntup * mean_abs_inc
+                        )
 
                 # check if cluster produces increments for this order
                 if ntup_order_cluster > 0:
                     # add to number of tuples for cluster for all remaining orders
                     ntup_all_cluster += ntup_order_cluster
 
-                    # estimate the mean absolute increment for all increments at this order
-                    est_mean_norm_abs_inc[cluster_idx, order_idx] = (
+                    # estimate the mean absolute increment for all increments at this
+                    # order
+                    est_mean_abs_inc[cluster_idx, order_idx] = (
                         est_error[cluster_idx, order_idx] / ntup_order_cluster
                     )
 
                     # add to total error
                     tot_error[cluster_idx] += est_error[cluster_idx, order_idx]
 
-                    # stop if the last few orders contribute less than 1%
+                    # stop if the last few orders contribute less than 1% or if
+                    # accumulated error is larger than threshold
                     if (
                         np.sum(
                             est_error[
@@ -267,7 +275,7 @@ def adaptive_screen(
                         )
                         / tot_error[cluster_idx]
                         < 0.01
-                    ):
+                    ) or tot_error[cluster_idx] > error_thresh:
                         break
 
             # calculate difference to allowed error
@@ -278,9 +286,9 @@ def adaptive_screen(
     # get index in expansion space for minimum cluster contribution
     min_idx = int(np.argmax(error_diff))
 
-    # check if maximum order mean aboslute increment contribution for minimum error
+    # check if maximum order mean absolute increment contribution for minimum error
     # cluster comes close to convergence threshold
-    if 0.0 < max(est_mean_norm_abs_inc[min_idx, :]) < 1e1 * conv_tol:
+    if 0.0 < max(est_mean_abs_inc[min_idx, :]) < 1e1 * conv_tol:
         # log screening
         if exp_clusters[min_idx].size == 1:
             logger.info2(
@@ -315,11 +323,11 @@ def adaptive_screen(
             "  Order | Est. relative factor | Est. mean abs. increment | Est. error"
         )
         logger.info2(" " + 70 * "-")
-        for order_idx, (order, factor, mean_norm_abs_inc, error) in enumerate(
+        for order_idx, (order, factor, mean_abs_inc, error) in enumerate(
             zip(
                 range(curr_order + 1, max_order + 1),
                 est_rel_factor[min_idx],
-                est_mean_norm_abs_inc[min_idx],
+                est_mean_abs_inc[min_idx],
                 est_error[min_idx],
             )
         ):
@@ -327,7 +335,7 @@ def adaptive_screen(
                 break
             logger.info2(
                 f"  {order:5} |      {factor:>10.4e}      |        "
-                f"{mean_norm_abs_inc:>10.4e}        | {error:>10.4e}"
+                f"{mean_abs_inc:>10.4e}        | {error:>10.4e}"
             )
         logger.info2(" " + 70 * "-" + "\n")
 
