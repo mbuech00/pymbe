@@ -1166,7 +1166,9 @@ def tuples_idx_with_nocc(
     else:
         # get cluster sizes and number of virtual orbitals
         cluster_sizes = tuple(cluster.size for cluster in orb_clusters)
-        cluster_nvirt = tuple(cluster.size - cluster.searchsorted(nocc) for cluster in orb_clusters)
+        cluster_nvirt = tuple(
+            cluster.size - cluster.searchsorted(nocc) for cluster in orb_clusters
+        )
 
         # get number of clusters for every cluster size and number of virtual
         # orbitals and corresponding cluster ranges
@@ -1293,7 +1295,9 @@ def tuples_idx_virt_idx_with_nocc(
     else:
         # get cluster sizes and number of virtual orbitals
         cluster_sizes = tuple(cluster.size for cluster in orb_clusters)
-        cluster_nvirt = tuple(cluster.size - cluster.searchsorted(nocc) for cluster in orb_clusters)
+        cluster_nvirt = tuple(
+            cluster.size - cluster.searchsorted(nocc) for cluster in orb_clusters
+        )
 
         # get number of clusters for every cluster size and number of virtual
         # orbitals and corresponding cluster ranges
@@ -1756,11 +1760,19 @@ def n_tuples_predictors(
 
                 # get number of tuples for this cluster for a given order and
                 # occupation
-                if orb_space[cluster_idx] < nocc and occ_space.size > 0:
+                if (
+                    orb_space[cluster_idx] < nocc
+                    and occ_space.size >= tup_nocc
+                    and tup_nocc > 0
+                ):
                     ntup += comb(occ_space.size - 1, tup_nocc - 1) * comb(
                         virt_space.size, order - tup_nocc
                     )
-                elif nocc <= orb_space[cluster_idx] and virt_space.size > 0:
+                elif (
+                    nocc <= orb_space[cluster_idx]
+                    and virt_space.size >= order - tup_nocc
+                    and tup_nocc < order
+                ):
                     ntup += comb(occ_space.size, tup_nocc) * comb(
                         virt_space.size - 1, order - tup_nocc - 1
                     )
