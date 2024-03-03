@@ -922,7 +922,8 @@ class ExpCls(
                         array_dict["log_inc_sum"],
                         array_dict["log_inc_sum2"],
                     ):
-                        self.adaptive_screen[tuple(predictors)] = (
+                        key = cast(Tuple[int, int], tuple(predictors))
+                        self.adaptive_screen[key] = (
                             inc_count,
                             inc_sum,
                             log_inc_sum,
