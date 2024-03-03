@@ -1053,4 +1053,4 @@ def ref_space_update(
     # log results
     logger.info(ref_space_results(add_orbs, ref_space))
 
-    return ref_space, exp_space
+    return ref_space, new_exp_space
