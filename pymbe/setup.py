@@ -1040,15 +1040,15 @@ def ref_space_update(
     ref_space = np.append(ref_space, add_orbs)
     ref_space.sort()
 
-    # remove orbitals from expansion space
-    exp_space = []
+    # determine new expansion space
+    new_exp_space = []
     for cluster in exp_space:
         add_cluster = np.isin(cluster, add_orbs)
         if np.any(add_cluster):
             if not np.all(add_cluster):
                 raise NotImplementedError("Partial cluster is added to reference space")
         else:
-            exp_space.append(cluster)
+            new_exp_space.append(cluster)
 
     # log results
     logger.info(ref_space_results(add_orbs, ref_space))
