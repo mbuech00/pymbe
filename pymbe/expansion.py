@@ -2866,13 +2866,15 @@ class ExpCls(
                 )
 
         # add tuple to potential candidates for reference space
-        if (
-            isinstance(self.ref_thres, int)
-            and (
-                (self.ref_space.size < self.ref_thres and cas_idx.size >= 4)
-                or min_sq_overlap < 0.9
-            )
-        ) or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres):
+        if ref_guess and (
+            (
+                isinstance(self.ref_thres, int)
+                and (
+                    (self.ref_space.size < self.ref_thres and cas_idx.size >= 4)
+                    or min_sq_overlap < 0.9
+                )
+            ) or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres)
+        ):
             # remove all tuples that are not within range
             if len(self.tup_sq_overlaps["overlap"]) > 0:
                 all_min_sq_overlap = min(self.tup_sq_overlaps["overlap"])

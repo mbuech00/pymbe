@@ -17,8 +17,11 @@ __status__ = "Development"
 import os
 import ctypes
 import numpy as np
+from math import floor, log10
 from pyscf import ao2mo
 from typing import TYPE_CHECKING
+
+from pymbe.expansion import CONV_TOL
 
 try:
     from pymbe.settings import MBECCLIB
@@ -33,7 +36,6 @@ if TYPE_CHECKING:
 
 
 MAX_MEM = 131071906
-CONV_TOL = 10
 
 
 def mbecc_interface(
@@ -85,7 +87,7 @@ def mbecc_interface(
     )
     non_canonical = ctypes.c_int64(0 if orb_type == "can" else 1)
     maxcor = ctypes.c_int64(MAX_MEM)  # max memory in integer words
-    conv = ctypes.c_int64(CONV_TOL)
+    conv = ctypes.c_int64(-int(floor(log10(abs(CONV_TOL)))))
     max_cycle = ctypes.c_int64(500)
     t3_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
     t4_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
