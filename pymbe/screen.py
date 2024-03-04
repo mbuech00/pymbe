@@ -101,8 +101,7 @@ def adaptive_screen(
 
     # initialize array for estimated quantities
     est_error = np.zeros((len(exp_clusters), max_order - curr_order), dtype=np.float64)
-    est_rel_factor = np.zeros_like(est_error)
-    est_mean_abs_inc = np.zeros_like(est_error)
+    est_mean_inc = np.zeros_like(est_error)
 
     # initialize array for cluster contribution errors
     tot_error = np.zeros(len(exp_clusters), dtype=np.float64)
@@ -256,7 +255,7 @@ def adaptive_screen(
 
                     # estimate the mean absolute increment for all increments at this
                     # order
-                    est_mean_abs_inc[cluster_idx, order_idx] = (
+                    est_mean_inc[cluster_idx, order_idx] = (
                         est_error[cluster_idx, order_idx] / ntup_order_cluster
                     )
 
@@ -300,26 +299,22 @@ def adaptive_screen(
                 f" Orbital cluster {cluster_str} is screened away (Error = "
                 f"{tot_error[min_idx]:>10.4e})"
             )
-        logger.info2(" " + 70 * "-")
-        logger.info2(
-            "  Order | Est. relative factor | Est. mean abs. increment | Est. error"
-        )
-        logger.info2(" " + 70 * "-")
-        for order_idx, (order, factor, mean_abs_inc, error) in enumerate(
+        logger.info2(" " + 47 * "-")
+        logger.info2("  Order | Est. mean abs. increment | Est. error")
+        logger.info2(" " + 47 * "-")
+        for order_idx, (order, mean_inc, error) in enumerate(
             zip(
                 range(curr_order + 1, max_order + 1),
-                est_rel_factor[min_idx],
-                est_mean_abs_inc[min_idx],
+                est_mean_inc[min_idx],
                 est_error[min_idx],
             )
         ):
             if sum(est_error[min_idx][order_idx:]) == 0.0:
                 break
             logger.info2(
-                f"  {order:5} |      {factor:>10.4e}      |        "
-                f"{mean_abs_inc:>10.4e}        | {error:>10.4e}"
+                f"  {order:5} |        {mean_inc:>10.4e}        | {error:>10.4e}"
             )
-        logger.info2(" " + 70 * "-" + "\n")
+        logger.info2(" " + 47 * "-" + "\n")
 
         # add screened cluster contribution to error
         mbe_tot_error += tot_error[min_idx]
@@ -328,7 +323,7 @@ def adaptive_screen(
 
     # check if geometric mean absolute increment contribution for minimum error cluster
     # comes close to convergence threshold
-    elif (
+    elif np.sum(screen["inc_count"][:, min_idx]) > 0 and (
         0.0
         < np.sum(screen["log_inc_sum"][:, min_idx])
         / np.sum(screen["inc_count"][:, min_idx])
