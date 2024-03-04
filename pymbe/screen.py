@@ -135,7 +135,7 @@ def adaptive_screen(
         # require at least 3 points to fit and ensure all two-orbital correlations have
         # been calculated
         if (
-            predictors.shape[0] > 3
+            predictors.shape[0] >= 3
             and curr_order
             >= (exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :])[-1].size
             + cluster_orbs.size
@@ -286,26 +286,8 @@ def adaptive_screen(
     # get index in expansion space for minimum cluster contribution
     min_idx = int(np.argmax(error_diff))
 
-    # check if maximum order mean absolute increment contribution for minimum error
-    # cluster comes close to convergence threshold
-    if 0.0 < max(est_mean_abs_inc[min_idx, :]) < 1e1 * conv_tol:
-        # log screening
-        if exp_clusters[min_idx].size == 1:
-            logger.info2(
-                f" Orbital {exp_clusters[min_idx].item()} is screened away due to the "
-                "majority of increments getting close to convergence\n criterium"
-            )
-        else:
-            cluster_str = np.array2string(exp_clusters[min_idx], separator=", ")
-            logger.info2(
-                f" Orbital cluster {cluster_str} is screened away due to the majority "
-                "of increments getting close to convergence\n criterium"
-            )
-
-        return min_idx, mbe_tot_error
-
     # screen cluster away if contribution is smaller than threshold
-    elif error_diff[min_idx] > 0.0:
+    if error_diff[min_idx] > 0.0:
         # log screening
         if exp_clusters[min_idx].size == 1:
             logger.info2(
@@ -341,6 +323,29 @@ def adaptive_screen(
 
         # add screened cluster contribution to error
         mbe_tot_error += tot_error[min_idx]
+
+        return min_idx, mbe_tot_error
+
+    # check if geometric mean absolute increment contribution for minimum error cluster
+    # comes close to convergence threshold
+    elif (
+        0.0
+        < np.sum(screen["log_inc_sum"][:, min_idx])
+        / np.sum(screen["inc_count"][:, min_idx])
+        < np.log(1e1 * conv_tol)
+    ):
+        # log screening
+        if exp_clusters[min_idx].size == 1:
+            logger.info2(
+                f" Orbital {exp_clusters[min_idx].item()} is screened away due to the "
+                "majority of increments getting close to convergence\n criterium"
+            )
+        else:
+            cluster_str = np.array2string(exp_clusters[min_idx], separator=", ")
+            logger.info2(
+                f" Orbital cluster {cluster_str} is screened away due to the majority "
+                "of increments getting close to convergence\n criterium"
+            )
 
         return min_idx, mbe_tot_error
 

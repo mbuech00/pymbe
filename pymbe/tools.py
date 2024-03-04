@@ -1750,28 +1750,28 @@ def n_tuples_predictors(
         # initialize number of tuples
         ntup = 0
 
-        # loop over occupations
-        for tup_nocc in range(order + 1):
-            # check if tuple is valid for chosen method
-            if valid_tup(ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc):
-                # occupied and virtual expansion spaces
-                occ_space = orb_space[orb_space < nocc]
-                virt_space = orb_space[nocc <= orb_space]
+        # occupied and virtual expansion spaces
+        occ_space = orb_space[orb_space < nocc]
+        virt_space = orb_space[nocc <= orb_space]
 
-                # get number of tuples for this cluster for a given order and
-                # occupation
-                if (
-                    orb_space[cluster_idx] < nocc
-                    and occ_space.size >= tup_nocc
-                    and tup_nocc > 0
+        # orbital is occupied
+        if orb_space[cluster_idx] < nocc:
+            # loop over occupations
+            for tup_nocc in range(1, min(occ_space.size + 1, order + 1)):
+                # check if tuple is valid for chosen method
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
                 ):
                     ntup += comb(occ_space.size - 1, tup_nocc - 1) * comb(
                         virt_space.size, order - tup_nocc
                     )
-                elif (
-                    nocc <= orb_space[cluster_idx]
-                    and virt_space.size >= order - tup_nocc
-                    and tup_nocc < order
+        # orbital is virtual
+        elif nocc <= orb_space[cluster_idx]:
+            # loop over occupations
+            for tup_nocc in range(min(virt_space.size + 1, order)):
+                # check if tuple is valid for chosen method
+                if valid_tup(
+                    ref_nelec, ref_nhole, tup_nocc, order - tup_nocc, vanish_exc
                 ):
                     ntup += comb(occ_space.size, tup_nocc) * comb(
                         virt_space.size - 1, order - tup_nocc - 1
