@@ -80,13 +80,7 @@ from pymbe.tools import (
     add_inc_stats,
     adaptive_screen_dict,
 )
-from pymbe.parallel import (
-    mpi_reduce,
-    mpi_allreduce,
-    mpi_bcast,
-    open_shared_win,
-    mpi_reduce_screen_dict,
-)
+from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
 from pymbe.screen import fixed_screen, adaptive_screen
 
@@ -255,9 +249,7 @@ class ExpCls(
         self.screen_thres = mbe.screen_thres
         self.screen_func = mbe.screen_func
         self.screen: List[Dict[str, np.ndarray]] = []
-        self.adaptive_screen: Dict[
-            Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-        ] = {}
+        self.adaptive_screen: List[List[np.ndarray]] = []
         self.screen_bins = np.logspace(-10, 0, 31)
         self.screen_ntot_bins = np.zeros_like(self.screen_bins, dtype=np.int64)
         self.screen_npos_bins = np.zeros_like(self.screen_bins, dtype=np.int64)
@@ -909,25 +901,14 @@ class ExpCls(
                 # read adaptive screening array
                 elif "mbe_adaptive_screen" in files[i]:
                     array_dict = np.load(os.path.join(RST, files[i]))
-                    for (
-                        predictors,
-                        inc_count,
-                        inc_sum,
-                        log_inc_sum,
-                        log_inc_sum2,
-                    ) in zip(
-                        array_dict["predictors"],
+                    for inc_count, inc_sum, log_inc_sum, log_inc_sum2 in zip(
                         array_dict["inc_count"],
                         array_dict["inc_sum"],
                         array_dict["log_inc_sum"],
                         array_dict["log_inc_sum2"],
                     ):
-                        key = cast(Tuple[int, int], tuple(predictors))
-                        self.adaptive_screen[key] = (
-                            inc_count,
-                            inc_sum,
-                            log_inc_sum,
-                            log_inc_sum2,
+                        self.adaptive_screen.append(
+                            [inc_count, inc_sum, log_inc_sum, log_inc_sum2]
                         )
 
                 # read total properties
@@ -1232,6 +1213,15 @@ class ExpCls(
                 self.screen.append(self._init_screen())
             elif not mpi.global_master:
                 self.screen[order_idx] = self._init_screen()
+            if len(self.adaptive_screen) == order_idx:
+                self.adaptive_screen.append(
+                    [np.zeros(self.norb, np.int64)]
+                    + [np.zeros(self.norb, np.float64) for _ in range(3)]
+                )
+            elif not mpi.global_master:
+                self.adaptive_screen[-1] = [np.zeros(self.norb, np.int64)] + [
+                    np.zeros(self.norb, np.float64) for _ in range(3)
+                ]
 
         # set screening function for mpi
         screen_mpi_func = {"sum_abs": MPI.SUM, "sum": MPI.SUM, "max": MPI.MAX}
@@ -1334,11 +1324,20 @@ class ExpCls(
                         self.screen[-1] = self._init_screen()
 
                     # reduce adaptive screening data onto global master
-                    self.adaptive_screen = mpi_reduce_screen_dict(
-                        self.adaptive_screen, mpi.global_comm, self.norb
-                    )
-                    if not mpi.global_master:
-                        self.adaptive_screen = {}
+                    for idx in range(self.order):
+                        self.adaptive_screen[idx] = [
+                            mpi_reduce(
+                                mpi.global_comm,
+                                self.adaptive_screen[idx][array_idx],
+                                root=0,
+                                op=MPI.SUM,
+                            )
+                            for array_idx in range(len(self.adaptive_screen[idx]))
+                        ]
+                        if not mpi.global_master:
+                            self.adaptive_screen[idx] = [
+                                np.zeros(self.norb, np.int64)
+                            ] + [np.zeros(self.norb, np.float64) for _ in range(3)]
 
                     # gather maximum squared overlaps on global master
                     self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
@@ -1550,11 +1549,20 @@ class ExpCls(
             )
 
         # reduce adaptive screening data
-        self.adaptive_screen = mpi_reduce_screen_dict(
-            self.adaptive_screen, mpi.global_comm, self.norb
-        )
-        if not mpi.global_master:
-            self.adaptive_screen = {}
+        for idx in range(self.order):
+            self.adaptive_screen[idx] = [
+                mpi_reduce(
+                    mpi.global_comm,
+                    self.adaptive_screen[idx][array_idx],
+                    root=0,
+                    op=MPI.SUM,
+                )
+                for array_idx in range(len(self.adaptive_screen[idx]))
+            ]
+            if not mpi.global_master:
+                self.adaptive_screen[idx] = [np.zeros(self.norb, np.int64)] + [
+                    np.zeros(self.norb, np.float64) for _ in range(3)
+                ]
 
         # gather maximum squared overlaps on global master
         self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
@@ -2284,8 +2292,8 @@ class ExpCls(
                         # produces valid increments
                         if all(
                             [
-                                np.all(value[0] == 0)
-                                for value in self.adaptive_screen.values()
+                                np.all(screen_info_list[0] == 0)
+                                for screen_info_list in self.adaptive_screen
                             ]
                         ):
                             self.exp_clusters[-1] = []
@@ -2873,7 +2881,8 @@ class ExpCls(
                     (self.ref_space.size < self.ref_thres and cas_idx.size >= 4)
                     or min_sq_overlap < 0.9
                 )
-            ) or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres)
+            )
+            or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres)
         ):
             # remove all tuples that are not within range
             if len(self.tup_sq_overlaps["overlap"]) > 0:
@@ -3297,9 +3306,11 @@ class ExpCls(
         this function removes cluster contributions to the screening arrays
         """
         # initialize dictionary of arrays for contributions to be removed
-        remove_screen: Dict[
-            Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-        ] = {}
+        remove_screen = [
+            [np.zeros(self.norb, np.int64)]
+            + [np.zeros(self.norb, np.float64) for _ in range(3)]
+            for _ in range(self.order)
+        ]
 
         # loop over all orders
         for order in range(1, self.order + 1):
@@ -3387,7 +3398,6 @@ class ExpCls(
                             remove_screen,
                             self.nocc,
                             order,
-                            self.norb,
                             self.ref_nelec,
                             self.ref_nhole,
                             self.vanish_exc,
@@ -3396,17 +3406,23 @@ class ExpCls(
                         raise RuntimeError("Last order tuple not found:", tup_last)
 
         # reduce adaptive screening data onto global master and remove contributions
-        remove_screen = mpi_reduce_screen_dict(
-            remove_screen, mpi.global_comm, self.norb
-        )
-        if mpi.global_master:
-            for key in remove_screen.keys():
-                self.adaptive_screen[key] = (
-                    self.adaptive_screen[key][0] - remove_screen[key][0],
-                    self.adaptive_screen[key][1] - remove_screen[key][1],
-                    self.adaptive_screen[key][2] - remove_screen[key][2],
-                    self.adaptive_screen[key][3] - remove_screen[key][3],
+        for order_idx in range(self.order):
+            remove_screen[order_idx] = [
+                mpi_reduce(
+                    mpi.global_comm,
+                    remove_screen[order_idx][array_idx],
+                    root=0,
+                    op=MPI.SUM,
                 )
+                for array_idx in range(len(remove_screen[order_idx]))
+            ]
+            if mpi.global_master:
+                self.adaptive_screen[order_idx] = [
+                    screen - subtract_screen
+                    for screen, subtract_screen in zip(
+                        self.adaptive_screen[order_idx], remove_screen[order_idx]
+                    )
+                ]
 
         return
 

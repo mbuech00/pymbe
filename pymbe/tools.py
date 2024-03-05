@@ -2022,16 +2022,13 @@ def add_inc_stats(
     abs_inc: float,
     tup: np.ndarray,
     tup_clusters: Optional[List[np.ndarray]],
-    adaptive_screen: Dict[
-        Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-    ],
+    adaptive_screen: List[List[np.ndarray]],
     nocc: int,
     order: int,
-    norb: int,
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
     vanish_exc: int,
-) -> Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+) -> List[List[np.ndarray]]:
     """
     this function adds increment statistics for a given set of predictors
     """
@@ -2066,23 +2063,14 @@ def add_inc_stats(
                 tup, None, nocc, ref_nelec, ref_nhole, vanish_exc, ncluster
             )
 
-        # get key for dictionary
-        key = (ncluster, ncontrib)
-
-        # check if key exists
-        if not key in adaptive_screen:
-            adaptive_screen[key] = (
-                np.zeros(norb, dtype=np.int64),
-                np.zeros(norb, dtype=np.float64),
-                np.zeros(norb, dtype=np.float64),
-                np.zeros(norb, dtype=np.float64),
-            )
+        # calculate increment per contribution
+        abs_inc /= ncontrib
 
         # add values for increment
-        adaptive_screen[key][0][tup] += 1
-        adaptive_screen[key][1][tup] += abs_inc
-        adaptive_screen[key][2][tup] += np.log(abs_inc)
-        adaptive_screen[key][3][tup] += np.log(abs_inc) ** 2
+        adaptive_screen[ncluster - 1][0][tup] += 1
+        adaptive_screen[ncluster - 1][1][tup] += abs_inc
+        adaptive_screen[ncluster - 1][2][tup] += np.log(abs_inc)
+        adaptive_screen[ncluster - 1][3][tup] += np.log(abs_inc) ** 2
 
     return adaptive_screen
 
@@ -2896,9 +2884,7 @@ def flatten_list(lst: List[List[T]]) -> List[T]:
 
 
 def adaptive_screen_dict(
-    adaptive_screen: Dict[
-        Tuple[int, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-    ],
+    adaptive_screen: List[List[np.ndarray]],
     norb: int,
 ) -> Dict[str, np.ndarray]:
     """
@@ -2906,17 +2892,15 @@ def adaptive_screen_dict(
     information
     """
     array_dict = {
-        "predictors": np.empty((len(adaptive_screen), 2), dtype=np.int64),
         "inc_count": np.empty((len(adaptive_screen), norb), dtype=np.int64),
         "inc_sum": np.empty((len(adaptive_screen), norb), dtype=np.float64),
         "log_inc_sum": np.empty((len(adaptive_screen), norb), dtype=np.float64),
         "log_inc_sum2": np.empty((len(adaptive_screen), norb), dtype=np.float64),
     }
-    for dict_idx, (key, value) in enumerate(adaptive_screen.items()):
-        array_dict["predictors"][dict_idx] = key
-        array_dict["inc_count"][dict_idx] = value[0]
-        array_dict["inc_sum"][dict_idx] = value[1]
-        array_dict["log_inc_sum"][dict_idx] = value[2]
-        array_dict["log_inc_sum2"][dict_idx] = value[3]
+    for ncluster, screen_info_tup in enumerate(adaptive_screen):
+        array_dict["inc_count"][ncluster] = screen_info_tup[0]
+        array_dict["inc_sum"][ncluster] = screen_info_tup[1]
+        array_dict["log_inc_sum"][ncluster] = screen_info_tup[2]
+        array_dict["log_inc_sum2"][ncluster] = screen_info_tup[3]
 
     return array_dict

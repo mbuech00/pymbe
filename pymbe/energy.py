@@ -337,7 +337,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                 self.adaptive_screen,
                 self.nocc,
                 self.order,
-                self.norb,
                 self.ref_nelec,
                 self.ref_nhole,
                 self.vanish_exc,

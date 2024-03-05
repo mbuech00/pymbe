@@ -24,7 +24,7 @@ from pymbe.tools import n_tuples, n_tuples_predictors
 
 
 if TYPE_CHECKING:
-    from typing import List, Dict, Tuple, Optional
+    from typing import List, Dict, Tuple, Optional, Union
 
 
 def fixed_screen(
@@ -111,12 +111,13 @@ def adaptive_screen(
 
     # loop over clusters
     for cluster_idx, cluster_orbs in enumerate(exp_clusters):
-        # get mask for predictors with more than single sample
+        # get mask number of clusters with more than single sample
         mask = screen["inc_count"][:, cluster_orbs[0]] > 1
 
-        # get corresponding predictors
-        predictors = screen["predictors"][mask].astype(np.float64)
-        predictors[:, 1] = np.log(predictors[:, 1])
+        # get corresponding number of clusters
+        nclusters = np.arange(1, screen["inc_count"].shape[0] + 1, dtype=np.float64)[
+            mask
+        ]
 
         # calculate logarithm of mean increment magnitude
         mean = np.log(
@@ -134,58 +135,29 @@ def adaptive_screen(
         # require at least 3 points to fit and ensure all two-orbital correlations have
         # been calculated
         if (
-            predictors.shape[0] >= 3
+            nclusters.size >= 3
             and curr_order
             >= (exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :])[-1].size
             + cluster_orbs.size
         ):
-            # fit parameters
-            fit_params: Tuple[int, ...]
+            # define fit function
+            def fit(x: Union[float, np.ndarray], intercept: float, slope: float):
+                return intercept + slope * x
 
-            # check if second predictor is unique
-            if len(np.unique(predictors[:, 1], return_counts=True)[0]) == 1:
-                # define fit function
-                def fit(x: np.ndarray, *args: float):
-                    return args[0] + args[1] * x[:, 0]
-
-                # fit logarithmic mean increment magnitude
-                (intercept, ncluster_slope), cov = optimize.curve_fit(
-                    fit,
-                    predictors,
-                    mean,
-                    p0=(-1, -1),
-                    bounds=([-np.inf, -np.inf], [np.inf, 0]),
-                    maxfev=1000000,
-                    sigma=np.sqrt(variance),
-                    absolute_sigma=True,
-                )
-                intercept_err, ncluster_slope_err = np.sqrt(np.diag(cov))
-                intercept += 2 * intercept_err
-                ncluster_slope += 2 * ncluster_slope_err
-                fit_params = (intercept, ncluster_slope)
-            else:
-                # define fit function
-                def fit(x: np.ndarray, *args: float):
-                    return args[0] + args[1] * x[:, 0] + args[2] * x[:, 1]
-
-                # fit logarithmic mean increment magnitude
-                (intercept, ncluster_slope, ncontrib_slope), cov = optimize.curve_fit(
-                    fit,
-                    predictors,
-                    mean,
-                    p0=(-1, -1, 1),
-                    bounds=([-np.inf, -np.inf, 0], [np.inf, 0, np.inf]),
-                    maxfev=1000000,
-                    sigma=np.sqrt(variance),
-                    absolute_sigma=True,
-                )
-                intercept_err, ncluster_slope_err, ncontrib_slope_err = np.sqrt(
-                    np.diag(cov)
-                )
-                intercept += 2 * intercept_err
-                ncluster_slope += 2 * ncluster_slope_err
-                ncontrib_slope += 2 * ncontrib_slope_err
-                fit_params = (intercept, ncluster_slope, ncontrib_slope)
+            # fit logarithmic mean increment magnitude
+            (intercept, slope), cov = optimize.curve_fit(
+                fit,
+                nclusters,
+                mean,
+                p0=(-1, -1),
+                bounds=([-np.inf, -np.inf], [np.inf, 0]),
+                maxfev=1000000,
+                sigma=np.sqrt(variance),
+                absolute_sigma=True,
+            )
+            intercept_err, slope_err = np.sqrt(np.diag(cov))
+            intercept += 2 * intercept_err
+            slope += 2 * slope_err
 
             # initialize number of tuples for cluster for remaining
             # orders
@@ -227,8 +199,8 @@ def adaptive_screen(
                         ntup_order_cluster += ntup
 
                         # estimate mean increment magnitude for given predictors
-                        mean_abs_inc = np.exp(
-                            fit(np.array([[ncluster, np.log(ncontrib)]]), *fit_params)
+                        mean_abs_inc = ncontrib * np.exp(
+                            fit(ncluster, intercept, slope)
                         )
 
                         # get factor due to sign cancellation
