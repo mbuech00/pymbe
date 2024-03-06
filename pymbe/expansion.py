@@ -263,7 +263,7 @@ class ExpCls(
         self.rst_status = "mbe"
 
         # closed form solution
-        self.closed_form = self.screen_perc == 0.0
+        self.closed_form = self.screen_type == "fixed" and self.screen_perc == 0.0
 
         # order
         self.order = 0
