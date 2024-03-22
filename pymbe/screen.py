@@ -165,7 +165,7 @@ def adaptive_screen(
             t_stat = stats.t.ppf(0.975, nclusters.size - 2)
 
             # get residuals of model
-            residuals = weights * (mean - fit(nclusters))
+            residuals = mean - fit(nclusters)
 
             # get standard error of model
             s_err = np.sqrt(np.sum(residuals**2) / (nclusters.size - 2))
@@ -235,12 +235,22 @@ def adaptive_screen(
                                 p = signs[insert_idx]
                             # get 95% prediction interval for binomial distribution of
                             # sign factor according to Nelson
-                            sign_factor = ntup * p + stats.norm.ppf(0.975) * np.sqrt(
-                                (ntup * p * (1 - p) * (ntup + ntot_bins[insert_idx]))
-                                / ntot_bins[insert_idx]
+                            sign_factor = min(
+                                ntup,
+                                ntup * p
+                                + stats.norm.ppf(0.975)
+                                * np.sqrt(
+                                    (
+                                        ntup
+                                        * p
+                                        * (1 - p)
+                                        * (ntup + ntot_bins[insert_idx])
+                                    )
+                                    / ntot_bins[insert_idx]
+                                ),
                             )
                         else:
-                            sign_factor = 1.0
+                            sign_factor = ntup
 
                         # calculate the error for this order
                         est_error[cluster_idx, order_idx] += sign_factor * mean_abs_inc
