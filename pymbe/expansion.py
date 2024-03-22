@@ -2288,16 +2288,20 @@ class ExpCls(
                         self.exp_clusters[-1].pop(min_idx)
                         self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
 
-                        # remove remaining clusters if expansion space no longer
-                        # produces valid increments
-                        if all(
-                            [
-                                np.all(screen_info_list[0] == 0)
-                                for screen_info_list in self.adaptive_screen
-                            ]
-                        ):
-                            self.exp_clusters[-1] = []
-                            self.exp_space[-1] = np.array([])
+                        # remove clusters which no longer produce valid increments
+                        screen_dict = adaptive_screen_dict(
+                            self.adaptive_screen, self.norb
+                        )
+                        self.exp_clusters[-1] = [
+                            cluster
+                            for cluster in self.exp_clusters[-1]
+                            if screen_dict["inc_count"][:, cluster[0]].any()
+                        ]
+                        self.exp_space[-1] = (
+                            np.hstack(self.exp_clusters[-1])
+                            if self.exp_clusters[-1]
+                            else np.array([], dtype=np.int64)
+                        )
 
                 # log screening
                 if np.array_equal(self.exp_space[-1], self.exp_space[-2]):
@@ -3390,18 +3394,22 @@ class ExpCls(
 
                     # remove inc_tup from the screen arrays
                     if idx is not None:
+                        # absolute value of increment
+                        abs_inc_tup = np.abs(inc[idx.item()])
+
                         # add values for increment
-                        remove_screen = add_inc_stats(
-                            np.abs(inc[idx.item()]),
-                            tup,
-                            tup_clusters,
-                            remove_screen,
-                            self.nocc,
-                            order,
-                            self.ref_nelec,
-                            self.ref_nhole,
-                            self.vanish_exc,
-                        )
+                        if abs_inc_tup > CONV_TOL:
+                            remove_screen = add_inc_stats(
+                                abs_inc_tup,
+                                tup,
+                                tup_clusters,
+                                remove_screen,
+                                self.nocc,
+                                order,
+                                self.ref_nelec,
+                                self.ref_nhole,
+                                self.vanish_exc,
+                            )
                     else:
                         raise RuntimeError("Last order tuple not found:", tup_last)
 

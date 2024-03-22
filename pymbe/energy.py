@@ -20,7 +20,7 @@ from mpi4py import MPI
 from pyscf import ao2mo
 from typing import TYPE_CHECKING
 
-from pymbe.expansion import SingleTargetExpCls
+from pymbe.expansion import SingleTargetExpCls, CONV_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, write_file, idx_tril, get_nhole, get_nexc, add_inc_stats
 from pymbe.parallel import mpi_reduce, open_shared_win
@@ -328,7 +328,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         self.screen[order - 1]["sum"][tup] += inc_tup
 
         # get screening values for adaptive screening
-        if self.screen_type == "adaptive":
+        if self.screen_type == "adaptive" and abs_inc_tup > CONV_TOL:
             # add values for increment
             self.adaptive_screen = add_inc_stats(
                 abs_inc_tup,

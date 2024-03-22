@@ -2032,45 +2032,43 @@ def add_inc_stats(
     """
     this function adds increment statistics for a given set of predictors
     """
-    # only add non-vanishing increments
-    if abs_inc > 0.0:
-        # single-orbital clusters
-        if tup_clusters is None or len(tup_clusters) == order:
-            # smallest missing contribution is equal to order
-            ncluster = order
+    # single-orbital clusters
+    if tup_clusters is None or len(tup_clusters) == order:
+        # smallest missing contribution is equal to order
+        ncluster = order
 
-            # only single current-order contribution is missing
-            ncontrib = 1
-        # multiple clusters
-        elif len(tup_clusters) > 1:
-            # smallest missing contribution is equal to number of clusters
-            ncluster = len(tup_clusters)
+        # only single current-order contribution is missing
+        ncontrib = 1
+    # multiple clusters
+    elif len(tup_clusters) > 1:
+        # smallest missing contribution is equal to number of clusters
+        ncluster = len(tup_clusters)
 
-            # count number of occupied and virtual orbitals in each cluster
-            nocc_cluster, nvirt_cluster = cluster_occupation(tup_clusters, nocc)
+        # count number of occupied and virtual orbitals in each cluster
+        nocc_cluster, nvirt_cluster = cluster_occupation(tup_clusters, nocc)
 
-            # count contributions
-            ncontrib = n_orb_contrib(
-                nocc_cluster, nvirt_cluster, ncluster, ref_nelec, ref_nhole, vanish_exc
-            )
-        # single cluster
-        else:
-            # get smallest tuple size that contributes
-            ncluster = -(vanish_exc // -2) + 1
+        # count contributions
+        ncontrib = n_orb_contrib(
+            nocc_cluster, nvirt_cluster, ncluster, ref_nelec, ref_nhole, vanish_exc
+        )
+    # single cluster
+    else:
+        # get smallest tuple size that contributes
+        ncluster = -(vanish_exc // -2) + 1
 
-            # count contributions
-            ncontrib = n_tuples(
-                tup, None, nocc, ref_nelec, ref_nhole, vanish_exc, ncluster
-            )
+        # count contributions
+        ncontrib = n_tuples(
+            tup, None, nocc, ref_nelec, ref_nhole, vanish_exc, ncluster
+        )
 
-        # calculate increment per contribution
-        abs_inc /= ncontrib
+    # calculate increment per contribution
+    abs_inc /= ncontrib
 
-        # add values for increment
-        adaptive_screen[ncluster - 1][0][tup] += 1
-        adaptive_screen[ncluster - 1][1][tup] += abs_inc
-        adaptive_screen[ncluster - 1][2][tup] += np.log(abs_inc)
-        adaptive_screen[ncluster - 1][3][tup] += np.log(abs_inc) ** 2
+    # add values for increment
+    adaptive_screen[ncluster - 1][0][tup] += 1
+    adaptive_screen[ncluster - 1][1][tup] += abs_inc
+    adaptive_screen[ncluster - 1][2][tup] += np.log(abs_inc)
+    adaptive_screen[ncluster - 1][3][tup] += np.log(abs_inc) ** 2
 
     return adaptive_screen
 

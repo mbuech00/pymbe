@@ -15,7 +15,8 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from scipy import optimize
+from math import floor, log10
+from scipy import stats
 from typing import TYPE_CHECKING
 
 from pymbe.logger import logger
@@ -24,7 +25,7 @@ from pymbe.tools import n_tuples, n_tuples_predictors
 
 
 if TYPE_CHECKING:
-    from typing import List, Dict, Tuple, Optional, Union
+    from typing import List, Dict, Tuple, Optional
 
 
 def fixed_screen(
@@ -126,38 +127,48 @@ def adaptive_screen(
         )
 
         # calculate variance of the logarithm of mean increment magnitude
-        variance = (
+        mean_variance = (
             screen["log_inc_sum2"][mask, cluster_orbs[0]]
             - 2 * mean * screen["log_inc_sum"][mask, cluster_orbs[0]]
         ) / screen["inc_count"][mask, cluster_orbs[0]] + mean**2
-        variance /= screen["inc_count"][mask, cluster_orbs[0]]
+        mean_variance /= screen["inc_count"][mask, cluster_orbs[0]]
 
-        # require at least 3 points to fit and ensure all two-orbital correlations have
-        # been calculated
+        # calculate weights as reciprocal of standard error of the mean
+        weights = np.sqrt(
+            np.divide(
+                1,
+                mean_variance,
+                out=np.zeros_like(mean_variance),
+                where=mean_variance != 0,
+            )
+        )
+
+        # require at least 3 points to fit and ensure all
+        # (screening exponent + 1)-orbital correlations have been calculated
         if (
             nclusters.size >= 3
             and curr_order
-            >= (exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :])[-1].size
+            >= sum(
+                cluster.size
+                for cluster in (
+                    exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :]
+                )[floor(log10(screen_thres)) :]
+            )
             + cluster_orbs.size
         ):
-            # define fit function
-            def fit(x: Union[float, np.ndarray], intercept: float, slope: float):
-                return intercept + slope * x
-
             # fit logarithmic mean increment magnitude
-            (intercept, slope), cov = optimize.curve_fit(
-                fit,
-                nclusters,
-                mean,
-                p0=(-1, -1),
-                bounds=([-np.inf, -np.inf], [np.inf, 0]),
-                maxfev=1000000,
-                sigma=np.sqrt(variance),
-                absolute_sigma=True,
+            fit = np.polynomial.polynomial.Polynomial(
+                np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=weights)
             )
-            intercept_err, slope_err = np.sqrt(np.diag(cov))
-            intercept += 2 * intercept_err
-            slope += 2 * slope_err
+
+            # get t-statistic for 95% significance
+            t_stat = stats.t.ppf(0.975, nclusters.size - 2)
+
+            # get residuals of model
+            residuals = weights * (mean - fit(nclusters))
+
+            # get standard error of model
+            s_err = np.sqrt(np.sum(residuals**2) / (nclusters.size - 2))
 
             # initialize number of tuples for cluster for remaining
             # orders
@@ -198,27 +209,41 @@ def adaptive_screen(
                         # add to number of tuples for cluster for this order
                         ntup_order_cluster += ntup
 
-                        # estimate mean increment magnitude for given predictors
-                        mean_abs_inc = ncontrib * np.exp(
-                            fit(ncluster, intercept, slope)
+                        # estimate logarithmic mean increment magnitude prediction
+                        # interval for given predictors and add to mean increment
+                        # magnitude as worst-case behaviour
+                        log_mean_abs_inc = fit(ncluster) + (
+                            t_stat
+                            * s_err
+                            * np.sqrt(
+                                1
+                                + 1 / nclusters.size
+                                + (ncluster - np.mean(nclusters)) ** 2
+                                / np.sum((nclusters - np.mean(nclusters)) ** 2)
+                            )
                         )
+
+                        # estimate mean increment magnitude for given predictors
+                        mean_abs_inc = ncontrib * np.exp(log_mean_abs_inc)
 
                         # get factor due to sign cancellation
                         insert_idx = np.digitize(mean_abs_inc, bins).item()
                         if insert_idx < signs.size and ntot_bins[insert_idx] > 0:
-                            prev_bin_slice = slice(
-                                insert_idx, min(insert_idx + 3, signs.size)
-                            )
-                            sign_factor = np.average(
-                                signs[prev_bin_slice], weights=ntot_bins[prev_bin_slice]
+                            if signs[insert_idx] == 0:
+                                p = 0.5 / ntot_bins[insert_idx]
+                            else:
+                                p = signs[insert_idx]
+                            # get 95% prediction interval for binomial distribution of
+                            # sign factor according to Nelson
+                            sign_factor = ntup * p + stats.norm.ppf(0.975) * np.sqrt(
+                                (ntup * p * (1 - p) * (ntup + ntot_bins[insert_idx]))
+                                / ntot_bins[insert_idx]
                             )
                         else:
                             sign_factor = 1.0
 
                         # calculate the error for this order
-                        est_error[cluster_idx, order_idx] += (
-                            sign_factor * ntup * mean_abs_inc
-                        )
+                        est_error[cluster_idx, order_idx] += sign_factor * mean_abs_inc
 
                 # check if cluster produces increments for this order
                 if ntup_order_cluster > 0:
