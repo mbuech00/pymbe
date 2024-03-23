@@ -15,7 +15,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from math import floor, log10
+from math import floor, log10, ceil
 from scipy import stats
 from typing import TYPE_CHECKING
 
@@ -235,20 +235,17 @@ def adaptive_screen(
                                 p = signs[insert_idx]
                             # get 95% prediction interval for binomial distribution of
                             # sign factor according to Nelson
-                            sign_factor = min(
-                                ntup,
-                                ntup * p
-                                + stats.norm.ppf(0.975)
-                                * np.sqrt(
-                                    (
-                                        ntup
-                                        * p
-                                        * (1 - p)
-                                        * (ntup + ntot_bins[insert_idx])
-                                    )
-                                    / ntot_bins[insert_idx]
-                                ),
+                            sign_factor = ntup * p + stats.norm.ppf(0.975) * np.sqrt(
+                                (ntup * p * (1 - p) * (ntup + ntot_bins[insert_idx]))
+                                / ntot_bins[insert_idx]
                             )
+                            sign_factor = min(ntup, sign_factor)
+                            if ntup % 2 == 0:
+                                # round up to closest even number
+                                sign_factor = ceil(sign_factor / 2) * 2
+                            else:
+                                # round up to closest odd number
+                                sign_factor = ceil(sign_factor) // 2 * 2 + 1
                         else:
                             sign_factor = ntup
 
