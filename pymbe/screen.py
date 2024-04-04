@@ -15,7 +15,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from math import floor, log10, ceil
+from math import floor, log, log10, ceil
 from scipy import stats
 from typing import TYPE_CHECKING
 
@@ -134,13 +134,8 @@ def adaptive_screen(
         mean_variance /= screen["inc_count"][mask, cluster_orbs[0]]
 
         # calculate weights as reciprocal of standard error of the mean
-        weights = np.sqrt(
-            np.divide(
-                1,
-                mean_variance,
-                out=np.zeros_like(mean_variance),
-                where=mean_variance != 0,
-            )
+        weights = np.divide(
+            1, mean_variance, out=np.zeros_like(mean_variance), where=mean_variance != 0
         )
 
         # require at least 3 points to fit and ensure all
@@ -158,17 +153,17 @@ def adaptive_screen(
         ):
             # fit logarithmic mean increment magnitude
             fit = np.polynomial.polynomial.Polynomial(
-                np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=weights)
+                np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=np.sqrt(weights))
             )
 
-            # get t-statistic for 95% significance
-            t_stat = stats.t.ppf(0.975, nclusters.size - 2)
+            # get t-statistic for 99.8% significance
+            t_stat = stats.t.ppf(0.999, nclusters.size - 2)
 
             # get residuals of model
-            residuals = mean - fit(nclusters)
+            residuals = fit(nclusters) - mean
 
             # get standard error of model
-            s_err = np.sqrt(np.sum(residuals**2) / (nclusters.size - 2))
+            s_err = np.sqrt(np.sum(weights * residuals**2) / (nclusters.size - 2))
 
             # initialize number of tuples for cluster for remaining
             # orders
@@ -209,19 +204,27 @@ def adaptive_screen(
                         # add to number of tuples for cluster for this order
                         ntup_order_cluster += ntup
 
+                        # weight estimate
+                        weight_est = ntup / (
+                            mean_variance[-1]
+                            * screen["inc_count"][mask, cluster_orbs[0]][-1]
+                        )
+
+                        # weighted average of predictors
+                        average_nclusters = np.average(nclusters, weights=weights)
+
+                        # error estimate
+                        err = t_stat * s_err * np.sqrt(
+                            1 / weight_est
+                            + 1 / np.sum(weights)
+                            + (ncluster - average_nclusters) ** 2
+                            / np.sum(weights * (nclusters - average_nclusters) ** 2)
+                        )
+
                         # estimate logarithmic mean increment magnitude prediction
                         # interval for given predictors and add to mean increment
-                        # magnitude as worst-case behaviour
-                        log_mean_abs_inc = fit(ncluster) + (
-                            t_stat
-                            * s_err
-                            * np.sqrt(
-                                1
-                                + 1 / nclusters.size
-                                + (ncluster - np.mean(nclusters)) ** 2
-                                / np.sum((nclusters - np.mean(nclusters)) ** 2)
-                            )
-                        )
+                        # magnitude as worst-case behaviour 
+                        log_mean_abs_inc = min(fit(ncluster) + err, mean[-1])
 
                         # estimate mean increment magnitude for given predictors
                         mean_abs_inc = ncontrib * np.exp(log_mean_abs_inc)
@@ -229,13 +232,13 @@ def adaptive_screen(
                         # get factor due to sign cancellation
                         insert_idx = np.digitize(mean_abs_inc, bins).item()
                         if insert_idx < signs.size and ntot_bins[insert_idx] > 0:
-                            if signs[insert_idx] == 0:
+                            if signs[insert_idx] == 0.0:
                                 p = 0.5 / ntot_bins[insert_idx]
                             else:
                                 p = signs[insert_idx]
-                            # get 95% prediction interval for binomial distribution of
+                            # get 99.8% prediction interval for binomial distribution of
                             # sign factor according to Nelson
-                            sign_factor = ntup * p + stats.norm.ppf(0.975) * np.sqrt(
+                            sign_factor = ntup * p + stats.norm.ppf(0.999) * np.sqrt(
                                 (ntup * p * (1 - p) * (ntup + ntot_bins[insert_idx]))
                                 / ntot_bins[insert_idx]
                             )
@@ -248,6 +251,9 @@ def adaptive_screen(
                                 sign_factor = ceil(sign_factor) // 2 * 2 + 1
                         else:
                             sign_factor = ntup
+
+                        # avoid sign factor having too much influence
+                        sign_factor = max(sign_factor, ceil(0.01 * ntup))
 
                         # calculate the error for this order
                         est_error[cluster_idx, order_idx] += sign_factor * mean_abs_inc

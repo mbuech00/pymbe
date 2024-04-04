@@ -3398,18 +3398,17 @@ class ExpCls(
                         abs_inc_tup = np.abs(inc[idx.item()])
 
                         # add values for increment
-                        if abs_inc_tup > CONV_TOL:
-                            remove_screen = add_inc_stats(
-                                abs_inc_tup,
-                                tup,
-                                tup_clusters,
-                                remove_screen,
-                                self.nocc,
-                                order,
-                                self.ref_nelec,
-                                self.ref_nhole,
-                                self.vanish_exc,
-                            )
+                        remove_screen = add_inc_stats(
+                            abs_inc_tup,
+                            tup,
+                            tup_clusters,
+                            remove_screen,
+                            self.nocc,
+                            order,
+                            self.ref_nelec,
+                            self.ref_nhole,
+                            self.vanish_exc,
+                        )
                     else:
                         raise RuntimeError("Last order tuple not found:", tup_last)
 
