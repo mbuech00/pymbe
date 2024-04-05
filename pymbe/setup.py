@@ -434,12 +434,12 @@ def sanity_check(mbe: MBE) -> None:
         not isinstance(mbe.ref_thres, float)
         or mbe.ref_thres < 0.0
         or mbe.ref_thres >= 1.0
-    ) and (not isinstance(mbe.ref_thres, int) or mbe.ref_thres < 0):
+    ):
         raise TypeError(
             "reference space squared overlap threshold (ref_thres keyword argument) "
-            "must be a float >= 0.0 and < 1.0 or an int < 0"
+            "must be a float >= 0.0 and < 1.0"
         )
-    if (isinstance(mbe.ref_thres, float) or mbe.ref_thres > 0) and mbe.method != "fci":
+    if mbe.ref_thres > 0.0 and mbe.method != "fci":
         raise ValueError(
             "automatic reference space generation (ref_thres keyword argument) is only "
             "possible with fci (method keyword argument)"

@@ -15,7 +15,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from math import floor, log, log10, ceil
+from math import floor, log10, ceil
 from scipy import stats
 from typing import TYPE_CHECKING
 
@@ -112,6 +112,9 @@ def adaptive_screen(
 
     # loop over clusters
     for cluster_idx, cluster_orbs in enumerate(exp_clusters):
+        # get remaining clusters
+        remain_clusters = exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :]
+
         # get mask number of clusters with more than single sample
         mask = screen["inc_count"][:, cluster_orbs[0]] > 1
 
@@ -145,9 +148,7 @@ def adaptive_screen(
             and curr_order
             >= sum(
                 cluster.size
-                for cluster in (
-                    exp_clusters[:cluster_idx] + exp_clusters[cluster_idx + 1 :]
-                )[floor(log10(screen_thres)) :]
+                for cluster in remain_clusters[floor(log10(screen_thres)) :]
             )
             + cluster_orbs.size
         ):
@@ -214,17 +215,33 @@ def adaptive_screen(
                         average_nclusters = np.average(nclusters, weights=weights)
 
                         # error estimate
-                        err = t_stat * s_err * np.sqrt(
-                            1 / weight_est
-                            + 1 / np.sum(weights)
-                            + (ncluster - average_nclusters) ** 2
-                            / np.sum(weights * (nclusters - average_nclusters) ** 2)
+                        err = (
+                            t_stat
+                            * s_err
+                            * np.sqrt(
+                                1 / weight_est
+                                + 1 / np.sum(weights)
+                                + (ncluster - average_nclusters) ** 2
+                                / np.sum(weights * (nclusters - average_nclusters) ** 2)
+                            )
                         )
 
                         # estimate logarithmic mean increment magnitude prediction
-                        # interval for given predictors and add to mean increment
-                        # magnitude as worst-case behaviour 
-                        log_mean_abs_inc = min(fit(ncluster) + err, mean[-1])
+                        # interval for given predictors, add to mean increment
+                        # magnitude and check whether this is lower than previous point
+                        # for which all contributions have been calculated, this should
+                        # be worst-case behaviour
+                        full_ncluster = int(nclusters[0]) - 1
+                        size = cluster_orbs.size + sum(
+                            cluster.size
+                            for cluster in remain_clusters[::-1][:full_ncluster]
+                        )
+                        while size <= curr_order:
+                            size += remain_clusters[::-1][full_ncluster].size
+                            full_ncluster += 1
+                        log_mean_abs_inc = min(
+                            fit(ncluster) + err, mean[nclusters == full_ncluster]
+                        )
 
                         # estimate mean increment magnitude for given predictors
                         mean_abs_inc = ncontrib * np.exp(log_mean_abs_inc)

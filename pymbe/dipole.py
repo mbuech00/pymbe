@@ -447,7 +447,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         string += DIVIDER_OUTPUT
 
         return string
-    
+
     def _get_sign_balance(self) -> np.ndarray:
         """
         this function adds current-order increments to the sign counter variables and

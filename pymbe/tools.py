@@ -311,10 +311,12 @@ class packedRDMCls:
         cls.unpack_rdm2.append(unpack_rdm2)
 
     @overload
-    def __getitem__(self, idx: Union[int, np.int64]) -> RDMCls: ...
+    def __getitem__(self, idx: Union[int, np.int64]) -> RDMCls:
+        ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedRDMCls: ...
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedRDMCls:
+        ...
 
     def __getitem__(
         self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
@@ -588,12 +590,12 @@ class packedGenFockCls:
         cls.unpack_rdm1.append(unpack_rdm1)
 
     @overload
-    def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls: ...
+    def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls:
+        ...
 
     @overload
-    def __getitem__(
-        self, idx: Union[slice, np.ndarray, List[int]]
-    ) -> packedGenFockCls: ...
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedGenFockCls:
+        ...
 
     def __getitem__(
         self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
@@ -2057,9 +2059,7 @@ def add_inc_stats(
         ncluster = -(vanish_exc // -2) + 1
 
         # count contributions
-        ncontrib = n_tuples(
-            tup, None, nocc, ref_nelec, ref_nhole, vanish_exc, ncluster
-        )
+        ncontrib = n_tuples(tup, None, nocc, ref_nelec, ref_nhole, vanish_exc, ncluster)
 
     # calculate increment per contribution
     abs_inc /= ncontrib

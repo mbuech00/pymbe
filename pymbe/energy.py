@@ -330,17 +330,18 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         # get screening values for adaptive screening
         if self.screen_type == "adaptive":
             # add values for increment
-            self.adaptive_screen = add_inc_stats(
-                abs_inc_tup,
-                tup,
-                tup_clusters,
-                self.adaptive_screen,
-                self.nocc,
-                self.order,
-                self.ref_nelec,
-                self.ref_nhole,
-                self.vanish_exc,
-            )
+            if abs_inc_tup > 0.0:
+                self.adaptive_screen = add_inc_stats(
+                    abs_inc_tup,
+                    tup,
+                    tup_clusters,
+                    self.adaptive_screen,
+                    self.nocc,
+                    self.order,
+                    self.ref_nelec,
+                    self.ref_nhole,
+                    self.vanish_exc,
+                )
 
     def _get_sign_balance(self) -> np.ndarray:
         """

@@ -2879,14 +2879,10 @@ class ExpCls(
 
         # add tuple to potential candidates for reference space
         if ref_guess and (
-            (
-                isinstance(self.ref_thres, int)
-                and (
-                    (self.ref_space.size < self.ref_thres and cas_idx.size >= 4)
-                    or min_sq_overlap < 0.9
-                )
-            )
-            or (isinstance(self.ref_thres, float) and min_sq_overlap < self.ref_thres)
+            isinstance(self.ref_thres, float)
+            and min_sq_overlap
+            < self.ref_thres
+            / (1 + np.exp(0.75 * (self.ref_space.size + self.order - 10)))
         ):
             # remove all tuples that are not within range
             if len(self.tup_sq_overlaps["overlap"]) > 0:
@@ -3398,17 +3394,18 @@ class ExpCls(
                         abs_inc_tup = np.abs(inc[idx.item()])
 
                         # add values for increment
-                        remove_screen = add_inc_stats(
-                            abs_inc_tup,
-                            tup,
-                            tup_clusters,
-                            remove_screen,
-                            self.nocc,
-                            order,
-                            self.ref_nelec,
-                            self.ref_nhole,
-                            self.vanish_exc,
-                        )
+                        if abs_inc_tup > 0.0:
+                            remove_screen = add_inc_stats(
+                                abs_inc_tup,
+                                tup,
+                                tup_clusters,
+                                remove_screen,
+                                self.nocc,
+                                order,
+                                self.ref_nelec,
+                                self.ref_nhole,
+                                self.vanish_exc,
+                            )
                     else:
                         raise RuntimeError("Last order tuple not found:", tup_last)
 
