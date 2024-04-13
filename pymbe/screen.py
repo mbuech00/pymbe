@@ -125,7 +125,7 @@ def adaptive_screen(
 
         # calculate mean logarithm increment magnitude
         mean = (
-            screen["inc_sum"][mask, cluster_orbs[0]]
+            screen["log_inc_sum"][mask, cluster_orbs[0]]
             / screen["inc_count"][mask, cluster_orbs[0]]
         )
 
