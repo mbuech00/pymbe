@@ -2061,14 +2061,13 @@ def add_inc_stats(
         # count contributions
         ncontrib = n_tuples(tup, None, nocc, ref_nelec, ref_nhole, vanish_exc, ncluster)
 
-    # calculate increment per contribution
-    abs_inc /= ncontrib
+    # get logarithmic normalized increment magnitude
+    log_norm_abs_inc = np.log(abs_inc) - np.log(ncontrib)
 
     # add values for increment
     adaptive_screen[ncluster - 1][0][tup] += 1
-    adaptive_screen[ncluster - 1][1][tup] += abs_inc
-    adaptive_screen[ncluster - 1][2][tup] += np.log(abs_inc)
-    adaptive_screen[ncluster - 1][3][tup] += np.log(abs_inc) ** 2
+    adaptive_screen[ncluster - 1][1][tup] += log_norm_abs_inc
+    adaptive_screen[ncluster - 1][2][tup] += log_norm_abs_inc**2
 
     return adaptive_screen
 
@@ -2882,8 +2881,7 @@ def flatten_list(lst: List[List[T]]) -> List[T]:
 
 
 def adaptive_screen_dict(
-    adaptive_screen: List[List[np.ndarray]],
-    norb: int,
+    adaptive_screen: List[List[np.ndarray]], norb: int
 ) -> Dict[str, np.ndarray]:
     """
     this function constructs a dictionary of numpy arrays for the adaptive screening
@@ -2891,14 +2889,12 @@ def adaptive_screen_dict(
     """
     array_dict = {
         "inc_count": np.empty((len(adaptive_screen), norb), dtype=np.int64),
-        "inc_sum": np.empty((len(adaptive_screen), norb), dtype=np.float64),
         "log_inc_sum": np.empty((len(adaptive_screen), norb), dtype=np.float64),
         "log_inc_sum2": np.empty((len(adaptive_screen), norb), dtype=np.float64),
     }
     for ncluster, screen_info_tup in enumerate(adaptive_screen):
         array_dict["inc_count"][ncluster] = screen_info_tup[0]
-        array_dict["inc_sum"][ncluster] = screen_info_tup[1]
-        array_dict["log_inc_sum"][ncluster] = screen_info_tup[2]
-        array_dict["log_inc_sum2"][ncluster] = screen_info_tup[3]
+        array_dict["log_inc_sum"][ncluster] = screen_info_tup[1]
+        array_dict["log_inc_sum2"][ncluster] = screen_info_tup[2]
 
     return array_dict

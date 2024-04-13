@@ -123,18 +123,21 @@ def adaptive_screen(
             mask
         ]
 
-        # calculate logarithm of mean increment magnitude
-        mean = np.log(
+        # calculate mean logarithm increment magnitude
+        mean = (
             screen["inc_sum"][mask, cluster_orbs[0]]
             / screen["inc_count"][mask, cluster_orbs[0]]
         )
 
-        # calculate variance of the logarithm of mean increment magnitude
-        mean_variance = (
+        # calculate variance of the logarithm increment magnitude
+        variance = (
             screen["log_inc_sum2"][mask, cluster_orbs[0]]
-            - 2 * mean * screen["log_inc_sum"][mask, cluster_orbs[0]]
-        ) / screen["inc_count"][mask, cluster_orbs[0]] + mean**2
-        mean_variance /= screen["inc_count"][mask, cluster_orbs[0]]
+            / screen["inc_count"][mask, cluster_orbs[0]]
+            - mean**2
+        )
+
+        # calculate variance of the mean logarithm increment magnitude
+        mean_variance = variance / screen["inc_count"][mask, cluster_orbs[0]]
 
         # calculate weights as reciprocal of standard error of the mean
         weights = np.divide(
@@ -157,8 +160,8 @@ def adaptive_screen(
                 np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=np.sqrt(weights))
             )
 
-            # get t-statistic for 99.8% significance
-            t_stat = stats.t.ppf(0.999, nclusters.size - 2)
+            # get t-statistic for 99% significance
+            t_stat = stats.t.ppf(0.995, nclusters.size - 2)
 
             # get residuals of model
             residuals = fit(nclusters) - mean
@@ -205,11 +208,11 @@ def adaptive_screen(
                         # add to number of tuples for cluster for this order
                         ntup_order_cluster += ntup
 
-                        # weight estimate
-                        weight_est = ntup / (
-                            mean_variance[-1]
-                            * screen["inc_count"][mask, cluster_orbs[0]][-1]
-                        )
+                        # variance estimate from maximum observed variance
+                        var_est = max(variance)
+
+                        # mean variance estimate
+                        mean_var_est = var_est / ntup
 
                         # weighted average of predictors
                         average_nclusters = np.average(nclusters, weights=weights)
@@ -219,7 +222,7 @@ def adaptive_screen(
                             t_stat
                             * s_err
                             * np.sqrt(
-                                1 / weight_est
+                                mean_var_est
                                 + 1 / np.sum(weights)
                                 + (ncluster - average_nclusters) ** 2
                                 / np.sum(weights * (nclusters - average_nclusters) ** 2)
@@ -244,33 +247,119 @@ def adaptive_screen(
                         )
 
                         # estimate mean increment magnitude for given predictors
-                        mean_abs_inc = ncontrib * np.exp(log_mean_abs_inc)
+                        mean_abs_inc = np.exp(
+                            log_mean_abs_inc + 0.5 * var_est + np.log(ncontrib)
+                        )
+
+                        # get number of increments per bin by integrating over normal distribution
+                        bin_share = np.empty(bins.size + 1, dtype=np.float64)
+                        integral = stats.norm.cdf(
+                            np.log(bins[0]),
+                            log_mean_abs_inc + np.log(ncontrib),
+                            np.sqrt(var_est),
+                        )
+                        bin_share[0] = integral.item() * ntup
+                        prev_cdf = integral
+                        for bin_idx in range(1, bins.size):
+                            curr_cdf = stats.norm.cdf(
+                                np.log(bins[bin_idx]),
+                                log_mean_abs_inc + np.log(ncontrib),
+                                np.sqrt(var_est),
+                            )
+                            integral = curr_cdf - prev_cdf
+                            bin_share[bin_idx] = integral.item() * ntup
+                            prev_cdf = curr_cdf
+                        integral = stats.norm.sf(
+                            bins[-1],
+                            log_mean_abs_inc + np.log(ncontrib),
+                            np.sqrt(var_est),
+                        )
+                        bin_share[-1] = integral.item() * ntup
+
+                        # get lower bounds
+                        lower_bounds = bin_share.astype(int)
+
+                        # get roundoff errors
+                        differences = bin_share - lower_bounds
+
+                        # get original indices
+                        orig_idx = np.arange(bin_share.size)
+
+                        # sort arrays according to differences
+                        sort_differences = np.argsort(differences)
+                        lower_bounds = lower_bounds[sort_differences]
+                        orig_idx = orig_idx[sort_differences]
+
+                        # difference between sums
+                        difference = ntup - np.sum(lower_bounds)
+
+                        # add 1 to those most likely to round up to the next number
+                        # until no more difference
+                        lower_bounds[-difference:] += 1
+
+                        # sort the array based on the original index.
+                        ntup_bin = lower_bounds[np.argsort(orig_idx)]
 
                         # get factor due to sign cancellation
-                        insert_idx = np.digitize(mean_abs_inc, bins).item()
-                        if insert_idx < signs.size and ntot_bins[insert_idx] > 0:
-                            if signs[insert_idx] == 0.0:
-                                p = 0.5 / ntot_bins[insert_idx]
-                            else:
-                                p = signs[insert_idx]
-                            # get 99.8% prediction interval for binomial distribution of
-                            # sign factor according to Nelson
-                            sign_factor = ntup * p + stats.norm.ppf(0.999) * np.sqrt(
-                                (ntup * p * (1 - p) * (ntup + ntot_bins[insert_idx]))
-                                / ntot_bins[insert_idx]
-                            )
-                            sign_factor = min(ntup, sign_factor)
-                            if ntup % 2 == 0:
-                                # round up to closest even number
-                                sign_factor = ceil(sign_factor / 2) * 2
-                            else:
-                                # round up to closest odd number
-                                sign_factor = ceil(sign_factor) // 2 * 2 + 1
-                        else:
+                        if ntup_bin[-1] > 0:
                             sign_factor = ntup
+                        else:
+                            ntup_contrib = np.empty(
+                                np.count_nonzero(ntup_bin[:-1] > 0), dtype=np.float64
+                            )
+                            for idx, insert_idx in enumerate(
+                                np.where(ntup_bin[:-1] > 0)[0]
+                            ):
+                                if ntot_bins[insert_idx] > 0:
+                                    if signs[insert_idx] == 0.0:
+                                        p = 0.5 / ntot_bins[insert_idx]
+                                    else:
+                                        p = signs[insert_idx]
+                                    # get 99% prediction interval for binomial
+                                    # distribution of sign factor according to Nelson
+                                    ntup_contrib[idx] = ntup_bin[
+                                        insert_idx
+                                    ] * p + stats.norm.ppf(0.995) * np.sqrt(
+                                        (
+                                            ntup_bin[insert_idx]
+                                            * p
+                                            * (1 - p)
+                                            * (
+                                                ntup_bin[insert_idx]
+                                                + ntot_bins[insert_idx]
+                                            )
+                                        )
+                                        / ntot_bins[insert_idx]
+                                    )
+                                    # ensure prediction interval is not larger than
+                                    # total number of tuples
+                                    ntup_contrib[idx] = min(
+                                        ntup_bin[insert_idx], ntup_contrib[idx]
+                                    )
+                                    if ntup_bin[insert_idx] % 2 == 0:
+                                        # round up to closest even number
+                                        ntup_contrib[idx] = (
+                                            ceil(ntup_contrib[idx] / 2) * 2
+                                        )
+                                    else:
+                                        # round up to closest odd number
+                                        ntup_contrib[idx] = (
+                                            ceil(ntup_contrib[idx]) // 2 * 2 + 1
+                                        )
+                                else:
+                                    ntup_contrib[idx] = ntup_bin[insert_idx]
 
-                        # avoid sign factor having too much influence
-                        sign_factor = max(sign_factor, ceil(0.01 * ntup))
+                            # compute weighted average using upper bin boundary
+                            sign_factor = (
+                                ntup
+                                * np.average(
+                                    ntup_contrib, weights=bins[ntup_bin[:-1] > 0]
+                                )
+                                / np.average(
+                                    ntup_bin[ntup_bin > 0],
+                                    weights=bins[ntup_bin[:-1] > 0],
+                                )
+                            )
 
                         # calculate the error for this order
                         est_error[cluster_idx, order_idx] += sign_factor * mean_abs_inc

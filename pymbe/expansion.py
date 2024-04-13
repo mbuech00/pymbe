@@ -263,7 +263,11 @@ class ExpCls(
         self.rst_status = "mbe"
 
         # closed form solution
-        self.closed_form = self.screen_type == "fixed" and self.screen_perc == 0.0
+        self.closed_form = (
+            self.screen_type == "fixed"
+            and self.screen_perc == 0.0
+            and self.exp_single_orbs
+        )
 
         # order
         self.order = 0
@@ -901,14 +905,13 @@ class ExpCls(
                 # read adaptive screening array
                 elif "mbe_adaptive_screen" in files[i]:
                     array_dict = np.load(os.path.join(RST, files[i]))
-                    for inc_count, inc_sum, log_inc_sum, log_inc_sum2 in zip(
+                    for inc_count, log_inc_sum, log_inc_sum2 in zip(
                         array_dict["inc_count"],
-                        array_dict["inc_sum"],
                         array_dict["log_inc_sum"],
                         array_dict["log_inc_sum2"],
                     ):
                         self.adaptive_screen.append(
-                            [inc_count, inc_sum, log_inc_sum, log_inc_sum2]
+                            [inc_count, log_inc_sum, log_inc_sum2]
                         )
 
                 # read total properties
@@ -1216,11 +1219,11 @@ class ExpCls(
             if len(self.adaptive_screen) == order_idx:
                 self.adaptive_screen.append(
                     [np.zeros(self.norb, np.int64)]
-                    + [np.zeros(self.norb, np.float64) for _ in range(3)]
+                    + [np.zeros(self.norb, np.float64) for _ in range(2)]
                 )
             elif not mpi.global_master:
                 self.adaptive_screen[-1] = [np.zeros(self.norb, np.int64)] + [
-                    np.zeros(self.norb, np.float64) for _ in range(3)
+                    np.zeros(self.norb, np.float64) for _ in range(2)
                 ]
 
         # set screening function for mpi
@@ -1337,7 +1340,7 @@ class ExpCls(
                         if not mpi.global_master:
                             self.adaptive_screen[idx] = [
                                 np.zeros(self.norb, np.int64)
-                            ] + [np.zeros(self.norb, np.float64) for _ in range(3)]
+                            ] + [np.zeros(self.norb, np.float64) for _ in range(2)]
 
                     # gather maximum squared overlaps on global master
                     self.tup_sq_overlaps = self._mpi_gather_tup_sq_overlaps(
@@ -1561,7 +1564,7 @@ class ExpCls(
             ]
             if not mpi.global_master:
                 self.adaptive_screen[idx] = [np.zeros(self.norb, np.int64)] + [
-                    np.zeros(self.norb, np.float64) for _ in range(3)
+                    np.zeros(self.norb, np.float64) for _ in range(2)
                 ]
 
         # gather maximum squared overlaps on global master
@@ -2715,7 +2718,7 @@ class ExpCls(
         # interface
         def _fci_interface(
             roots: List[int],
-        ) -> Tuple[List[float], List[np.ndarray], List[bool], float]:
+        ) -> Tuple[List[float], List[np.ndarray], List[bool], float, bool]:
             """
             this function provides an interface to solver.kernel
             """
@@ -2729,6 +2732,17 @@ class ExpCls(
                 e, c, converged = [e], [c], [solver.converged]
             else:
                 converged = solver.converged
+
+            # multiplicity check
+            wrong_spin = any(
+                [
+                    np.abs(
+                        (spin + 1) - solver.spin_square(civec, cas_idx.size, nelec)[1]
+                    )
+                    > SPIN_TOL
+                    for civec in c
+                ]
+            )
 
             # check if reference space determinants should be used to choose states
             if ref_guess:
@@ -2788,7 +2802,7 @@ class ExpCls(
                     def find_roots():
                         return np.any(max_sq_overlaps <= 1 - norm_states)
 
-                while find_roots():
+                while find_roots() and not wrong_spin:
                     # calculate additional root
                     solver.nroots += 1
 
@@ -2823,6 +2837,9 @@ class ExpCls(
                         ]
                         max_sq_overlaps[idx] = sq_overlaps[idx]
                         root_idx[idx] = solver.nroots - 1
+                        # multiplicity check
+                        mult = solver.spin_square(c[-1], cas_idx.size, nelec)[1]
+                        wrong_spin = np.abs((spin + 1) - mult) > SPIN_TOL
 
                 # check whether any maximum squared overlap is below threshold
                 min_sq_overlap = np.min(max_sq_overlaps).astype(float)
@@ -2839,34 +2856,31 @@ class ExpCls(
                 [c[root] for root in roots],
                 [converged[root] for root in roots],
                 min_sq_overlap,
+                wrong_spin,
             )
 
         # perform calc
-        energies, civecs, converged, min_sq_overlap = _fci_interface(roots)
+        energies, civecs, converged, min_sq_overlap, wrong_spin = _fci_interface(roots)
 
         # multiplicity check
-        for root in range(len(civecs)):
-            _, mult = solver.spin_square(civecs[root], cas_idx.size, nelec)
+        if wrong_spin:
+            # fix spin by applying level shift
+            solver.nroots = max(roots) + 1
+            sz = np.abs(nelec[0] - nelec[1]) * 0.5
+            solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
 
-            if np.abs((spin + 1) - mult) > SPIN_TOL:
-                # fix spin by applying level shift
-                solver.nroots = max(roots) + 1
-                sz = np.abs(nelec[0] - nelec[1]) * 0.5
-                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+            # perform calc
+            energies, civecs, converged, min_sq_overlap, wrong_spin = _fci_interface(
+                roots
+            )
 
-                # perform calc
-                energies, civecs, converged, min_sq_overlap = _fci_interface(roots)
-
-                # verify correct spin
-                for root in range(len(civecs)):
-                    _, mult = solver.spin_square(civecs[root], cas_idx.size, nelec)
-                    if np.abs((spin + 1) - mult) > SPIN_TOL:
-                        raise RuntimeError(
-                            f"spin contamination for root entry = {root}\n"
-                            f"2*S + 1 = {mult:.6f}\n"
-                            f"cas_idx = {cas_idx}\n"
-                            f"cas_sym = {self.orbsym[cas_idx]}"
-                        )
+            # verify correct spin
+            if wrong_spin:
+                raise RuntimeError(
+                    f"spin contamination in increment calculation\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}"
+                )
 
         # convergence check
         for root in roots:
@@ -3308,7 +3322,7 @@ class ExpCls(
         # initialize dictionary of arrays for contributions to be removed
         remove_screen = [
             [np.zeros(self.norb, np.int64)]
-            + [np.zeros(self.norb, np.float64) for _ in range(3)]
+            + [np.zeros(self.norb, np.float64) for _ in range(2)]
             for _ in range(self.order)
         ]
 
