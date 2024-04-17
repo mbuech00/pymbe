@@ -343,45 +343,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
                     self.vanish_exc,
                 )
 
-    def _get_sign_balance(self) -> np.ndarray:
-        """
-        this function adds current-order increments to the sign counter variables and
-        returns the current sign balance for the different bins
-        """
-        # get current-order increments
-        incs = []
-        for tup_nocc in range(self.order + 1):
-            incs.append(
-                self._open_shared_inc(
-                    self.incs[-1][tup_nocc],
-                    self.n_incs[-1][tup_nocc],
-                    self.order,
-                    tup_nocc,
-                )
-            )
-        order_incs: np.ndarray = np.concatenate(incs)
-
-        # get sign balance until current order
-        digitize = np.digitize(np.abs(order_incs), self.screen_bins)
-        signs = np.empty_like(self.screen_bins, dtype=np.float64)
-        for bin_idx in range(len(self.screen_bins)):
-            bin_incs = order_incs[digitize == bin_idx]
-            self.screen_ntot_bins[bin_idx] += bin_incs.size
-            self.screen_npos_bins[bin_idx] += (bin_incs > 0.0).sum()
-            if self.screen_ntot_bins[bin_idx] > 0:
-                signs[bin_idx] = (
-                    max(
-                        self.screen_npos_bins[bin_idx],
-                        self.screen_ntot_bins[bin_idx] - self.screen_npos_bins[bin_idx],
-                    )
-                    / self.screen_ntot_bins[bin_idx]
-                    - 0.5
-                ) * 2
-            else:
-                signs[bin_idx] = 1.0
-
-        return signs
-
     @staticmethod
     def _total_inc(inc: List[np.ndarray], mean_inc: float) -> float:
         """

@@ -448,13 +448,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         return string
 
-    def _get_sign_balance(self) -> np.ndarray:
-        """
-        this function adds current-order increments to the sign counter variables and
-        returns the current sign balance for the different bins
-        """
-        raise NotImplementedError
-
     def _prop_summ(
         self,
     ) -> Tuple[

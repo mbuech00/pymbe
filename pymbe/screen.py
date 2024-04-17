@@ -15,7 +15,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from math import floor, log10, ceil
+from math import floor, log10
 from scipy import stats
 from typing import TYPE_CHECKING
 
@@ -74,12 +74,10 @@ def adaptive_screen(
     mbe_tot_error: float,
     screen_thres: float,
     screen: Dict[str, np.ndarray],
-    bins: np.ndarray,
-    ntot_bins: np.ndarray,
-    signs: np.ndarray,
     exp_clusters: List[np.ndarray],
     exp_space: np.ndarray,
     exp_single_orbs: bool,
+    incs: List[List[np.ndarray]],
     nocc: int,
     ref_nelec: np.ndarray,
     ref_nhole: np.ndarray,
@@ -90,8 +88,11 @@ def adaptive_screen(
     # define maximum possible order
     max_order = exp_space.size
 
-    # check if expansion has ended
-    if curr_order >= max_order:
+    # check if no increments were calculated at current order or expansion has ended
+    if (
+        sum(tup_nocc_incs.size for tup_nocc_incs in incs[-1]) == 0
+        or curr_order >= max_order
+    ):
         return None, mbe_tot_error
 
     # define maximum cluster size
@@ -110,6 +111,47 @@ def adaptive_screen(
     # initialize array for error difference to threshold
     error_diff = np.zeros_like(tot_error)
 
+    # create random number generator
+    rng = np.random.default_rng(seed=42)
+
+    # get total number of increments
+    tot_nincs = sum(
+        np.count_nonzero(tup_nocc_incs)
+        for order_incs in incs
+        for tup_nocc_incs in order_incs
+    )
+
+    if tot_nincs > 0:
+        # maximum number of increments to sample from
+        nsample_inc = 10000
+
+        # initialize sample incs
+        sample_incs = np.empty(nsample_inc, dtype=np.float64)
+
+        # draw random integers
+        sample_indices = rng.integers(tot_nincs, size=nsample_inc)
+        sample_indices.sort()
+
+        # get sample increments
+        prev_sample_idx = 0
+        prev_tup_nocc_idx = 0
+        for order_incs in incs:
+            for tup_nocc_incs in order_incs:
+                sample_idx = sample_indices.searchsorted(
+                    prev_tup_nocc_idx + tup_nocc_incs.size
+                )
+                sample_incs[prev_sample_idx:sample_idx] = tup_nocc_incs[
+                    tup_nocc_incs.nonzero()
+                ][sample_indices[prev_sample_idx:sample_idx] - prev_tup_nocc_idx]
+                prev_sample_idx = sample_idx
+                prev_tup_nocc_idx += tup_nocc_incs.size
+
+        # get kernel density estimate for previous-order increment distribution
+        kde_kernel = stats.gaussian_kde(np.log(np.abs(sample_incs)))
+
+        # evaluate kde pdf
+        prev_inc_probs = kde_kernel.evaluate(np.log(np.abs(sample_incs)))
+
     # loop over clusters
     for cluster_idx, cluster_orbs in enumerate(exp_clusters):
         # get remaining clusters
@@ -123,27 +165,6 @@ def adaptive_screen(
             mask
         ]
 
-        # calculate mean logarithm increment magnitude
-        mean = (
-            screen["log_inc_sum"][mask, cluster_orbs[0]]
-            / screen["inc_count"][mask, cluster_orbs[0]]
-        )
-
-        # calculate variance of the logarithm increment magnitude
-        variance = (
-            screen["log_inc_sum2"][mask, cluster_orbs[0]]
-            / screen["inc_count"][mask, cluster_orbs[0]]
-            - mean**2
-        )
-
-        # calculate variance of the mean logarithm increment magnitude
-        mean_variance = variance / screen["inc_count"][mask, cluster_orbs[0]]
-
-        # calculate weights as reciprocal of standard error of the mean
-        weights = np.divide(
-            1, mean_variance, out=np.zeros_like(mean_variance), where=mean_variance != 0
-        )
-
         # require at least 3 points to fit and ensure all
         # (screening exponent + 1)-orbital correlations have been calculated
         if (
@@ -155,13 +176,37 @@ def adaptive_screen(
             )
             + cluster_orbs.size
         ):
+            # calculate mean logarithm increment magnitude
+            mean = (
+                screen["log_inc_sum"][mask, cluster_orbs[0]]
+                / screen["inc_count"][mask, cluster_orbs[0]]
+            )
+
+            # calculate variance of the logarithm increment magnitude
+            variance = (
+                screen["log_inc_sum2"][mask, cluster_orbs[0]]
+                / screen["inc_count"][mask, cluster_orbs[0]]
+                - mean**2
+            )
+
+            # calculate variance of the mean logarithm increment magnitude
+            mean_variance = variance / screen["inc_count"][mask, cluster_orbs[0]]
+
+            # calculate weights as reciprocal of standard error of the mean
+            weights = np.divide(
+                1,
+                mean_variance,
+                out=np.zeros_like(mean_variance),
+                where=mean_variance != 0,
+            )
+
             # fit logarithmic mean increment magnitude
             fit = np.polynomial.polynomial.Polynomial(
                 np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=np.sqrt(weights))
             )
 
-            # get t-statistic for 99% significance
-            t_stat = stats.t.ppf(0.995, nclusters.size - 2)
+            # get t-statistic for 99% one-tailed significance
+            t_stat = stats.t.ppf(0.99, nclusters.size - 2)
 
             # get residuals of model
             residuals = fit(nclusters) - mean
@@ -192,6 +237,9 @@ def adaptive_screen(
                 # initialize number of tuples for cluster for this order
                 ntup_order_cluster = 0
 
+                # intitialize list for distribution information
+                dist_info: List[Tuple[int, float, float]] = []
+
                 # loop over number of tuples and predictors
                 for ntup, ncluster, ncontrib in n_tuples_predictors(
                     exp_space,
@@ -208,8 +256,8 @@ def adaptive_screen(
                         # add to number of tuples for cluster for this order
                         ntup_order_cluster += ntup
 
-                        # variance estimate from maximum observed variance
-                        var_est = max(variance)
+                        # variance estimate from observed variance
+                        var_est = np.max(variance)
 
                         # mean variance estimate
                         mean_var_est = var_est / ntup
@@ -246,123 +294,106 @@ def adaptive_screen(
                             fit(ncluster) + err, mean[nclusters == full_ncluster]
                         )
 
-                        # estimate mean increment magnitude for given predictors
-                        mean_abs_inc = np.exp(
-                            log_mean_abs_inc + 0.5 * var_est + np.log(ncontrib)
-                        )
-
-                        # get number of increments per bin by integrating over normal distribution
-                        bin_share = np.empty(bins.size + 1, dtype=np.float64)
-                        integral = stats.norm.cdf(
-                            np.log(bins[0]),
-                            log_mean_abs_inc + np.log(ncontrib),
-                            np.sqrt(var_est),
-                        )
-                        bin_share[0] = integral.item() * ntup
-                        prev_cdf = integral
-                        for bin_idx in range(1, bins.size):
-                            curr_cdf = stats.norm.cdf(
-                                np.log(bins[bin_idx]),
+                        # save information from distribution
+                        dist_info.append(
+                            (
+                                ntup,
                                 log_mean_abs_inc + np.log(ncontrib),
                                 np.sqrt(var_est),
                             )
-                            integral = curr_cdf - prev_cdf
-                            bin_share[bin_idx] = integral.item() * ntup
-                            prev_cdf = curr_cdf
-                        integral = stats.norm.sf(
-                            bins[-1],
-                            log_mean_abs_inc + np.log(ncontrib),
-                            np.sqrt(var_est),
                         )
-                        bin_share[-1] = integral.item() * ntup
 
-                        # get lower bounds
-                        lower_bounds = bin_share.astype(int)
+                # check if any tuples for this cluster at this order contribute
+                if ntup_order_cluster > 0:
+                    # starting number of samples
+                    curr_nsamples = 100
 
-                        # get roundoff errors
-                        differences = bin_share - lower_bounds
+                    # starting number of tuples per distribution, a smaller number
+                    # will only overestimate the actual error
+                    max_ntups = 1000
 
-                        # get original indices
-                        orig_idx = np.arange(bin_share.size)
+                    # initialize samples
+                    samples: List[np.ndarray] = []
 
-                        # sort arrays according to differences
-                        sort_differences = np.argsort(differences)
-                        lower_bounds = lower_bounds[sort_differences]
-                        orig_idx = orig_idx[sort_differences]
+                    # initialize convergence booleans
+                    conv = False
 
-                        # difference between sums
-                        difference = ntup - np.sum(lower_bounds)
+                    # initialize errors
+                    prev_error = prev_error2 = 0.0
 
-                        # add 1 to those most likely to round up to the next number
-                        # until no more difference
-                        lower_bounds[-difference:] += 1
-
-                        # sort the array based on the original index.
-                        ntup_bin = lower_bounds[np.argsort(orig_idx)]
-
-                        # get factor due to sign cancellation
-                        if ntup_bin[-1] > 0:
-                            sign_factor = ntup
-                        else:
-                            ntup_contrib = np.empty(
-                                np.count_nonzero(ntup_bin[:-1] > 0), dtype=np.float64
+                    # simulate order until convergence
+                    while not conv:
+                        # loop over distributions
+                        for dist_idx, (dist_ntup, dist_mean, dist_std) in enumerate(
+                            dist_info
+                        ):
+                            # generate distribution probabilities and importance weights
+                            # for increments
+                            importance = stats.norm.pdf(
+                                np.log(np.abs(sample_incs)),
+                                loc=dist_mean,
+                                scale=dist_std,
                             )
-                            for idx, insert_idx in enumerate(
-                                np.where(ntup_bin[:-1] > 0)[0]
-                            ):
-                                if ntot_bins[insert_idx] > 0:
-                                    if signs[insert_idx] == 0.0:
-                                        p = 0.5 / ntot_bins[insert_idx]
-                                    else:
-                                        p = signs[insert_idx]
-                                    # get 99% prediction interval for binomial
-                                    # distribution of sign factor according to Nelson
-                                    ntup_contrib[idx] = ntup_bin[
-                                        insert_idx
-                                    ] * p + stats.norm.ppf(0.995) * np.sqrt(
-                                        (
-                                            ntup_bin[insert_idx]
-                                            * p
-                                            * (1 - p)
-                                            * (
-                                                ntup_bin[insert_idx]
-                                                + ntot_bins[insert_idx]
-                                            )
-                                        )
-                                        / ntot_bins[insert_idx]
-                                    )
-                                    # ensure prediction interval is not larger than
-                                    # total number of tuples
-                                    ntup_contrib[idx] = min(
-                                        ntup_bin[insert_idx], ntup_contrib[idx]
-                                    )
-                                    if ntup_bin[insert_idx] % 2 == 0:
-                                        # round up to closest even number
-                                        ntup_contrib[idx] = (
-                                            ceil(ntup_contrib[idx] / 2) * 2
-                                        )
-                                    else:
-                                        # round up to closest odd number
-                                        ntup_contrib[idx] = (
-                                            ceil(ntup_contrib[idx]) // 2 * 2 + 1
-                                        )
-                                else:
-                                    ntup_contrib[idx] = ntup_bin[insert_idx]
+                            importance /= prev_inc_probs
+                            importance /= np.sum(importance)
 
-                            # compute weighted average using upper bin boundary
-                            sign_factor = (
-                                ntup
-                                * np.average(
-                                    ntup_contrib, weights=bins[ntup_bin[:-1] > 0]
+                            # draw random samples
+                            try:
+                                samples[dist_idx] = np.concatenate(
+                                    (
+                                        samples[dist_idx],
+                                        rng.choice(
+                                            sample_incs,
+                                            (
+                                                curr_nsamples // 2,
+                                                samples[dist_idx].shape[1],
+                                            ),
+                                            replace=True,
+                                            p=importance,
+                                        ),
+                                    ),
+                                    axis=0,
                                 )
-                                / np.average(
-                                    ntup_bin[ntup_bin > 0],
-                                    weights=bins[ntup_bin[:-1] > 0],
+                            except IndexError:
+                                samples.append(
+                                    rng.choice(
+                                        sample_incs,
+                                        (curr_nsamples, min(dist_ntup, max_ntups)),
+                                        replace=True,
+                                        p=importance,
+                                    )
                                 )
-                            )
 
-                        # calculate the error for this order
-                        est_error[cluster_idx, order_idx] += sign_factor * mean_abs_inc
+                        # calculate error
+                        error = np.quantile(
+                            np.abs(
+                                sum(
+                                    [
+                                        dist[0]
+                                        * np.sum(sample, axis=1)
+                                        / sample.shape[1]
+                                        for sample, dist in zip(samples, dist_info)
+                                    ]
+                                )
+                            ),
+                            0.99,
+                        )
+
+                        # determine if simulation has converged
+                        conv = (
+                            abs(error - prev_error) / error < 0.05
+                            and abs(prev_error - prev_error2) / error < 0.05
+                        )
+
+                        if not conv:
+                            # prepare errors for next step
+                            prev_error2 = prev_error
+                            prev_error = error
+
+                            curr_nsamples *= 2
+
+                    # set final error
+                    est_error[cluster_idx, order_idx] = error
 
                 # check if cluster produces increments for this order
                 if ntup_order_cluster > 0:

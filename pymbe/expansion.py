@@ -250,9 +250,6 @@ class ExpCls(
         self.screen_func = mbe.screen_func
         self.screen: List[Dict[str, np.ndarray]] = []
         self.adaptive_screen: List[List[np.ndarray]] = []
-        self.screen_bins = np.logspace(-10, 0, 31)
-        self.screen_ntot_bins = np.zeros_like(self.screen_bins, dtype=np.int64)
-        self.screen_npos_bins = np.zeros_like(self.screen_bins, dtype=np.int64)
         self.screen_orbs = np.array([], dtype=np.int64)
         self.mbe_tot_error: List[float] = []
 
@@ -2251,11 +2248,25 @@ class ExpCls(
                 # print empty line
                 logger.info2("")
 
-                # get sign balance up to current order
-                signs = self._get_sign_balance()
-
                 # initialize boolean to keep screening
                 min_idx: Optional[int] = 0
+
+                # get maximum cluster size
+                max_cluster_size = max(cluster.size for cluster in self.exp_clusters[-1])
+
+                # get current-order increments
+                incs: List[List[np.ndarray]] = []
+                for order in range(self.order - max_cluster_size + 1, self.order + 1):
+                    incs.append([])
+                    for tup_nocc in range(order + 1):
+                        incs[-1].append(
+                            self._open_shared_inc(
+                                self.incs[order - 1][tup_nocc],
+                                self.n_incs[order - 1][tup_nocc],
+                                order,
+                                tup_nocc,
+                            )
+                        )
 
                 # remove clusters until minimum cluster contribution is larger than
                 # threshold
@@ -2265,12 +2276,10 @@ class ExpCls(
                         self.mbe_tot_error[-1],
                         self.screen_thres,
                         adaptive_screen_dict(self.adaptive_screen, self.norb),
-                        self.screen_bins,
-                        self.screen_ntot_bins,
-                        signs,
                         self.exp_clusters[-1],
                         self.exp_space[-1],
                         self.exp_single_orbs,
+                        incs,
                         self.nocc,
                         self.ref_nelec,
                         self.ref_nhole,
@@ -3306,13 +3315,6 @@ class ExpCls(
     def _mbe_results(self, order: int) -> str:
         """
         this function prints mbe results statistics for a target calculation
-        """
-
-    @abstractmethod
-    def _get_sign_balance(self) -> np.ndarray:
-        """
-        this function adds current-order increments to the sign counter variables and
-        returns the current sign balance for the different bins
         """
 
     def _screen_remove_cluster_contrib(self, mpi: MPICls, cluster_idx: int) -> None:
