@@ -308,7 +308,7 @@ def adaptive_screen(
                     # starting number of samples
                     curr_nsamples = 100
 
-                    # starting number of tuples per distribution, a smaller number
+                    # maximum number of tuples per distribution, a smaller number
                     # will only overestimate the actual error
                     max_ntups = 1000
 
@@ -390,6 +390,7 @@ def adaptive_screen(
                             prev_error2 = prev_error
                             prev_error = error
 
+                            # double number of samples
                             curr_nsamples *= 2
 
                     # set final error
