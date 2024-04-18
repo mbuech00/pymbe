@@ -121,7 +121,7 @@ def adaptive_screen(
         for tup_nocc_incs in order_incs
     )
 
-    if tot_nincs > 0:
+    if tot_nincs > 1:
         if tot_nincs <= 10000:
             # get sample increments
             sample_incs = np.concatenate(
