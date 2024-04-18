@@ -33,7 +33,7 @@ from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import Optional, Tuple, Union, List, Dict
+    from typing import Optional, Tuple, Union, List
 
     from pymbe.parallel import MPICls
 
@@ -386,9 +386,9 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         return string
 
-    def _adaptive_screen(self, mpi: MPICls):
+    def _adaptive_screen(self, inc: List[List[np.ndarray]]):
         """
-        this function describes the adaptive screening loop
+        this function wraps the adaptive screening function
         """
         raise NotImplementedError
 

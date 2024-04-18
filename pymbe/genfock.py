@@ -920,9 +920,9 @@ class GenFockExpCls(
             mean_inc.gen_fock.copy(),
         )
 
-    def _adaptive_screen(self, mpi: MPICls):
+    def _adaptive_screen(self, inc: List[List[packedGenFockCls]]):
         """
-        this function describes the adaptive screening loop
+        this function wraps the adaptive screening function
         """
         raise NotImplementedError
 

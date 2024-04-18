@@ -54,8 +54,6 @@ if TYPE_CHECKING:
     import matplotlib
     from typing import Optional, Union, Dict
 
-    from pymbe.parallel import MPICls
-
 
 class RDMExpCls(
     ExpCls[
@@ -541,9 +539,9 @@ class RDMExpCls(
         """
         return mean_inc.copy()
 
-    def _adaptive_screen(self, mpi: MPICls):
+    def _adaptive_screen(self, inc: List[List[packedRDMCls]]):
         """
-        this function describes the adaptive screening loop
+        this function wraps the adaptive screening function
         """
         raise NotImplementedError
 

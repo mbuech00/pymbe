@@ -24,8 +24,6 @@ if TYPE_CHECKING:
     import matplotlib
     from typing import Tuple, Union, List
 
-    from pymbe.parallel import MPICls
-
 
 class ExcExpCls(EnergyExpCls):
     """
@@ -103,9 +101,9 @@ class ExcExpCls(EnergyExpCls):
         """
         raise NotImplementedError
 
-    def _adaptive_screen(self, mpi: MPICls):
+    def _adaptive_screen(self, inc: List[List[np.ndarray]]):
         """
-        this function describes the adaptive screening loop
+        this function wraps the adaptive screening function
         """
         raise NotImplementedError
 
