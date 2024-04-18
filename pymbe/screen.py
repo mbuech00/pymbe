@@ -122,29 +122,40 @@ def adaptive_screen(
     )
 
     if tot_nincs > 0:
-        # maximum number of increments to sample from
-        nsample_inc = 10000
+        if tot_nincs <= 10000:
+            # get sample increments
+            sample_incs = np.concatenate(
+                [
+                    tup_nocc_incs[tup_nocc_incs.nonzero()]
+                    for order_incs in incs
+                    for tup_nocc_incs in order_incs
+                ],
+                axis=0,
+            )
+        else:
+            # maximum number of increments to sample from
+            nsample_inc = 10000
 
-        # initialize sample incs
-        sample_incs = np.empty(nsample_inc, dtype=np.float64)
+            # initialize sample incs
+            sample_incs = np.empty(nsample_inc, dtype=np.float64)
 
-        # draw random integers
-        sample_indices = rng.integers(tot_nincs, size=nsample_inc)
-        sample_indices.sort()
+            # draw random integers
+            sample_indices = rng.integers(tot_nincs, size=nsample_inc)
+            sample_indices.sort()
 
-        # get sample increments
-        prev_sample_idx = 0
-        prev_tup_nocc_idx = 0
-        for order_incs in incs:
-            for tup_nocc_incs in order_incs:
-                sample_idx = sample_indices.searchsorted(
-                    prev_tup_nocc_idx + tup_nocc_incs.size
-                )
-                sample_incs[prev_sample_idx:sample_idx] = tup_nocc_incs[
-                    tup_nocc_incs.nonzero()
-                ][sample_indices[prev_sample_idx:sample_idx] - prev_tup_nocc_idx]
-                prev_sample_idx = sample_idx
-                prev_tup_nocc_idx += tup_nocc_incs.size
+            # get sample increments
+            prev_sample_idx = 0
+            prev_tup_nocc_idx = 0
+            for order_incs in incs:
+                for tup_nocc_incs in order_incs:
+                    sample_idx = sample_indices.searchsorted(
+                        prev_tup_nocc_idx + np.count_nonzero(tup_nocc_incs)
+                    ).item()
+                    sample_incs[prev_sample_idx:sample_idx] = tup_nocc_incs[
+                        tup_nocc_incs.nonzero()
+                    ][sample_indices[prev_sample_idx:sample_idx] - prev_tup_nocc_idx]
+                    prev_sample_idx = sample_idx
+                    prev_tup_nocc_idx += np.count_nonzero(tup_nocc_incs)
 
         # get kernel density estimate for previous-order increment distribution
         kde_kernel = stats.gaussian_kde(np.log(np.abs(sample_incs)))
@@ -256,7 +267,7 @@ def adaptive_screen(
                         # add to number of tuples for cluster for this order
                         ntup_order_cluster += ntup
 
-                        # variance estimate from observed variance
+                        # variance estimate from maximum observed variance
                         var_est = np.max(variance)
 
                         # mean variance estimate
@@ -308,7 +319,7 @@ def adaptive_screen(
                     # starting number of samples
                     curr_nsamples = 100
 
-                    # maximum number of tuples per distribution, a smaller number
+                    # starting number of tuples per distribution, a smaller number
                     # will only overestimate the actual error
                     max_ntups = 1000
 

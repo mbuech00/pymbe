@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     import matplotlib
     from typing import Tuple, Union, List
 
+    from pymbe.parallel import MPICls
+
 
 class ExcExpCls(EnergyExpCls):
     """
@@ -98,6 +100,12 @@ class ExcExpCls(EnergyExpCls):
     ) -> float:
         """
         this function returns the results of a cc calculation
+        """
+        raise NotImplementedError
+
+    def _adaptive_screen(self, mpi: MPICls):
+        """
+        this function describes the adaptive screening loop
         """
         raise NotImplementedError
 

@@ -54,6 +54,8 @@ if TYPE_CHECKING:
     import matplotlib
     from typing import Optional, Union, Dict
 
+    from pymbe.parallel import MPICls
+
 
 class RDMExpCls(
     ExpCls[
@@ -538,6 +540,12 @@ class RDMExpCls(
         this function calculates the total increment at a certain order
         """
         return mean_inc.copy()
+
+    def _adaptive_screen(self, mpi: MPICls):
+        """
+        this function describes the adaptive screening loop
+        """
+        raise NotImplementedError
 
     def _mbe_results(self, order: int) -> str:
         """

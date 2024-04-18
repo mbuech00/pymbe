@@ -386,6 +386,12 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         return string
 
+    def _adaptive_screen(self, mpi: MPICls):
+        """
+        this function describes the adaptive screening loop
+        """
+        raise NotImplementedError
+
     def _mbe_results(self, order: int) -> str:
         """
         this function prints mbe results statistics for a dipole or transition dipole

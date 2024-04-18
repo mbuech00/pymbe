@@ -82,7 +82,7 @@ from pymbe.tools import (
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
-from pymbe.screen import fixed_screen, adaptive_screen
+from pymbe.screen import fixed_screen
 
 if TYPE_CHECKING:
     from pyscf import gto
@@ -2248,93 +2248,8 @@ class ExpCls(
                 # print empty line
                 logger.info2("")
 
-                # initialize boolean to keep screening
-                min_idx: Optional[int] = 0
-
-                # get maximum cluster size
-                max_cluster_size = max(cluster.size for cluster in self.exp_clusters[-1])
-
-                # get current-order increments
-                incs: List[List[np.ndarray]] = []
-                for order in range(self.order - max_cluster_size + 1, self.order + 1):
-                    incs.append([])
-                    for tup_nocc in range(order + 1):
-                        incs[-1].append(
-                            self._open_shared_inc(
-                                self.incs[order - 1][tup_nocc],
-                                self.n_incs[order - 1][tup_nocc],
-                                order,
-                                tup_nocc,
-                            )
-                        )
-
-                # remove clusters until minimum cluster contribution is larger than
-                # threshold
-                while min_idx is not None:
-                    # adaptive screening
-                    min_idx, self.mbe_tot_error[-1] = adaptive_screen(
-                        self.mbe_tot_error[-1],
-                        self.screen_thres,
-                        adaptive_screen_dict(self.adaptive_screen, self.norb),
-                        self.exp_clusters[-1],
-                        self.exp_space[-1],
-                        self.exp_single_orbs,
-                        incs,
-                        self.nocc,
-                        self.ref_nelec,
-                        self.ref_nhole,
-                        self.vanish_exc,
-                        self.order,
-                        CONV_TOL,
-                    )
-
-                    # bcast cluster to screen away
-                    mpi.global_comm.bcast(min_idx, root=0)
-
-                    # check if minimum index is returned
-                    if min_idx is not None:
-                        # remove cluster contributions
-                        self._screen_remove_cluster_contrib(mpi, min_idx)
-
-                        # remove cluster from expansion space
-                        self.exp_clusters[-1].pop(min_idx)
-                        self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
-
-                        # remove clusters which no longer produce valid increments
-                        screen_dict = adaptive_screen_dict(
-                            self.adaptive_screen, self.norb
-                        )
-                        self.exp_clusters[-1] = [
-                            cluster
-                            for cluster in self.exp_clusters[-1]
-                            if screen_dict["inc_count"][:, cluster[0]].any()
-                        ]
-                        self.exp_space[-1] = (
-                            np.hstack(self.exp_clusters[-1])
-                            if self.exp_clusters[-1]
-                            else np.array([], dtype=np.int64)
-                        )
-
-                # log screening
-                if np.array_equal(self.exp_space[-1], self.exp_space[-2]):
-                    logger.info2(f" No orbital clusters were screened away.")
-
-            else:
-                # determine if still screening
-                min_idx = mpi.global_comm.bcast(None, root=0)
-
-                # remove clusters until minimum cluster contribution is larger than
-                # threshold
-                while min_idx is not None:
-                    # remove cluster contributions
-                    self._screen_remove_cluster_contrib(mpi, min_idx)
-
-                    # remove cluster from expansion space
-                    self.exp_clusters[-1].pop(min_idx)
-                    self.exp_space[-1] = np.hstack(self.exp_clusters[-1])
-
-                    # get minimum cluster
-                    min_idx = mpi.global_comm.bcast(None, root=0)
+                # run screening loop
+                self._adaptive_screen(mpi)
 
         # update symmetry-equivalent orbitals wrt screened clusters
         if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
@@ -3315,6 +3230,12 @@ class ExpCls(
     def _mbe_results(self, order: int) -> str:
         """
         this function prints mbe results statistics for a target calculation
+        """
+
+    @abstractmethod
+    def _adaptive_screen(self, mpi: MPICls):
+        """
+        this function describes the adaptive screening loop
         """
 
     def _screen_remove_cluster_contrib(self, mpi: MPICls, cluster_idx: int) -> None:
