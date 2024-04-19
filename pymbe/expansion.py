@@ -2258,7 +2258,7 @@ class ExpCls(
 
                 # get current-order increments
                 incs: List[List[IncType]] = []
-                for order in range(self.order - max_cluster_size + 1, self.order + 1):
+                for order in range(max(1, self.order - max_cluster_size + 1), self.order + 1):
                     incs.append([])
                     for tup_nocc in range(order + 1):
                         incs[-1].append(

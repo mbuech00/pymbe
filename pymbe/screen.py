@@ -88,9 +88,17 @@ def adaptive_screen(
     # define maximum possible order
     max_order = exp_space.size
 
+    # get total number of increments
+    tot_nincs = sum(
+        np.count_nonzero(tup_nocc_incs)
+        for order_incs in incs
+        for tup_nocc_incs in order_incs
+    )
+
     # check if no increments were calculated at current order or expansion has ended
     if (
-        sum(tup_nocc_incs.size for tup_nocc_incs in incs[-1]) == 0
+        sum(np.count_nonzero(tup_nocc_incs) for tup_nocc_incs in incs[-1]) == 0
+        or tot_nincs <= 1
         or curr_order >= max_order
     ):
         return None, mbe_tot_error
@@ -114,54 +122,46 @@ def adaptive_screen(
     # create random number generator
     rng = np.random.default_rng(seed=42)
 
-    # get total number of increments
-    tot_nincs = sum(
-        np.count_nonzero(tup_nocc_incs)
-        for order_incs in incs
-        for tup_nocc_incs in order_incs
-    )
+    if tot_nincs <= 10000:
+        # get sample increments
+        sample_incs = np.concatenate(
+            [
+                tup_nocc_incs[tup_nocc_incs.nonzero()]
+                for order_incs in incs
+                for tup_nocc_incs in order_incs
+            ],
+            axis=0,
+        )
+    else:
+        # maximum number of increments to sample from
+        nsample_inc = 10000
 
-    if tot_nincs > 1:
-        if tot_nincs <= 10000:
-            # get sample increments
-            sample_incs = np.concatenate(
-                [
-                    tup_nocc_incs[tup_nocc_incs.nonzero()]
-                    for order_incs in incs
-                    for tup_nocc_incs in order_incs
-                ],
-                axis=0,
-            )
-        else:
-            # maximum number of increments to sample from
-            nsample_inc = 10000
+        # initialize sample incs
+        sample_incs = np.empty(nsample_inc, dtype=np.float64)
 
-            # initialize sample incs
-            sample_incs = np.empty(nsample_inc, dtype=np.float64)
+        # draw random integers
+        sample_indices = rng.integers(tot_nincs, size=nsample_inc)
+        sample_indices.sort()
 
-            # draw random integers
-            sample_indices = rng.integers(tot_nincs, size=nsample_inc)
-            sample_indices.sort()
+        # get sample increments
+        prev_sample_idx = 0
+        prev_tup_nocc_idx = 0
+        for order_incs in incs:
+            for tup_nocc_incs in order_incs:
+                sample_idx = sample_indices.searchsorted(
+                    prev_tup_nocc_idx + np.count_nonzero(tup_nocc_incs)
+                ).item()
+                sample_incs[prev_sample_idx:sample_idx] = tup_nocc_incs[
+                    tup_nocc_incs.nonzero()
+                ][sample_indices[prev_sample_idx:sample_idx] - prev_tup_nocc_idx]
+                prev_sample_idx = sample_idx
+                prev_tup_nocc_idx += np.count_nonzero(tup_nocc_incs)
 
-            # get sample increments
-            prev_sample_idx = 0
-            prev_tup_nocc_idx = 0
-            for order_incs in incs:
-                for tup_nocc_incs in order_incs:
-                    sample_idx = sample_indices.searchsorted(
-                        prev_tup_nocc_idx + np.count_nonzero(tup_nocc_incs)
-                    ).item()
-                    sample_incs[prev_sample_idx:sample_idx] = tup_nocc_incs[
-                        tup_nocc_incs.nonzero()
-                    ][sample_indices[prev_sample_idx:sample_idx] - prev_tup_nocc_idx]
-                    prev_sample_idx = sample_idx
-                    prev_tup_nocc_idx += np.count_nonzero(tup_nocc_incs)
+    # get kernel density estimate for previous-order increment distribution
+    kde_kernel = stats.gaussian_kde(np.log(np.abs(sample_incs)))
 
-        # get kernel density estimate for previous-order increment distribution
-        kde_kernel = stats.gaussian_kde(np.log(np.abs(sample_incs)))
-
-        # evaluate kde pdf
-        prev_inc_probs = kde_kernel.evaluate(np.log(np.abs(sample_incs)))
+    # evaluate kde pdf
+    prev_inc_probs = kde_kernel.evaluate(np.log(np.abs(sample_incs)))
 
     # loop over clusters
     for cluster_idx, cluster_orbs in enumerate(exp_clusters):
@@ -199,6 +199,7 @@ def adaptive_screen(
                 / screen["inc_count"][mask, cluster_orbs[0]]
                 - mean**2
             )
+            variance[(0.0 > variance) & (variance > -1e-11)] = 0.0
 
             # calculate variance of the mean logarithm increment magnitude
             mean_variance = variance / screen["inc_count"][mask, cluster_orbs[0]]
@@ -216,8 +217,8 @@ def adaptive_screen(
                 np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=np.sqrt(weights))
             )
 
-            # get t-statistic for 99% one-tailed significance
-            t_stat = stats.t.ppf(0.99, nclusters.size - 2)
+            # get t-statistic for 95% one-tailed significance
+            t_stat = stats.t.ppf(0.95, nclusters.size - 2)
 
             # get residuals of model
             residuals = fit(nclusters) - mean
@@ -268,7 +269,7 @@ def adaptive_screen(
                         ntup_order_cluster += ntup
 
                         # variance estimate from maximum observed variance
-                        var_est = np.max(variance)
+                        var_est = max(variance[-1], 10)
 
                         # mean variance estimate
                         mean_var_est = var_est / ntup
@@ -387,7 +388,7 @@ def adaptive_screen(
                                     ]
                                 )
                             ),
-                            0.99,
+                            0.95,
                         )
 
                         # determine if simulation has converged
