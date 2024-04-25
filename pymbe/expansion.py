@@ -251,6 +251,7 @@ class ExpCls(
         self.screen: List[Dict[str, np.ndarray]] = []
         self.adaptive_screen: List[List[np.ndarray]] = []
         self.screen_orbs = np.array([], dtype=np.int64)
+        self.screen_tot_prop: List[TargetType] = []
         self.mbe_tot_error: List[float] = []
 
         # restart
@@ -910,6 +911,10 @@ class ExpCls(
                         self.adaptive_screen.append(
                             [inc_count, log_inc_sum, log_inc_sum2]
                         )
+
+                # read screened total properties
+                elif "screen_tot_prop" in files[i]:
+                    self.screen_tot_prop.append(self._read_target_file(files[i]))
 
                 # read total properties
                 elif "mbe_tot_prop" in files[i]:
@@ -2245,6 +2250,9 @@ class ExpCls(
                     self.mbe_tot_error[-1] if self.order > self.min_order else 0.0
                 )
 
+                # initialize screened total property
+                self.screen_tot_prop.append(self.mbe_tot_prop[-1])
+
                 # print empty line
                 logger.info2("")
 
@@ -2258,7 +2266,9 @@ class ExpCls(
 
                 # get current-order increments
                 incs: List[List[IncType]] = []
-                for order in range(max(1, self.order - max_cluster_size + 1), self.order + 1):
+                for order in range(
+                    max(1, self.order - max_cluster_size + 1), self.order + 1
+                ):
                     incs.append([])
                     for tup_nocc in range(order + 1):
                         incs[-1].append(
@@ -2353,6 +2363,10 @@ class ExpCls(
                     adaptive_screen_dict(self.adaptive_screen, self.norb),
                     "mbe_adaptive_screen",
                 )
+                for order in range(1, self.order + 1):
+                    self._write_target_file(
+                        self.screen_tot_prop[order - 1], "screen_tot_prop", order=order
+                    )
                 write_file(
                     np.asarray(self.mbe_tot_error[-1]), "mbe_tot_error", self.order
                 )
@@ -3315,12 +3329,15 @@ class ExpCls(
         """
         this function removes cluster contributions to the screening arrays
         """
-        # initialize dictionary of arrays for contributions to be removed
+        # initialize list of arrays for contributions to be removed
         remove_screen = [
             [np.zeros(self.norb, np.int64)]
             + [np.zeros(self.norb, np.float64) for _ in range(2)]
             for _ in range(self.order)
         ]
+
+        # initialize list of total property for contributions to be removed
+        remove_tot_prop = np.zeros(self.order, dtype=np.float64)
 
         # loop over all orders
         for order in range(1, self.order + 1):
@@ -3404,6 +3421,7 @@ class ExpCls(
                         abs_inc_tup = np.abs(inc[idx.item()])
 
                         # add values for increment
+                        remove_tot_prop[k] += inc[idx.item()]
                         if abs_inc_tup > 0.0:
                             remove_screen = add_inc_stats(
                                 abs_inc_tup,
@@ -3420,6 +3438,9 @@ class ExpCls(
                         raise RuntimeError("Last order tuple not found:", tup_last)
 
         # reduce adaptive screening data onto global master and remove contributions
+        remove_tot_prop = np.cumsum(
+            mpi_reduce(mpi.global_comm, remove_tot_prop, root=0, op=MPI.SUM)
+        )
         for order_idx in range(self.order):
             remove_screen[order_idx] = [
                 mpi_reduce(
@@ -3431,6 +3452,7 @@ class ExpCls(
                 for array_idx in range(len(remove_screen[order_idx]))
             ]
             if mpi.global_master:
+                self.screen_tot_prop[order_idx] -= remove_tot_prop[order_idx]
                 self.adaptive_screen[order_idx] = [
                     screen - subtract_screen
                     for screen, subtract_screen in zip(

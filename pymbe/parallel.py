@@ -19,10 +19,8 @@ import numpy as np
 from pyscf import lib
 from typing import TYPE_CHECKING
 
-from pymbe.tools import flatten_list
-
 if TYPE_CHECKING:
-    from typing import Tuple, Dict
+    from typing import Tuple
 
     from pymbe.pymbe import MBE
 

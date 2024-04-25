@@ -71,6 +71,7 @@ def fixed_screen(
 
 
 def adaptive_screen(
+    mbe_tot_energy: List[float],
     mbe_tot_error: float,
     screen_thres: float,
     screen: Dict[str, np.ndarray],
@@ -108,6 +109,15 @@ def adaptive_screen(
 
     # define allowed error
     error_thresh = screen_thres - mbe_tot_error
+
+    # determine required confidence level
+    conv_orders = 0
+    for idx in range(max_cluster_size + 1, len(mbe_tot_energy) + 1, max_cluster_size):
+        cum_inc = np.abs(mbe_tot_energy[-1] - mbe_tot_energy[-idx])
+        if cum_inc > error_thresh:
+            break
+        conv_orders += 1
+    conv_level = max(0.5, 0.95 - 0.15 * conv_orders)
 
     # initialize array for estimated quantities
     est_error = np.zeros((len(exp_clusters), max_order - curr_order), dtype=np.float64)
@@ -217,8 +227,8 @@ def adaptive_screen(
                 np.polynomial.polynomial.polyfit(nclusters, mean, 1, w=np.sqrt(weights))
             )
 
-            # get t-statistic for 95% one-tailed significance
-            t_stat = stats.t.ppf(0.95, nclusters.size - 2)
+            # get t-statistic for confidence level
+            t_stat = stats.t.ppf(conv_level, nclusters.size - 2)
 
             # get residuals of model
             residuals = fit(nclusters) - mean
@@ -228,26 +238,38 @@ def adaptive_screen(
 
             # initialize number of tuples for cluster for remaining
             # orders
-            ntup_all_cluster = 0
+            ntup_cluster = []
 
             # initialize number of total tuples for remaining orders
-            ntup_all_total = 0
+            ntup_total = []
+
+            # log info
+            if cluster_orbs.size == 1:
+                logger.info2(f" Orbital {cluster_orbs.item()} potential error:")
+            else:
+                cluster_str = np.array2string(cluster_orbs, separator=", ")
+                logger.info2(f" Orbital cluster {cluster_str} potential error:")
+            logger.info2(" " + 42 * "-")
+            logger.info2("  Order | Est. mean increment | Est. error")
+            logger.info2(" " + 42 * "-")
 
             # loop over remaining orders
             for order_idx, order in enumerate(range(curr_order + 1, max_order + 1)):
                 # get total number of tuples at this order
-                ntup_all_total += n_tuples(
-                    exp_space,
-                    exp_clusters if not exp_single_orbs else None,
-                    nocc,
-                    ref_nelec,
-                    ref_nhole,
-                    vanish_exc,
-                    order,
+                ntup_total.append(
+                    n_tuples(
+                        exp_space,
+                        exp_clusters if not exp_single_orbs else None,
+                        nocc,
+                        ref_nelec,
+                        ref_nhole,
+                        vanish_exc,
+                        order,
+                    )
                 )
 
                 # initialize number of tuples for cluster for this order
-                ntup_order_cluster = 0
+                ntup_cluster.append(0)
 
                 # intitialize list for distribution information
                 dist_info: List[Tuple[int, float, float]] = []
@@ -266,7 +288,7 @@ def adaptive_screen(
                     # check if any tuples for this cluster at this order contribute
                     if ntup > 0:
                         # add to number of tuples for cluster for this order
-                        ntup_order_cluster += ntup
+                        ntup_cluster[-1] += ntup
 
                         # variance estimate from maximum observed variance
                         var_est = max(variance[-1], 10)
@@ -303,7 +325,7 @@ def adaptive_screen(
                             size += remain_clusters[::-1][full_ncluster].size
                             full_ncluster += 1
                         log_mean_abs_inc = min(
-                            fit(ncluster) + err, mean[nclusters == full_ncluster]
+                            fit(ncluster) + err, mean[nclusters == full_ncluster][0]
                         )
 
                         # save information from distribution
@@ -316,7 +338,7 @@ def adaptive_screen(
                         )
 
                 # check if any tuples for this cluster at this order contribute
-                if ntup_order_cluster > 0:
+                if ntup_cluster[-1] > 0:
                     # starting number of samples
                     curr_nsamples = 100
 
@@ -388,7 +410,7 @@ def adaptive_screen(
                                     ]
                                 )
                             ),
-                            0.95,
+                            conv_level,
                         )
 
                         # determine if simulation has converged
@@ -408,15 +430,16 @@ def adaptive_screen(
                     # set final error
                     est_error[cluster_idx, order_idx] = error
 
-                # check if cluster produces increments for this order
-                if ntup_order_cluster > 0:
-                    # add to number of tuples for cluster for all remaining orders
-                    ntup_all_cluster += ntup_order_cluster
-
-                    # estimate the mean absolute increment for all increments at this
-                    # order
+                    # estimate the mean increment for all increments at this order
                     est_mean_inc[cluster_idx, order_idx] = (
-                        est_error[cluster_idx, order_idx] / ntup_order_cluster
+                        est_error[cluster_idx, order_idx] / ntup_cluster[-1]
+                    )
+
+                    # log info
+                    logger.info2(
+                        f"  {order:5} |      "
+                        f"{est_mean_inc[cluster_idx, order_idx]:>10.4e}     | "
+                        f"{est_error[cluster_idx, order_idx]:>10.4e}"
                     )
 
                     # add to total error
@@ -424,22 +447,34 @@ def adaptive_screen(
 
                     # stop if the last few orders contribute less than 1% or if
                     # accumulated error is larger than threshold
-                    if (
-                        np.sum(
-                            est_error[
-                                cluster_idx,
-                                max(0, order_idx - max_cluster_size + 1) : order_idx
-                                + 1,
-                            ]
+                    if order_idx >= max_cluster_size - 1 and (
+                        (
+                            np.sum(
+                                est_error[
+                                    cluster_idx,
+                                    max(0, order_idx - max_cluster_size + 1) : order_idx
+                                    + 1,
+                                ]
+                            )
+                            / tot_error[cluster_idx]
+                            < 0.01
                         )
-                        / tot_error[cluster_idx]
-                        < 0.01
-                    ) or tot_error[cluster_idx] > error_thresh:
+                        or tot_error[cluster_idx]
+                        > (
+                            (
+                                np.sum(ntup_cluster[:max_cluster_size])
+                                / np.sum(ntup_total[:max_cluster_size])
+                            )
+                            * error_thresh
+                        )
+                    ):
+                        logger.info2(" " + 42 * "-" + "\n")
                         break
 
             # calculate difference to allowed error
             error_diff[cluster_idx] = (
-                ntup_all_cluster / ntup_all_total
+                np.sum(ntup_cluster[:max_cluster_size])
+                / np.sum(ntup_total[:max_cluster_size])
             ) * error_thresh - tot_error[cluster_idx]
 
     # get index in expansion space for minimum cluster contribution
@@ -451,30 +486,14 @@ def adaptive_screen(
         if exp_clusters[min_idx].size == 1:
             logger.info2(
                 f" Orbital {exp_clusters[min_idx].item()} is screened away (Error "
-                f"= {tot_error[min_idx]:>10.4e})"
+                f"= {tot_error[min_idx]:>10.4e})" + "\n"
             )
         else:
             cluster_str = np.array2string(exp_clusters[min_idx], separator=", ")
             logger.info2(
                 f" Orbital cluster {cluster_str} is screened away (Error = "
-                f"{tot_error[min_idx]:>10.4e})"
+                f"{tot_error[min_idx]:>10.4e})" + "\n"
             )
-        logger.info2(" " + 47 * "-")
-        logger.info2("  Order | Est. mean abs. increment | Est. error")
-        logger.info2(" " + 47 * "-")
-        for order_idx, (order, mean_inc, error) in enumerate(
-            zip(
-                range(curr_order + 1, max_order + 1),
-                est_mean_inc[min_idx],
-                est_error[min_idx],
-            )
-        ):
-            if sum(est_error[min_idx][order_idx:]) == 0.0:
-                break
-            logger.info2(
-                f"  {order:5} |        {mean_inc:>10.4e}        | {error:>10.4e}"
-            )
-        logger.info2(" " + 47 * "-" + "\n")
 
         # add screened cluster contribution to error
         mbe_tot_error += tot_error[min_idx]

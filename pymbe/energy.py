@@ -436,6 +436,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         this function wraps the adaptive screening function
         """
         return adaptive_screen(
+            self.screen_tot_prop,
             self.mbe_tot_error[-1],
             self.screen_thres,
             adaptive_screen_dict(self.adaptive_screen, self.norb),
