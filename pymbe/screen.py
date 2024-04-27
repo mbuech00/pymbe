@@ -117,7 +117,15 @@ def adaptive_screen(
         if cum_inc > error_thresh:
             break
         conv_orders += 1
-    conv_level = max(0.5, 0.95 - 0.15 * conv_orders)
+    conv_level = 0.95
+    if conv_orders == 1:
+        conv_level = 0.8
+    elif conv_orders == 2:
+        conv_level = 0.5
+    elif conv_orders == 3:
+        conv_level = 0.2
+    elif conv_orders > 3:
+        conv_level = 0.05
 
     # initialize array for estimated quantities
     est_error = np.zeros((len(exp_clusters), max_order - curr_order), dtype=np.float64)
@@ -403,9 +411,7 @@ def adaptive_screen(
                             np.abs(
                                 sum(
                                     [
-                                        dist[0]
-                                        * np.sum(sample, axis=1)
-                                        / sample.shape[1]
+                                        dist[0] * np.mean(sample, axis=1)
                                         for sample, dist in zip(samples, dist_info)
                                     ]
                                 )
