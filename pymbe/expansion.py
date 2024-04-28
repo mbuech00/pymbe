@@ -2688,7 +2688,7 @@ class ExpCls(
         solver.max_space = 25
         solver.davidson_only = True
         solver.pspace_size = 0
-        if self.verbose >= 4:
+        if self.verbose >= 5:
             solver.verbose = 10
         solver.wfnsym = wfnsym
         solver.orbsym = self.orbsym[cas_idx]

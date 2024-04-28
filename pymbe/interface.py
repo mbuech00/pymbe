@@ -91,7 +91,7 @@ def mbecc_interface(
     max_cycle = ctypes.c_int64(500)
     t3_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
     t4_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
-    verbose_val = ctypes.c_int64(1 if verbose >= 3 else 0)
+    verbose_val = ctypes.c_int64(1 if verbose >= 5 else 0)
 
     n_act = orbsym.size
     h2e = ao2mo.restore(1, h2e, n_act)

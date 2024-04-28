@@ -21,8 +21,12 @@ import logging
 # add custom logger class
 class PyMBELogger(logging.Logger):
     def info2(self, msg: str, *args, **kwargs) -> None:
-        if self.isEnabledFor(logging.INFO - 5):
-            self._log(logging.INFO - 5, msg, args, **kwargs)
+        if self.isEnabledFor(logging.INFO - 1):
+            self._log(logging.INFO - 1, msg, args, **kwargs)
+
+    def info3(self, msg: str, *args, **kwargs) -> None:
+        if self.isEnabledFor(logging.INFO - 2):
+            self._log(logging.INFO - 2, msg, args, **kwargs)
 
 
 # get logger
