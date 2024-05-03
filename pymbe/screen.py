@@ -122,9 +122,7 @@ def adaptive_screen(
         conf_level = 0.8
     elif conv_orders == 2:
         conf_level = 0.5
-    elif conv_orders == 3:
-        conf_level = 0.2
-    elif conv_orders > 3:
+    elif conv_orders > 2:
         conf_level = 0.05
 
     # initialize array for estimated quantities
@@ -319,7 +317,9 @@ def adaptive_screen(
                         ntup_cluster[-1] += ntup
 
                         # variance estimate from maximum observed variance
-                        var_est = max(variance[-1], 10)
+                        var_est = variance[-1]
+                        if screen["inc_count"][mask, cluster_orbs[0]][-1] < 1000:
+                            var_est = max(var_est, 10)
 
                         # mean variance estimate
                         mean_var_est = var_est / ntup
