@@ -2017,18 +2017,18 @@ class ExpCls(
         # mpi barrier
         mpi.global_comm.Barrier()
 
+        # free hashes and increments
+        for k in range(self.order):
+            for l in range(order + 1):
+                self.hashes[k][l].Free()
+                self._free_inc(self.incs[k][l])
+
         # reduce orbital pairs
         orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
 
         exp_clusters: Optional[List[np.ndarray]]
 
         if mpi.global_master:
-            # free hashes and increments
-            for k in range(self.order):
-                for l in range(order + 1):
-                    self.hashes[k][l].Free()
-                    self._free_inc(self.incs[k][l])
-
             # simulated annealing to determine optimal orbital clusters
             exp_clusters = simulated_annealing(
                 orb_pairs,
