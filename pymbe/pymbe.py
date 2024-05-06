@@ -25,6 +25,7 @@ from pymbe.setup import (
     restart_read_kw,
     restart_read_system,
     general_setup,
+    clustering_setup,
     calc_setup,
     ref_space_update,
 )
@@ -472,7 +473,7 @@ class MBE:
         return prop
 
     def cluster_orbs(
-        self, cluster_size: int, max_order: int
+        self, max_cluster_size: int, max_order: int
     ) -> Optional[List[np.ndarray]]:
         """
         this function clusters the expansion space orbitals up to some given cluster
@@ -482,21 +483,57 @@ class MBE:
         if os.path.isdir(RST):
             return None
 
+        # sanity check
+        if not isinstance(max_cluster_size, int):
+            raise TypeError("maximum cluster size (first argument) must be an integer")
+        if not isinstance(max_order, int):
+            raise TypeError(
+                "maximum mbe order (second argument) for clustering must be an integer"
+            )
+
         # general settings
         if self.mpi.global_master:
-            general_setup(self, "cluster_orbs")
+            clustering_setup(self, max_cluster_size, max_order)
 
-        # calculation setup
-        self = calc_setup(self)
+        # initialize convergence boolean
+        converged = False
 
-        # initialize exp object
-        if self.target == "energy":
-            self.exp = EnergyExpCls(self)
-        else:
-            raise NotImplementedError
+        # start loop over reference spaces
+        while not converged:
+            # calculation setup
+            self = calc_setup(self)
+
+            # initialize exp object
+            if self.target == "energy":
+                self.exp = EnergyExpCls(self)
+                self.exp.rst = False
+                self.exp.closed_form = False
+                self.exp.screen_type = "fixed"
+                self.exp.screen_start = max_order
+                self.exp.screen_perc = 0.0
+            else:
+                raise NotImplementedError
+
+            if self.mpi.global_master:
+                # main master driver
+                converged = self.exp.driver_master(self.mpi)
+
+                if not converged:
+                    # update reference space
+                    self.ref_space, self.exp_space = ref_space_update(
+                        self.exp.tup_sq_overlaps, self.ref_space, self.exp_space
+                    )
+                    self.restarted = False
+
+            else:
+                # main slave driver
+                converged = self.exp.driver_slave(self.mpi)
+
+        # free integrals
+        self.exp.free_ints()
 
         # determine clusters
-        exp_clusters = self.exp.cluster_driver(self.mpi, cluster_size, max_order)
+        exp_clusters = self.exp.cluster_driver(self.mpi, max_cluster_size, max_order)
 
         # set expansion space
         if isinstance(exp_clusters, list):

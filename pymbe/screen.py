@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from pymbe.logger import logger
 
 from pymbe.tools import n_tuples, n_tuples_predictors
+from pymbe.clustering import SEED
 
 
 if TYPE_CHECKING:
@@ -136,7 +137,7 @@ def adaptive_screen(
     error_diff = np.zeros_like(tot_error)
 
     # create random number generator
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=SEED)
 
     if tot_nincs <= 10000:
         # get sample increments

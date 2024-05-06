@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from pymbe.pymbe import MBE, Tuple, List
 
 
-def general_setup(mbe: MBE, calc_type: str = "mbe"):
+def general_setup(mbe: MBE):
     """
     this function performs the general setup at the start of every calculation
     """
@@ -41,48 +41,66 @@ def general_setup(mbe: MBE, calc_type: str = "mbe"):
     # sanity check
     sanity_check(mbe)
 
-    if calc_type == "mbe":
-        # print expansion headers
-        logger.info(main_header(mbe.mpi))
+    # print expansion headers
+    logger.info(main_header(mbe.mpi))
 
-        # dump flags
-        for key, value in vars(mbe).items():
-            if key in [
-                "mol",
-                "hcore",
-                "eri",
-                "mpi",
-                "exp",
-                "dipole_ints",
-                "inact_fock",
-                "eri_goaa",
-                "eri_gaao",
-                "eri_gaaa",
-            ]:
-                logger.debug(f"   -- {key:<15}: {str(value)}")
-            else:
-                logger.info(f"   -- {key:<15}: {str(value)}")
-        logger.debug("")
-        for key, value in vars(mbe.mpi).items():
-            logger.debug(" " + key + " = " + str(value))
-        logger.info("")
-        logger.info("")
+    # dump flags
+    for key, value in vars(mbe).items():
+        if key in [
+            "mol",
+            "hcore",
+            "eri",
+            "mpi",
+            "exp",
+            "dipole_ints",
+            "inact_fock",
+            "eri_goaa",
+            "eri_gaao",
+            "eri_gaaa",
+        ]:
+            logger.debug(f"   -- {key:<15}: {str(value)}")
+        else:
+            logger.info(f"   -- {key:<15}: {str(value)}")
+    logger.debug("")
+    for key, value in vars(mbe.mpi).items():
+        logger.debug(" " + key + " = " + str(value))
+    logger.info("")
+    logger.info("")
 
-        # method
-        logger.info(f"{('-' * 45):^87}")
-        logger.info(f"{mbe.method.upper() + ' expansion':^87s}")
-        logger.info(f"{('-' * 45):^87}")
+    # method
+    logger.info(f"{('-' * 45):^87}")
+    logger.info(f"{mbe.method.upper() + ' expansion':^87s}")
+    logger.info(f"{('-' * 45):^87}")
 
-        # write restart files
-        if mbe.rst and not mbe.restarted:
-            # create restart folder
-            os.mkdir(RST)
+    # write restart files
+    if mbe.rst and not mbe.restarted:
+        # create restart folder
+        os.mkdir(RST)
 
-            # write keywords
-            restart_write_kw(mbe)
+        # write keywords
+        restart_write_kw(mbe)
 
-            # write system quantities
-            restart_write_system(mbe)
+        # write system quantities
+        restart_write_system(mbe)
+
+
+def clustering_setup(mbe: MBE, max_cluster_size: int, max_order: int):
+    """
+    this function performs the setup for clustering
+    """
+    # header
+    logger.info(92 * "-" + "\n" + 92 * "|" + "\n" + 92 * "-")
+    logger.info(
+        f" Determining orbital clusters of maximum size {max_cluster_size} by "
+        f"considering MBE information up until\n expansion order {max_order}"
+    )
+    logger.info(92 * "-")
+
+    # configure logging
+    logger_config(mbe.verbose)
+
+    # sanity check
+    sanity_check(mbe)
 
 
 def sanity_check(mbe: MBE) -> None:
