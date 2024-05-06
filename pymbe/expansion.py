@@ -2014,10 +2014,6 @@ class ExpCls(
                             orb_pairs[pair[0], pair[1]] += np.abs(inc_tup)
                             orb_pairs[pair[1], pair[0]] += np.abs(inc_tup)
 
-                # free hashes and increments
-                self.hashes[k][l].Free()
-                self._free_inc(self.incs[k][l])
-
         # mpi barrier
         mpi.global_comm.Barrier()
 
@@ -2027,6 +2023,12 @@ class ExpCls(
         exp_clusters: Optional[List[np.ndarray]]
 
         if mpi.global_master:
+            # free hashes and increments
+            for k in range(self.order):
+                for l in range(order + 1):
+                    self.hashes[k][l].Free()
+                    self._free_inc(self.incs[k][l])
+
             # simulated annealing to determine optimal orbital clusters
             exp_clusters = simulated_annealing(
                 orb_pairs,
