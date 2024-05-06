@@ -94,37 +94,45 @@ def simulated_annealing(
 
     # generate samples to determine starting temperature
     for sample_idx in range(SAMPLE_SIZE):
-        # generate sample
-        sample = np.concatenate(
-            (
-                rng.permutation(nocc),
-                rng.permutation(np.arange(nocc, norb)),
-            )
-        )
-
-        # get score of sample
-        samples[sample_idx, :] = _score(orb_pairs, sample, cluster_types, nocc)
-
+        # initialize difference
         diff = 0.0
+
+        # search for sample that is not a local maximum
         while diff >= 0.0:
-            # get neighboring point
-            orb1, orb2 = _gen_neighbor(
-                rng,
-                cluster_idx,
-                cluster_pair_idx,
-                cluster_npairs_per_orb,
-                nocc,
-                ntot_swaps,
-                nocc_swaps,
+            # generate sample
+            sample = np.concatenate(
+                (rng.permutation(nocc), rng.permutation(np.arange(nocc, norb)))
             )
 
-            # evaluate candidate point
-            diff = _score_diff(
-                orb_pairs, sample, (orb1, orb2), cluster_idx, clusters, nocc
-            )
+            # find lower neighboring point
+            nneighbor = 0
+            while diff >= 0.0 and nneighbor < int(
+                log(0.01) / log((ntot_swaps - 1) / ntot_swaps)
+            ):
+                # get neighboring point
+                orb1, orb2 = _gen_neighbor(
+                    rng,
+                    cluster_idx,
+                    cluster_pair_idx,
+                    cluster_npairs_per_orb,
+                    nocc,
+                    ntot_swaps,
+                    nocc_swaps,
+                )
 
-        # get score of neighboring point
-        samples[sample_idx, 1] += diff
+                # evaluate candidate point
+                diff = _score_diff(
+                    orb_pairs, sample, (orb1, orb2), cluster_idx, clusters, nocc
+                )
+
+                # increment number of neighbors
+                nneighbor += 1
+
+            # get score of sample
+            samples[sample_idx, :] = _score(orb_pairs, sample, cluster_types, nocc)
+
+            # get score of neighboring point
+            samples[sample_idx, 1] += diff
 
     # intitialize variables
     starting_temp = 1.0

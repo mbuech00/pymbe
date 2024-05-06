@@ -2019,7 +2019,7 @@ class ExpCls(
 
         # free hashes and increments
         for k in range(self.order):
-            for l in range(order + 1):
+            for l in range(k + 2):
                 self.hashes[k][l].Free()
                 self._free_inc(self.incs[k][l])
 
