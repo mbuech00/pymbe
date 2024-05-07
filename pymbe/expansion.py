@@ -2628,6 +2628,7 @@ class ExpCls(
         """
         this function is the general fci driver function for all calculations
         """
+        print(cas_idx)
         # init fci solver
         solver: Union[
             fci.direct_spin0.FCI,
@@ -2675,6 +2676,19 @@ class ExpCls(
                 ci0[-1][ref_space_addr_a.reshape(-1, 1), ref_space_addr_b] = (
                     sign_a.reshape(-1, 1) * sign_b * civec
                 )
+
+            # guess for root-homing needs to be unpacked and should only include
+            # symmetry-allowed indices
+            guess = np.vstack([x.ravel() for x in ci0])
+            if isinstance(solver, fci.direct_spin0_symm.FCI) or isinstance(
+                solver, fci.direct_spin1_symm.FCI
+            ):
+                sym_allowed_idx = np.hstack(
+                    fci.direct_spin1_symm.sym_allowed_indices(
+                        nelec, solver.orbsym, solver.wfnsym
+                    )
+                )
+                guess = guess[:, sym_allowed_idx]
         else:
             # hf starting guess
             if self.hf_guess:
@@ -2682,6 +2696,32 @@ class ExpCls(
                 ci0[0][0, 0] = 1.0
             else:
                 ci0 = None
+
+        # root homing function
+        def _root_homing(w, v, nroots, envs):
+            """
+            this function only returns those eigenvalues closest to the initial guess
+            """
+            # determine current number of basis vectors
+            space = len(envs["xs"])
+
+            # construct CI vector from effective Hamiltonian eigenvector and basis
+            # functions
+            x0 = np.einsum("c,x->cx", v[space - 1], envs["xs"][space - 1])
+            for i in reversed(range(space - 1)):
+                x0 += np.einsum("c,x->cx", v[i], envs["xs"][i])
+
+            # generate overlap of eigenvector with initial guess
+            s = np.dot(guess, x0.T)
+
+            # get sum of quantum fidelities for every CI vector with all vectors in
+            # initial guess
+            sq_overlaps = np.sum(s**2, axis=0)
+
+            # get indices of eigenvectors with largest quantum fidelity
+            idx = np.argsort(-sq_overlaps)[:nroots]
+
+            return w[idx], v[:, idx], idx
 
         # interface
         def _fci_interface(
@@ -2692,7 +2732,14 @@ class ExpCls(
             """
             # perform calc
             e, c = solver.kernel(
-                h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0, hop=hop
+                h1e,
+                h2e,
+                cas_idx.size,
+                nelec,
+                ecore=e_core,
+                ci0=ci0,
+                hop=hop,
+                pick=_root_homing if ref_guess else None,
             )
 
             # collect results
@@ -2726,7 +2773,6 @@ class ExpCls(
                 sq_overlaps = (
                     np.einsum("Iij,Jij->IJ", self.ref_civec.conj(), inc_ref_civecs) ** 2
                 )
-                norm_states = np.sum(sq_overlaps, axis=1)
 
                 # determine maximum squared overlap and respective root index for every
                 # state
@@ -2738,76 +2784,6 @@ class ExpCls(
                     root_idx[idx[0]] = idx[1]
                     sq_overlaps[idx[0], :] = 0.0
                     sq_overlaps[:, idx[1]] = 0.0
-
-                # define how long the number of roots is to be increased: either until
-                # the root with the maximum squared overlap has been found for every
-                # state or until all roots have been exhausted
-                if nelec[0] == nelec[1]:
-                    # get total number of singlet states
-                    strsa = fci.cistring.gen_strings4orblist(
-                        range(cas_idx.size), nelec[0]
-                    )
-                    airreps = fci.direct_spin1_symm._gen_strs_irrep(
-                        strsa, self.orbsym[cas_idx]
-                    )
-                    sym_allowed = (airreps[:, None] ^ airreps) == wfnsym
-                    max_singlet_roots = (
-                        np.count_nonzero(sym_allowed)
-                        + np.count_nonzero(sym_allowed.diagonal())
-                    ) // 2
-
-                    # norm_states will not tend to 1 because higher spin states can also
-                    # overlap with reference state: check whether the maximum
-                    # number of singlet states has been found for this irrep
-                    def find_roots():
-                        return (
-                            np.any(max_sq_overlaps <= 1 - norm_states)
-                            and solver.nroots < max_singlet_roots
-                        )
-
-                else:
-                    # norm_states will tend to 1 as all states are calculated
-                    def find_roots():
-                        return np.any(max_sq_overlaps <= 1 - norm_states)
-
-                while find_roots() and not wrong_spin:
-                    # calculate additional root
-                    solver.nroots += 1
-
-                    # perform calc
-                    e, c = solver.kernel(
-                        h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=c
-                    )
-                    converged = solver.converged
-
-                    # get coefficients of reference space determinants
-                    inc_ref_civec = (
-                        sign_a.reshape(-1, 1)
-                        * sign_b
-                        * c[-1][ref_space_addr_a.reshape(-1, 1), ref_space_addr_b]
-                    )
-
-                    # get squared overlap with reference space wavefunctions
-                    sq_overlaps = (
-                        np.einsum("Iij,ij->I", self.ref_civec.conj(), inc_ref_civec)
-                        ** 2
-                    )
-                    norm_states += sq_overlaps
-
-                    # check whether squared overlap is larger than current maximum
-                    # squared overlap for any state
-                    larger_sq_overlap = np.where(sq_overlaps > max_sq_overlaps)[0]
-
-                    # save state with the highest squared overlap
-                    if larger_sq_overlap.size > 0:
-                        idx = larger_sq_overlap[
-                            np.argmax(sq_overlaps[larger_sq_overlap])
-                        ]
-                        max_sq_overlaps[idx] = sq_overlaps[idx]
-                        root_idx[idx] = solver.nroots - 1
-                        # multiplicity check
-                        mult = solver.spin_square(c[-1], cas_idx.size, nelec)[1]
-                        wrong_spin = np.abs((spin + 1) - mult) > SPIN_TOL
 
                 # check whether any maximum squared overlap is below threshold
                 min_sq_overlap = np.min(max_sq_overlaps).astype(float)
@@ -2862,9 +2838,9 @@ class ExpCls(
         # add tuple to potential candidates for reference space
         if ref_guess and (
             isinstance(self.ref_thres, float)
+            and self.ref_thres > 0.15
             and min_sq_overlap
-            < self.ref_thres
-            / (1 + np.exp(0.75 * (self.ref_space.size + self.order - 10)))
+            < self.ref_thres - 0.15 + (0.15 / (1 + np.exp(0.75 * (self.order - 8))))
         ):
             # remove all tuples that are not within range
             if len(self.tup_sq_overlaps["overlap"]) > 0:
