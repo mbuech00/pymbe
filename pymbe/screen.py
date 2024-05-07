@@ -410,34 +410,40 @@ def adaptive_screen(
                                 scale=dist_std,
                             )
                             importance /= prev_inc_probs
-                            importance /= np.sum(importance)
-
-                            # draw random samples
-                            try:
-                                samples[dist_idx] = np.concatenate(
-                                    (
-                                        samples[dist_idx],
+                            if np.sum(importance) > 0.0:
+                                # draw random samples
+                                importance /= np.sum(importance)
+                                try:
+                                    samples[dist_idx] = np.concatenate(
+                                        (
+                                            samples[dist_idx],
+                                            rng.choice(
+                                                sample_incs,
+                                                (
+                                                    curr_nsamples // 2,
+                                                    samples[dist_idx].shape[1],
+                                                ),
+                                                replace=True,
+                                                p=importance,
+                                            ),
+                                        ),
+                                        axis=0,
+                                    )
+                                except IndexError:
+                                    samples.append(
                                         rng.choice(
                                             sample_incs,
-                                            (
-                                                curr_nsamples // 2,
-                                                samples[dist_idx].shape[1],
-                                            ),
+                                            (curr_nsamples, min(dist_ntup, max_ntups)),
                                             replace=True,
                                             p=importance,
-                                        ),
-                                    ),
-                                    axis=0,
-                                )
-                            except IndexError:
-                                samples.append(
-                                    rng.choice(
-                                        sample_incs,
-                                        (curr_nsamples, min(dist_ntup, max_ntups)),
-                                        replace=True,
-                                        p=importance,
+                                        )
                                     )
-                                )
+                            else:
+                                # mean is too small
+                                try:
+                                    samples[dist_idx] = np.atleast_2d(0.0)
+                                except IndexError:
+                                    samples.append(np.atleast_2d(0.0))
 
                         # calculate error
                         error = np.quantile(
@@ -453,7 +459,7 @@ def adaptive_screen(
                         )
 
                         # determine if simulation has converged
-                        conv = (
+                        conv = error == 0.0 or (
                             abs(error - prev_error) / error < 0.05
                             and abs(prev_error - prev_error2) / error < 0.05
                         )
