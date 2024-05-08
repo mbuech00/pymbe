@@ -2864,7 +2864,9 @@ class ExpCls(
         # add tuple to potential candidates for reference space
         if ref_guess and (
             isinstance(self.ref_thres, float)
-            and min_sq_overlap < self.ref_thres**self.order
+            and min_sq_overlap
+            < self.ref_thres
+            / (1 + np.exp(0.75 * (self.ref_space.size + self.order - 10)))
         ):
             # remove all tuples that are not within range
             if len(self.tup_sq_overlaps["overlap"]) > 0:
