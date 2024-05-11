@@ -495,42 +495,54 @@ class MBE:
         if self.mpi.global_master:
             clustering_setup(self, max_cluster_size, max_order)
 
-        # initialize convergence boolean
-        converged = False
+        # check if orbital pairs contributions already exist
+        if not os.path.isfile("orb_pairs.npy"):
+            # initialize convergence boolean
+            converged = False
 
-        # start loop over reference spaces
-        while not converged:
+            # start loop over reference spaces
+            while not converged:
+                # calculation setup
+                self = calc_setup(self)
+
+                # initialize exp object
+                if self.target == "energy":
+                    self.exp = EnergyExpCls(self)
+                    self.exp.rst = False
+                    self.exp.closed_form = False
+                    self.exp.screen_type = "fixed"
+                    self.exp.screen_start = max_order
+                    self.exp.screen_perc = 0.0
+                else:
+                    raise NotImplementedError
+
+                if self.mpi.global_master:
+                    # main master driver
+                    converged = self.exp.driver_master(self.mpi)
+
+                    if not converged:
+                        # update reference space
+                        self.ref_space, self.exp_space = ref_space_update(
+                            self.exp.tup_sq_overlaps, self.ref_space, self.exp_space
+                        )
+                        self.restarted = False
+
+                else:
+                    # main slave driver
+                    converged = self.exp.driver_slave(self.mpi)
+
+            # free integrals
+            self.exp.free_ints()
+
+        else:
             # calculation setup
             self = calc_setup(self)
 
             # initialize exp object
             if self.target == "energy":
                 self.exp = EnergyExpCls(self)
-                self.exp.rst = False
-                self.exp.closed_form = False
-                self.exp.screen_type = "fixed"
-                self.exp.screen_start = max_order
-                self.exp.screen_perc = 0.0
             else:
                 raise NotImplementedError
-
-            if self.mpi.global_master:
-                # main master driver
-                converged = self.exp.driver_master(self.mpi)
-
-                if not converged:
-                    # update reference space
-                    self.ref_space, self.exp_space = ref_space_update(
-                        self.exp.tup_sq_overlaps, self.ref_space, self.exp_space
-                    )
-                    self.restarted = False
-
-            else:
-                # main slave driver
-                converged = self.exp.driver_slave(self.mpi)
-
-        # free integrals
-        self.exp.free_ints()
 
         # determine clusters
         exp_clusters = self.exp.cluster_driver(self.mpi, max_cluster_size, max_order)

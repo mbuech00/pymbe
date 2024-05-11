@@ -1930,101 +1930,116 @@ class ExpCls(
             if nclusters > 0
         )
 
-        # initialize orbital pair contributions
-        orb_pairs = np.zeros(2 * (self.exp_space[0].size,), dtype=np.float64)
+        # check if orbital pairs contributions already exist
+        if not os.path.isfile("orb_pairs.npy"):
+            # initialize orbital pair contributions
+            orb_pairs = np.zeros(2 * (self.exp_space[0].size,), dtype=np.float64)
 
-        # mpi barrier
-        mpi.global_comm.Barrier()
+            # mpi barrier
+            mpi.global_comm.Barrier()
 
-        # loop over orders
-        for order in range(1, self.order + 1):
-            # order index
-            k = order - 1
+            # loop over orders
+            for order in range(1, self.order + 1):
+                # order index
+                k = order - 1
 
-            # loop over number of occupied orbitals
-            for tup_nocc in range(order + 1):
-                # occupation index
-                l = tup_nocc
+                # loop over number of occupied orbitals
+                for tup_nocc in range(order + 1):
+                    # occupation index
+                    l = tup_nocc
 
-                # load k-th order hashes and increments
-                hashes = open_shared_win(
-                    self.hashes[k][l], np.int64, (self.n_incs[k][l],)
-                )
-                inc = self._open_shared_inc(
-                    self.incs[k][l], self.n_incs[k][l], order, tup_nocc
-                )
-
-                # check if hashes are available
-                if hashes.size == 0:
-                    continue
-
-                # loop over tuples
-                for tup_idx, tup in enumerate(
-                    tuples_with_nocc(
-                        self.exp_space[0],
-                        None,
-                        self.nocc,
-                        order,
-                        tup_nocc,
-                        cached=True,
+                    # load k-th order hashes and increments
+                    hashes = open_shared_win(
+                        self.hashes[k][l], np.int64, (self.n_incs[k][l],)
                     )
-                ):
-                    # distribute tuples
-                    if tup_idx % mpi.global_size != mpi.global_rank:
+                    inc = self._open_shared_inc(
+                        self.incs[k][l], self.n_incs[k][l], order, tup_nocc
+                    )
+
+                    # check if hashes are available
+                    if hashes.size == 0:
                         continue
 
-                    # symmetry-pruning
-                    if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-                        # add reference space if it is not symmetry-invariant
-                        if self.symm_inv_ref_space:
-                            cas_idx = tup
-                            ref_space = None
-                        else:
-                            cas_idx = cas(self.ref_space, tup)
-                            ref_space = self.ref_space
-
-                        # check if tuple is last symmetrically equivalent tuple
-                        eqv_tup_set = symm_eqv_tup(
-                            cas_idx, self.symm_eqv_orbs[-1], ref_space
+                    # loop over tuples
+                    for tup_idx, tup in enumerate(
+                        tuples_with_nocc(
+                            self.exp_space[0],
+                            None,
+                            self.nocc,
+                            order,
+                            tup_nocc,
+                            cached=True,
                         )
-
-                        # skip tuple if symmetrically equivalent tuple will come later
-                        if eqv_tup_set is None:
+                    ):
+                        # distribute tuples
+                        if tup_idx % mpi.global_size != mpi.global_rank:
                             continue
 
-                    else:
-                        # every tuple is unique without symmetry pruning
-                        eqv_tup_set = set([tuple(tup)])
-
-                    # compute index
-                    idx = hash_lookup(hashes, hash_1d(tup))
-
-                    # sum up order increments
-                    if idx is not None:
-                        inc_tup = inc[idx.item()]
-                    else:
-                        raise RuntimeError("Tuple not found:", tup)
-
-                    # loop over symmetry-equivalent tuples
-                    for orb_tup in eqv_tup_set:
-                        # loop over pairs of orbitals
-                        for pair in combinations(
-                            np.searchsorted(self.exp_space[0], orb_tup), 2
+                        # symmetry-pruning
+                        if (
+                            self.symm_eqv_orbs is not None
+                            and self.eqv_inc_orbs is not None
                         ):
-                            orb_pairs[pair[0], pair[1]] += np.abs(inc_tup)
-                            orb_pairs[pair[1], pair[0]] += np.abs(inc_tup)
+                            # add reference space if it is not symmetry-invariant
+                            if self.symm_inv_ref_space:
+                                cas_idx = tup
+                                ref_space = None
+                            else:
+                                cas_idx = cas(self.ref_space, tup)
+                                ref_space = self.ref_space
 
-        # mpi barrier
-        mpi.global_comm.Barrier()
+                            # check if tuple is last symmetrically equivalent tuple
+                            eqv_tup_set = symm_eqv_tup(
+                                cas_idx, self.symm_eqv_orbs[-1], ref_space
+                            )
 
-        # free hashes and increments
-        for k in range(self.order):
-            for l in range(k + 2):
-                self.hashes[k][l].Free()
-                self._free_inc(self.incs[k][l])
+                            # skip tuple if symmetrically equivalent tuple will come
+                            # later
+                            if eqv_tup_set is None:
+                                continue
 
-        # reduce orbital pairs
-        orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
+                        else:
+                            # every tuple is unique without symmetry pruning
+                            eqv_tup_set = set([tuple(tup)])
+
+                        # compute index
+                        idx = hash_lookup(hashes, hash_1d(tup))
+
+                        # sum up order increments
+                        if idx is not None:
+                            inc_tup = inc[idx.item()]
+                        else:
+                            raise RuntimeError("Tuple not found:", tup)
+
+                        # loop over symmetry-equivalent tuples
+                        for orb_tup in eqv_tup_set:
+                            # loop over pairs of orbitals
+                            for pair in combinations(
+                                np.searchsorted(self.exp_space[0], orb_tup), 2
+                            ):
+                                orb_pairs[pair[0], pair[1]] += np.abs(inc_tup)
+                                orb_pairs[pair[1], pair[0]] += np.abs(inc_tup)
+
+            # mpi barrier
+            mpi.global_comm.Barrier()
+
+            # free hashes and increments
+            for k in range(self.order):
+                for l in range(k + 2):
+                    self.hashes[k][l].Free()
+                    self._free_inc(self.incs[k][l])
+
+            # reduce orbital pairs
+            orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
+
+            # save file
+            if mpi.global_master and self.rst:
+                np.save("orb_pairs.npy", orb_pairs)
+
+        else:
+            # load file
+            if mpi.global_master:
+                orb_pairs = np.load("orb_pairs.npy")
 
         exp_clusters: Optional[List[np.ndarray]]
 
