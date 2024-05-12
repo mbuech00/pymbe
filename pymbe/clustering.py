@@ -17,6 +17,7 @@ __status__ = "Development"
 import numpy as np
 from math import exp, log
 from itertools import combinations
+from pyscf import symm
 from typing import TYPE_CHECKING
 
 from pymbe.logger import logger
@@ -41,7 +42,107 @@ TARGET_ACCEPT_PROB = 0.99
 MAX_ITERATIONS = 100000
 
 
-def simulated_annealing(
+def cluster_driver(
+    max_cluster_size: int,
+    max_order: int,
+    orb_pairs: np.ndarray,
+    exp_space: np.ndarray,
+    nocc: int,
+    point_group: str,
+    orbsym: np.ndarray,
+) -> List[np.ndarray]:
+    """
+    this function is the mbe main function
+    """
+    # number of occupied and virtual orbitals in expansion space
+    exp_nocc = (exp_space < nocc).sum()
+
+    # get number of clusters
+    ncluster = -(exp_space.size // -max_cluster_size)
+
+    # get cluster size
+    cluster_size = -(exp_space.size // -ncluster)
+
+    # number of larger and smaller clusters
+    ncluster_large = exp_space.size - ncluster * (cluster_size - 1)
+    ncluster_small = ncluster - ncluster_large
+
+    # maximum number of occupied orbitals per cluster
+    cluster_nocc = -(exp_nocc // -ncluster)
+
+    # number of clusters with occupation cluster_nocc
+    ncluster_high = exp_nocc - ncluster * (cluster_nocc - 1)
+
+    # clusters with cluster_size and cluster_nocc
+    ncluster_large_high = min(ncluster_large, ncluster_high)
+
+    # clusters with cluster_size and cluster_nocc - 1
+    ncluster_large_low = max(ncluster_large - ncluster_high, 0)
+
+    # clusters with cluster_size - 1 and cluster_nocc
+    if ncluster_large_low == 0:
+        ncluster_small_high = ncluster_high - ncluster_large_high
+    else:
+        ncluster_small_high = 0
+
+    # clusters with cluster_size - 1 and cluster_nocc - 1
+    ncluster_small_low = ncluster_small - ncluster_small_high
+
+    # different cluster types
+    cluster_types: Tuple[Tuple[int, int, int], ...] = (
+        (cluster_size, cluster_nocc, ncluster_large_high),
+        (cluster_size, cluster_nocc - 1, ncluster_large_low),
+        (cluster_size - 1, cluster_nocc, ncluster_small_high),
+        (cluster_size - 1, cluster_nocc - 1, ncluster_small_low),
+    )
+    cluster_types = tuple(
+        (size, nocc, nclusters)
+        for size, nocc, nclusters in cluster_types
+        if nclusters > 0
+    )
+
+    # simulated annealing to determine optimal orbital clusters
+    exp_clusters = _simulated_annealing(
+        orb_pairs, cluster_types, ncluster, exp_nocc, exp_space.size, exp_space
+    )
+
+    # log orbital clusters
+    symm_header = "Cluster symmetries"
+    orb_header = "Cluster orbitals"
+    symm_len = len(symm_header)
+    orb_len = len(orb_header)
+    for cluster in exp_clusters:
+        symm_len = max(
+            symm_len,
+            len(
+                ", ".join(
+                    [
+                        symm.addons.irrep_id2name(point_group, orb)
+                        for orb in orbsym[cluster]
+                    ]
+                )
+            ),
+        )
+        orb_len = max(orb_len, len(", ".join(map(str, cluster))))
+    logger.info2(" " + (19 + orb_len + symm_len) * "-")
+    logger.info2(
+        f"  Cluster No. | {orb_header:^{orb_len}} | {symm_header:^{symm_len}} "
+    )
+    logger.info2(" " + (19 + orb_len + symm_len) * "-")
+    for cluster_idx, cluster in enumerate(exp_clusters):
+        symm_str = ", ".join(
+            [symm.addons.irrep_id2name(point_group, orb) for orb in orbsym[cluster]]
+        )
+        orb_str = ", ".join(map(str, cluster))
+        logger.info2(
+            f"  {cluster_idx:11} | {orb_str:>{orb_len}} | " f"{symm_str:>{symm_len}} "
+        )
+    logger.info2(" " + (19 + orb_len + symm_len) * "-")
+
+    return exp_clusters
+
+
+def _simulated_annealing(
     orb_pairs: np.ndarray,
     cluster_types: Tuple[Tuple[int, int, int], ...],
     tot_ncluster: int,

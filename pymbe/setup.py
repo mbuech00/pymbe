@@ -102,6 +102,17 @@ def clustering_setup(mbe: MBE, max_cluster_size: int, max_order: int):
     # sanity check
     sanity_check(mbe)
 
+    # write restart files
+    if mbe.rst and not mbe.restarted:
+        # create restart folder
+        os.mkdir(RST)
+
+        # write keywords
+        restart_write_kw(mbe)
+
+        # write system quantities
+        restart_write_system(mbe)
+
 
 def sanity_check(mbe: MBE) -> None:
     """

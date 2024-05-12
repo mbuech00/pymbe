@@ -35,7 +35,8 @@ from pymbe.dipole import DipoleExpCls
 from pymbe.trans import TransExpCls
 from pymbe.rdm12 import ssRDMExpCls, saRDMExpCls
 from pymbe.genfock import ssGenFockExpCls, saGenFockExpCls
-from pymbe.tools import RST, ground_state_sym
+from pymbe.tools import RST, ground_state_sym, write_file
+from pymbe.clustering import cluster_driver
 
 if TYPE_CHECKING:
     from typing import Union, Optional, Tuple, List, Dict
@@ -479,10 +480,6 @@ class MBE:
         this function clusters the expansion space orbitals up to some given cluster
         size
         """
-        # do not generate clusters if restart folder exists
-        if os.path.isdir(RST):
-            return None
-
         # sanity check
         if not isinstance(max_cluster_size, int):
             raise TypeError("maximum cluster size (first argument) must be an integer")
@@ -496,7 +493,7 @@ class MBE:
             clustering_setup(self, max_cluster_size, max_order)
 
         # check if orbital pairs contributions already exist
-        if not os.path.isfile("orb_pairs.npy"):
+        if not os.path.isfile(os.path.join(RST, "orb_pairs.npy")):
             # initialize convergence boolean
             converged = False
 
@@ -534,24 +531,36 @@ class MBE:
             # free integrals
             self.exp.free_ints()
 
-        else:
-            # calculation setup
-            self = calc_setup(self)
+        # check if orbital pairs contributions already exist
+        if hasattr(self, "exp"):
+            orb_pairs = self.exp.get_pair_contributions(self.mpi)
 
-            # initialize exp object
-            if self.target == "energy":
-                self.exp = EnergyExpCls(self)
-            else:
-                raise NotImplementedError
+            # save file
+            if self.mpi.global_master and self.rst:
+                write_file(orb_pairs, "orb_pairs")
+
+        else:
+            # load file
+            if self.mpi.global_master:
+                orb_pairs = np.load(os.path.join(RST, "orb_pairs.npy"))
 
         # determine clusters
-        exp_clusters = self.exp.cluster_driver(self.mpi, max_cluster_size, max_order)
+        if self.mpi.global_master:
+            self.exp_space = cluster_driver(
+                max_cluster_size,
+                max_order,
+                orb_pairs,
+                np.hstack(self.exp_space),
+                max(self.nelec),
+                self.point_group,
+                (
+                    self.orbsym
+                    if isinstance(self.orbsym, np.ndarray)
+                    else np.zeros(self.norb, dtype=np.int64)
+                ),
+            )
 
-        # set expansion space
-        if isinstance(exp_clusters, list):
-            self.exp_space = exp_clusters
-
-        return self.exp_space
+        return getattr(self, "exp_space", None)
 
     def results(self) -> str:
         """

@@ -84,7 +84,6 @@ from pymbe.tools import (
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
 from pymbe.screen import fixed_screen
-from pymbe.clustering import simulated_annealing
 
 if TYPE_CHECKING:
     from pyscf import gto
@@ -1877,224 +1876,104 @@ class ExpCls(
 
         return
 
-    def cluster_driver(
-        self, mpi: MPICls, max_cluster_size: int, max_order: int
-    ) -> Optional[List[np.ndarray]]:
+    def get_pair_contributions(self, mpi: MPICls) -> np.ndarray:
         """
-        this function is the mbe main function
+        this function extracts all pair contributions from the hashes and increment
+        arrays
         """
-        # number of occupied and virtual orbitals in expansion space
-        exp_nocc = (self.exp_space[0] < self.nocc).sum()
+        # initialize orbital pair contributions
+        orb_pairs = np.zeros(2 * (self.exp_space[0].size,), dtype=np.float64)
 
-        # get number of clusters
-        ncluster = -(self.exp_space[0].size // -max_cluster_size)
+        # mpi barrier
+        mpi.global_comm.Barrier()
 
-        # get cluster size
-        cluster_size = -(self.exp_space[0].size // -ncluster)
+        # loop over orders
+        for order in range(1, self.order + 1):
+            # order index
+            k = order - 1
 
-        # number of larger and smaller clusters
-        ncluster_large = self.exp_space[0].size - ncluster * (cluster_size - 1)
-        ncluster_small = ncluster - ncluster_large
+            # loop over number of occupied orbitals
+            for tup_nocc in range(order + 1):
+                # occupation index
+                l = tup_nocc
 
-        # maximum number of occupied orbitals per cluster
-        cluster_nocc = -(exp_nocc // -ncluster)
+                # load k-th order hashes and increments
+                hashes = open_shared_win(
+                    self.hashes[k][l], np.int64, (self.n_incs[k][l],)
+                )
+                inc = self._open_shared_inc(
+                    self.incs[k][l], self.n_incs[k][l], order, tup_nocc
+                )
 
-        # number of clusters with occupation cluster_nocc
-        ncluster_high = exp_nocc - ncluster * (cluster_nocc - 1)
+                # check if hashes are available
+                if hashes.size == 0:
+                    continue
 
-        # clusters with cluster_size and cluster_nocc
-        ncluster_large_high = min(ncluster_large, ncluster_high)
-
-        # clusters with cluster_size and cluster_nocc - 1
-        ncluster_large_low = max(ncluster_large - ncluster_high, 0)
-
-        # clusters with cluster_size - 1 and cluster_nocc
-        if ncluster_large_low == 0:
-            ncluster_small_high = ncluster_high - ncluster_large_high
-        else:
-            ncluster_small_high = 0
-
-        # clusters with cluster_size - 1 and cluster_nocc - 1
-        ncluster_small_low = ncluster_small - ncluster_small_high
-
-        # different cluster types
-        cluster_types: Tuple[Tuple[int, int, int], ...] = (
-            (cluster_size, cluster_nocc, ncluster_large_high),
-            (cluster_size, cluster_nocc - 1, ncluster_large_low),
-            (cluster_size - 1, cluster_nocc, ncluster_small_high),
-            (cluster_size - 1, cluster_nocc - 1, ncluster_small_low),
-        )
-        cluster_types = tuple(
-            (size, nocc, nclusters)
-            for size, nocc, nclusters in cluster_types
-            if nclusters > 0
-        )
-
-        # check if orbital pairs contributions already exist
-        if not os.path.isfile("orb_pairs.npy"):
-            # initialize orbital pair contributions
-            orb_pairs = np.zeros(2 * (self.exp_space[0].size,), dtype=np.float64)
-
-            # mpi barrier
-            mpi.global_comm.Barrier()
-
-            # loop over orders
-            for order in range(1, self.order + 1):
-                # order index
-                k = order - 1
-
-                # loop over number of occupied orbitals
-                for tup_nocc in range(order + 1):
-                    # occupation index
-                    l = tup_nocc
-
-                    # load k-th order hashes and increments
-                    hashes = open_shared_win(
-                        self.hashes[k][l], np.int64, (self.n_incs[k][l],)
+                # loop over tuples
+                for tup_idx, tup in enumerate(
+                    tuples_with_nocc(
+                        self.exp_space[0], None, self.nocc, order, tup_nocc, cached=True
                     )
-                    inc = self._open_shared_inc(
-                        self.incs[k][l], self.n_incs[k][l], order, tup_nocc
-                    )
-
-                    # check if hashes are available
-                    if hashes.size == 0:
+                ):
+                    # distribute tuples
+                    if tup_idx % mpi.global_size != mpi.global_rank:
                         continue
 
-                    # loop over tuples
-                    for tup_idx, tup in enumerate(
-                        tuples_with_nocc(
-                            self.exp_space[0],
-                            None,
-                            self.nocc,
-                            order,
-                            tup_nocc,
-                            cached=True,
+                    # symmetry-pruning
+                    if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
+                        # add reference space if it is not symmetry-invariant
+                        if self.symm_inv_ref_space:
+                            cas_idx = tup
+                            ref_space = None
+                        else:
+                            cas_idx = cas(self.ref_space, tup)
+                            ref_space = self.ref_space
+
+                        # check if tuple is last symmetrically equivalent tuple
+                        eqv_tup_set = symm_eqv_tup(
+                            cas_idx, self.symm_eqv_orbs[-1], ref_space
                         )
-                    ):
-                        # distribute tuples
-                        if tup_idx % mpi.global_size != mpi.global_rank:
+
+                        # skip tuple if symmetrically equivalent tuple will come
+                        # later
+                        if eqv_tup_set is None:
                             continue
 
-                        # symmetry-pruning
-                        if (
-                            self.symm_eqv_orbs is not None
-                            and self.eqv_inc_orbs is not None
+                    else:
+                        # every tuple is unique without symmetry pruning
+                        eqv_tup_set = set([tuple(tup)])
+
+                    # compute index
+                    idx = hash_lookup(hashes, hash_1d(tup))
+
+                    # sum up order increments
+                    if idx is not None:
+                        inc_tup = inc[idx.item()]
+                    else:
+                        raise RuntimeError("Tuple not found:", tup)
+
+                    # loop over symmetry-equivalent tuples
+                    for orb_tup in eqv_tup_set:
+                        # loop over pairs of orbitals
+                        for pair in combinations(
+                            np.searchsorted(self.exp_space[0], orb_tup), 2
                         ):
-                            # add reference space if it is not symmetry-invariant
-                            if self.symm_inv_ref_space:
-                                cas_idx = tup
-                                ref_space = None
-                            else:
-                                cas_idx = cas(self.ref_space, tup)
-                                ref_space = self.ref_space
+                            orb_pairs[pair[0], pair[1]] += np.abs(inc_tup)
+                            orb_pairs[pair[1], pair[0]] += np.abs(inc_tup)
 
-                            # check if tuple is last symmetrically equivalent tuple
-                            eqv_tup_set = symm_eqv_tup(
-                                cas_idx, self.symm_eqv_orbs[-1], ref_space
-                            )
+        # mpi barrier
+        mpi.global_comm.Barrier()
 
-                            # skip tuple if symmetrically equivalent tuple will come
-                            # later
-                            if eqv_tup_set is None:
-                                continue
+        # free hashes and increments
+        for k in range(self.order):
+            for l in range(k + 2):
+                self.hashes[k][l].Free()
+                self._free_inc(self.incs[k][l])
 
-                        else:
-                            # every tuple is unique without symmetry pruning
-                            eqv_tup_set = set([tuple(tup)])
+        # reduce orbital pairs
+        orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
 
-                        # compute index
-                        idx = hash_lookup(hashes, hash_1d(tup))
-
-                        # sum up order increments
-                        if idx is not None:
-                            inc_tup = inc[idx.item()]
-                        else:
-                            raise RuntimeError("Tuple not found:", tup)
-
-                        # loop over symmetry-equivalent tuples
-                        for orb_tup in eqv_tup_set:
-                            # loop over pairs of orbitals
-                            for pair in combinations(
-                                np.searchsorted(self.exp_space[0], orb_tup), 2
-                            ):
-                                orb_pairs[pair[0], pair[1]] += np.abs(inc_tup)
-                                orb_pairs[pair[1], pair[0]] += np.abs(inc_tup)
-
-            # mpi barrier
-            mpi.global_comm.Barrier()
-
-            # free hashes and increments
-            for k in range(self.order):
-                for l in range(k + 2):
-                    self.hashes[k][l].Free()
-                    self._free_inc(self.incs[k][l])
-
-            # reduce orbital pairs
-            orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
-
-            # save file
-            if mpi.global_master and self.rst:
-                np.save("orb_pairs.npy", orb_pairs)
-
-        else:
-            # load file
-            if mpi.global_master:
-                orb_pairs = np.load("orb_pairs.npy")
-
-        exp_clusters: Optional[List[np.ndarray]]
-
-        if mpi.global_master:
-            # simulated annealing to determine optimal orbital clusters
-            exp_clusters = simulated_annealing(
-                orb_pairs,
-                cluster_types,
-                ncluster,
-                exp_nocc,
-                self.exp_space[0].size,
-                self.exp_space[0],
-            )
-
-            # log orbital clusters
-            symm_header = "Cluster symmetries"
-            orb_header = "Cluster orbitals"
-            symm_len = len(symm_header)
-            orb_len = len(orb_header)
-            for cluster in exp_clusters:
-                symm_len = max(
-                    symm_len,
-                    len(
-                        ", ".join(
-                            [
-                                symm.addons.irrep_id2name(self.point_group, orb)
-                                for orb in self.orbsym[cluster]
-                            ]
-                        )
-                    ),
-                )
-                orb_len = max(orb_len, len(", ".join(map(str, cluster))))
-            logger.info2(" " + (19 + orb_len + symm_len) * "-")
-            logger.info2(
-                f"  Cluster No. | {orb_header:^{orb_len}} | {symm_header:^{symm_len}} "
-            )
-            logger.info2(" " + (19 + orb_len + symm_len) * "-")
-            for cluster_idx, cluster in enumerate(exp_clusters):
-                symm_str = ", ".join(
-                    [
-                        symm.addons.irrep_id2name(self.point_group, orb)
-                        for orb in self.orbsym[cluster]
-                    ]
-                )
-                orb_str = ", ".join(map(str, cluster))
-                logger.info2(
-                    f"  {cluster_idx:11} | {orb_str:>{orb_len}} | "
-                    f"{symm_str:>{symm_len}} "
-                )
-            logger.info2(" " + (19 + orb_len + symm_len) * "-")
-
-        else:
-            exp_clusters = None
-
-        return exp_clusters
+        return orb_pairs
 
     def _mbe_restart(self) -> None:
         """
