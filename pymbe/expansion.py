@@ -19,7 +19,7 @@ import numpy as np
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
 from itertools import combinations
-from pyscf import gto, scf, cc, fci, symm
+from pyscf import gto, scf, cc, fci
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union, Dict
 
 from pymbe.logger import logger
@@ -66,7 +66,7 @@ from pymbe.tools import (
     e_core_h1e,
     symm_eqv_tup,
     symm_eqv_inc,
-    get_lex_cas,
+    get_lex_tup,
     is_lex_tup,
     apply_symm_op,
     reduce_symm_eqv_orbs,
@@ -312,36 +312,65 @@ class ExpCls(
         # localized orbital symmetry
         self.nsymm = 0
         self.symm_eqv_orbs: Optional[List[List[Dict[int, Tuple[int, ...]]]]] = None
-        self.symm_inv_ref_space = False
+        self.cluster_dict: Optional[Dict[int, Tuple[int, ...]]] = None
+        self.non_symm_inv_ref_space: Optional[np.ndarray] = self.ref_space
         self.eqv_inc_orbs: Optional[List[np.ndarray]] = None
         if (
             mbe.orb_type == "local"
             and isinstance(mbe.orbsym, list)
-            and all([isinstance(symm_op, dict) for symm_op in mbe.orbsym])
+            and all([isinstance(symm_op, list) for symm_op in mbe.orbsym])
         ):
+            # only create symmetry information
             if self.target not in ["rdm12", "genfock"]:
+                # order of the point group
                 self.nsymm = len(mbe.orbsym)
+
+                # only keep reference and expansion space orbitals in dictionaries for
+                # symmetry operations
                 self.symm_eqv_orbs = [
                     reduce_symm_eqv_orbs(
-                        mbe.orbsym, cas(self.ref_space, self.exp_space[0])
+                        [
+                            {orb: tup[1] for tup in symm_op for orb in tup[0]}
+                            for symm_op in mbe.orbsym
+                        ],
+                        cas(self.ref_space, self.exp_space[0]),
                     )
                 ]
-                self.symm_inv_ref_space = True
+
+                # create dictionary of clusters for every orbital which is needed to
+                # ensure all clusters are completely contained in tuple after symmetry
+                # operation was applied
+                if not self.exp_single_orbs:
+                    self.cluster_dict = {}
+                    for orb in self.exp_space[0]:
+                        for cluster in self.exp_clusters[0]:
+                            if orb in cluster:
+                                break
+                        self.cluster_dict[orb] = tuple(cluster)
+
+                # check if reference space is symmetry-invariant
+                self.non_symm_inv_ref_space = None
                 for symm_op in self.symm_eqv_orbs[0]:
                     perm_ref_space: Optional[np.ndarray]
-                    if self.ref_space.size == 0:
-                        perm_ref_space = np.array([], dtype=np.int64)
-                    else:
-                        perm_ref_space = apply_symm_op(symm_op, self.ref_space)
-                    if perm_ref_space is None or not np.array_equal(
-                        np.sort(mbe.ref_space), np.sort(perm_ref_space)
-                    ):
-                        self.symm_inv_ref_space = False
-                        break
-                if self.symm_inv_ref_space:
+                    if self.ref_space.size > 0:
+                        perm_ref_space = apply_symm_op(
+                            symm_op, self.ref_space, None, None
+                        )
+                        if perm_ref_space is None or not np.array_equal(
+                            np.sort(mbe.ref_space), np.sort(perm_ref_space)
+                        ):
+                            self.non_symm_inv_ref_space = self.ref_space
+                            break
+
+                # remove reference space orbitals from dictionaries for symmetry
+                # operations if reference space is symmetry-invariant
+                if self.non_symm_inv_ref_space is None:
                     self.symm_eqv_orbs[0] = reduce_symm_eqv_orbs(
-                        mbe.orbsym, self.exp_space[0]
+                        self.symm_eqv_orbs[0], self.exp_space[0]
                     )
+
+                # create arrays for single-orbital permutations which are required for
+                # symmetry-equivalent increments
                 self.eqv_inc_orbs = [
                     get_eqv_inc_orbs(self.symm_eqv_orbs[0], self.nsymm, self.norb)
                 ]
@@ -981,12 +1010,8 @@ class ExpCls(
             for exp_space in self.exp_space:
                 self.symm_eqv_orbs.append(
                     reduce_symm_eqv_orbs(
-                        self.symm_eqv_orbs[-1],
-                        (
-                            exp_space
-                            if self.symm_inv_ref_space
-                            else cas(self.ref_space, exp_space)
-                        ),
+                        self.symm_eqv_orbs[-1],  #
+                        cas(self.non_symm_inv_ref_space, exp_space),
                     )
                 )
                 self.eqv_inc_orbs.append(
@@ -1093,15 +1118,12 @@ class ExpCls(
 
                         # symmetry-pruning
                         elif self.eqv_inc_orbs is not None:
-                            # add reference space if it is not symmetry-invariant
-                            if self.symm_inv_ref_space:
-                                cas_idx = tup
-                                ref_space = None
-                            else:
-                                cas_idx = cas(self.ref_space, tup)
-                                ref_space = self.ref_space
-
-                            if is_lex_tup(cas_idx, self.eqv_inc_orbs[-1], ref_space):
+                            if is_lex_tup(
+                                cas(self.non_symm_inv_ref_space, tup),
+                                self.eqv_inc_orbs[-1],
+                                self.non_symm_inv_ref_space,
+                                self.cluster_dict,
+                            ):
                                 ntuples[tup_nocc] += 1
 
                 # get total number of non-redundant increments
@@ -1417,17 +1439,12 @@ class ExpCls(
 
                 # symmetry-pruning
                 if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-                    # add reference space if it is not symmetry-invariant
-                    if self.symm_inv_ref_space:
-                        cas_idx = tup
-                        ref_space = None
-                    else:
-                        cas_idx = cas(self.ref_space, tup)
-                        ref_space = self.ref_space
-
                     # check if tuple is last symmetrically equivalent tuple
                     eqv_tup_set = symm_eqv_tup(
-                        cas_idx, self.symm_eqv_orbs[-1], ref_space
+                        tup,
+                        self.symm_eqv_orbs[-1],
+                        self.non_symm_inv_ref_space,
+                        self.cluster_dict,
                     )
 
                     # skip calculation if symmetrically equivalent tuple will come later
@@ -1436,7 +1453,7 @@ class ExpCls(
 
                     # check for symmetrically equivalent increments
                     eqv_inc_lex_tup, eqv_inc_set = symm_eqv_inc(
-                        self.eqv_inc_orbs[-1], eqv_tup_set, ref_space
+                        self.eqv_inc_orbs[-1], eqv_tup_set, self.non_symm_inv_ref_space
                     )
 
                 else:
@@ -1770,17 +1787,12 @@ class ExpCls(
 
                 # symmetry-pruning
                 if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-                    # add reference space if it is not symmetry-invariant
-                    if self.symm_inv_ref_space:
-                        cas_idx = tup
-                        ref_space = None
-                    else:
-                        cas_idx = cas(self.ref_space, tup)
-                        ref_space = self.ref_space
-
                     # check if tuple is last symmetrically equivalent tuple
                     eqv_tup_set = symm_eqv_tup(
-                        cas_idx, self.symm_eqv_orbs[-1], ref_space
+                        tup,
+                        self.symm_eqv_orbs[-1],
+                        self.non_symm_inv_ref_space,
+                        self.cluster_dict,
                     )
 
                     # skip calculation if symmetrically equivalent tuple will come later
@@ -1912,7 +1924,7 @@ class ExpCls(
                 # loop over tuples
                 for tup_idx, tup in enumerate(
                     tuples_with_nocc(
-                        self.exp_space[0], None, self.nocc, order, tup_nocc, cached=True
+                        self.exp_space[k], None, self.nocc, order, tup_nocc, cached=True
                     )
                 ):
                     # distribute tuples
@@ -1921,17 +1933,12 @@ class ExpCls(
 
                     # symmetry-pruning
                     if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-                        # add reference space if it is not symmetry-invariant
-                        if self.symm_inv_ref_space:
-                            cas_idx = tup
-                            ref_space = None
-                        else:
-                            cas_idx = cas(self.ref_space, tup)
-                            ref_space = self.ref_space
-
                         # check if tuple is last symmetrically equivalent tuple
                         eqv_tup_set = symm_eqv_tup(
-                            cas_idx, self.symm_eqv_orbs[-1], ref_space
+                            tup,
+                            self.symm_eqv_orbs[k],
+                            self.non_symm_inv_ref_space,
+                            self.cluster_dict,
                         )
 
                         # skip tuple if symmetrically equivalent tuple will come
@@ -2190,11 +2197,7 @@ class ExpCls(
             self.symm_eqv_orbs.append(
                 reduce_symm_eqv_orbs(
                     self.symm_eqv_orbs[-1],
-                    (
-                        self.exp_space[-1]
-                        if self.symm_inv_ref_space
-                        else cas(self.ref_space, self.exp_space[-1])
-                    ),
+                    cas(self.non_symm_inv_ref_space, self.exp_space[-1]),
                 )
             )
             self.eqv_inc_orbs.append(
@@ -2297,30 +2300,27 @@ class ExpCls(
                     # symmetry-pruning
                     if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
                         # add reference space if it is not symmetry-invariant
-                        if self.symm_inv_ref_space:
-                            cas_idx = tup
-                            ref_space = None
-                        else:
-                            cas_idx = cas(self.ref_space, tup)
-                            ref_space = self.ref_space
+                        cas_idx = cas(self.non_symm_inv_ref_space, tup)
 
                         # check if tuple is last symmetrically equivalent tuple
-                        lex_tup = is_lex_tup(cas_idx, self.eqv_inc_orbs[-1], ref_space)
+                        lex_tup = is_lex_tup(
+                            cas_idx,
+                            self.eqv_inc_orbs[-1],
+                            self.non_symm_inv_ref_space,
+                            self.cluster_dict,
+                        )
 
                         # skip tuple if symmetrically equivalent tuple will come later
                         if not lex_tup:
                             continue
 
                         # get lexicographically greatest tuple using last order symmetry
-                        lex_cas = get_lex_cas(cas_idx, self.eqv_inc_orbs[-2], ref_space)
-
-                        # remove reference space if it is not symmetry-invariant
-                        if self.symm_inv_ref_space:
-                            tup_last = lex_cas
-                        else:
-                            tup_last = np.setdiff1d(
-                                lex_cas, self.ref_space, assume_unique=True
-                            )
+                        tup_last = get_lex_tup(
+                            cas_idx,
+                            self.eqv_inc_orbs[-2],
+                            self.non_symm_inv_ref_space,
+                            self.cluster_dict,
+                        )
 
                     else:
                         # no redundant tuples
@@ -3240,26 +3240,13 @@ class ExpCls(
 
                     # symmetry-pruning
                     if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-                        # add reference space if it is not symmetry-invariant
-                        if self.symm_inv_ref_space:
-                            cas_idx = tup
-                            ref_space = None
-                        else:
-                            cas_idx = cas(self.ref_space, tup)
-                            ref_space = self.ref_space
-
                         # get lexicographically greatest tuple
-                        lex_cas = get_lex_cas(cas_idx, self.eqv_inc_orbs[-1], ref_space)
-
-                        # remove reference space if it is not symmetry-invariant
-                        if self.symm_inv_ref_space:
-                            tup_last = lex_cas
-                        else:
-                            tup_last = np.setdiff1d(
-                                lex_cas,
-                                self.ref_space,
-                                assume_unique=True,
-                            )
+                        tup_last = get_lex_tup(
+                            cas(self.non_symm_inv_ref_space, tup),
+                            self.eqv_inc_orbs[-1],
+                            self.non_symm_inv_ref_space,
+                            self.cluster_dict,
+                        )
 
                     else:
                         # no redundant tuples
@@ -3392,26 +3379,13 @@ class SingleTargetExpCls(
 
                         # symmetry-pruning
                         if self.eqv_inc_orbs is not None:
-                            # add reference space if it is not symmetry-invariant
-                            if self.symm_inv_ref_space:
-                                ref_space = None
-                                cas_idx = tup_sub
-                            else:
-                                ref_space = self.ref_space
-                                cas_idx = cas(self.ref_space, tup_sub)
-
                             # get lexicographically greatest tuple
-                            lex_cas = get_lex_cas(
-                                cas_idx, self.eqv_inc_orbs[-1], ref_space
+                            tup_sub = get_lex_tup(
+                                cas(self.non_symm_inv_ref_space, tup_sub),
+                                self.eqv_inc_orbs[-1],
+                                self.non_symm_inv_ref_space,
+                                self.cluster_dict,
                             )
-
-                            # remove reference space if it is not symmetry-invariant
-                            if self.symm_inv_ref_space:
-                                tup_sub = lex_cas
-                            else:
-                                tup_sub = np.setdiff1d(
-                                    lex_cas, self.ref_space, assume_unique=True
-                                )
 
                         # compute index
                         idx = hash_lookup(

@@ -75,7 +75,8 @@ def general_setup(mbe: MBE):
     # write restart files
     if mbe.rst and not mbe.restarted:
         # create restart folder
-        os.mkdir(RST)
+        if not os.path.isdir(RST):
+            os.mkdir(RST)
 
         # write keywords
         restart_write_kw(mbe)
@@ -209,14 +210,25 @@ def sanity_check(mbe: MBE) -> None:
         and (isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.dtype == np.int64)
         or (
             isinstance(mbe.orbsym, list)
-            and all([isinstance(symm_op, dict) for symm_op in mbe.orbsym])
+            and all([isinstance(symm_op, list) for symm_op in mbe.orbsym])
             and all(
                 [
                     [
-                        isinstance(orb, int)
-                        and isinstance(tup, tuple)
-                        and all([isinstance(orb, int) for orb in tup])
-                        for orb, tup in symm_op.items()
+                        isinstance(tup, tuple)
+                        and len(tup) == 2
+                        and isinstance(tup[0], tuple)
+                        and isinstance(tup[1], tuple)
+                        for tup in symm_op
+                    ]
+                    for symm_op in mbe.orbsym
+                ]
+            )
+            and all(
+                [
+                    [
+                        [isinstance(orb, int) for orb in tup[0]]
+                        + [isinstance(orb, int) for orb in tup[1]]
+                        for tup in symm_op
                     ]
                     for symm_op in mbe.orbsym
                 ]
@@ -225,20 +237,12 @@ def sanity_check(mbe: MBE) -> None:
     ):
         raise TypeError(
             "orbital symmetry (orbsym keyword argument) must be a np.ndarray of ints "
-            "or a list of symmetry operation dictionaries with orbital index ints as "
-            "keys and tuples of orbital index ints that this orbital transforms into "
-            "as values"
+            "or a list of symmetry operation lists of permutation tuples of two tuples "
+            "with orbital index ints"
         )
     if isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.shape != (mbe.norb,):
         raise ValueError(
             "orbital symmetry (orbsym keyword argument) must have shape (norb,)"
-        )
-    if isinstance(mbe.orbsym, list) and any(
-        [len(symm_op) != mbe.norb for symm_op in mbe.orbsym]
-    ):
-        raise ValueError(
-            "orbital symmetry (orbsym keyword argument) must be a list of symmetry "
-            "operation dictionaries of length norb"
         )
     if not (
         isinstance(mbe.fci_state_sym, (str, int))
@@ -962,7 +966,6 @@ def restart_write_system(mbe: MBE) -> None:
     system = [
         "norb",
         "nelec",
-        "orbsym",
         "hcore",
         "eri",
         "ref_space",
@@ -977,6 +980,13 @@ def restart_write_system(mbe: MBE) -> None:
         "eri_gaao",
         "eri_gaaa",
     ]
+
+    # deal with localized orbital symmetry
+    if isinstance(mbe.orbsym, np.ndarray):
+        system.append("orbsym")
+    else:
+        with open(os.path.join(RST, "orbsym_local.rst"), "w") as f:
+            dump(mbe.orbsym, f)
 
     # put keyword attributes that exist into dictionary
     system_dict = {}
@@ -1013,10 +1023,6 @@ def restart_read_system(mbe: MBE) -> MBE:
         if value.ndim == 0:
             system[key] = value.item()
 
-    # revert to list
-    if system["orbsym"].dtype == object:
-        system["orbsym"] = list(system["orbsym"])
-
     # revert to tuple or list
     tuple_keys = set()
     for key in system.keys():
@@ -1039,6 +1045,11 @@ def restart_read_system(mbe: MBE) -> MBE:
     # set system quantities as MBE attributes
     for key, val in system.items():
         setattr(mbe, key, val)
+
+    # load localized orbital symmetry
+    if not hasattr(mbe, "orbsym"):
+        with open(os.path.join(RST, "orbsym_local.rst"), "r") as f:
+            mbe.orbsym = load(f)
 
     return mbe
 

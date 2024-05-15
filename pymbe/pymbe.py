@@ -61,7 +61,9 @@ class MBE:
             ]
         ] = None,
         point_group: Optional[str] = None,
-        orbsym: Optional[Union[np.ndarray, List[Dict[int, Tuple[int, ...]]]]] = None,
+        orbsym: Optional[
+            Union[np.ndarray, List[List[Tuple[Tuple[int, ...], Tuple[int, ...]]]]]
+        ] = None,
         fci_state_sym: Optional[Union[str, int, List[str], List[int]]] = None,
         fci_state_root: Optional[Union[int, List[int]]] = None,
         fci_state_weights: Optional[List[float]] = None,
@@ -474,12 +476,19 @@ class MBE:
         return prop
 
     def cluster_orbs(
-        self, max_cluster_size: int, max_order: int
+        self,
+        max_cluster_size: int,
+        max_order: int,
+        symm_eqv_sets: Optional[List[List[List[int]]]] = None,
     ) -> Optional[List[np.ndarray]]:
         """
         this function clusters the expansion space orbitals up to some given cluster
         size
         """
+        # do not perform clustering if MBE has already started
+        if os.path.isfile(os.path.join(RST, "mbe_rst_status")):
+            return getattr(self, "exp_space", None)
+
         # sanity check
         if not isinstance(max_cluster_size, int):
             raise TypeError("maximum cluster size (first argument) must be an integer")
@@ -487,6 +496,31 @@ class MBE:
             raise TypeError(
                 "maximum mbe order (second argument) for clustering must be an integer"
             )
+        if symm_eqv_sets is not None:
+            if not (
+                isinstance(symm_eqv_sets, list)
+                and all([isinstance(set_type, list) for set_type in symm_eqv_sets])
+                and all(
+                    [
+                        isinstance(orb_set, list)
+                        for set_type in symm_eqv_sets
+                        for orb_set in set_type
+                    ]
+                )
+                and all(
+                    [
+                        isinstance(orb, int)
+                        for set_type in symm_eqv_sets
+                        for orb_set in set_type
+                        for orb in orb_set
+                    ]
+                )
+            ):
+                raise TypeError(
+                    "orbital sets with equivalent symmetry properties (symm_eqv_sets "
+                    "keyword argument) must be a list of lists of lists of orbital "
+                    "indices"
+                )
 
         # general settings
         if self.mpi.global_master:
@@ -506,6 +540,7 @@ class MBE:
                 if self.target == "energy":
                     self.exp = EnergyExpCls(self)
                     self.exp.rst = False
+                    self.exp.restarted = False
                     self.exp.closed_form = False
                     self.exp.screen_type = "fixed"
                     self.exp.screen_start = max_order
@@ -531,8 +566,7 @@ class MBE:
             # free integrals
             self.exp.free_ints()
 
-        # check if orbital pairs contributions already exist
-        if hasattr(self, "exp"):
+            # extract pair contributions
             orb_pairs = self.exp.get_pair_contributions(self.mpi)
 
             # save file
@@ -543,12 +577,12 @@ class MBE:
             # load file
             if self.mpi.global_master:
                 orb_pairs = np.load(os.path.join(RST, "orb_pairs.npy"))
+                self.restarted = False
 
         # determine clusters
         if self.mpi.global_master:
             self.exp_space = cluster_driver(
                 max_cluster_size,
-                max_order,
                 orb_pairs,
                 np.hstack(self.exp_space),
                 max(self.nelec),
@@ -558,6 +592,7 @@ class MBE:
                     if isinstance(self.orbsym, np.ndarray)
                     else np.zeros(self.norb, dtype=np.int64)
                 ),
+                symm_eqv_sets,
             )
 
         return getattr(self, "exp_space", None)
