@@ -16,8 +16,8 @@ __status__ = "Development"
 
 import os
 import shutil
-from pyscf import ao2mo, symm
 import numpy as np
+from pyscf import ao2mo, symm
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls
@@ -27,6 +27,8 @@ from pymbe.setup import (
     general_setup,
     clustering_setup,
     calc_setup,
+    restart_write_clustering,
+    restart_read_clustering,
     ref_space_update,
 )
 from pymbe.energy import EnergyExpCls
@@ -39,7 +41,7 @@ from pymbe.tools import RST, ground_state_sym, write_file
 from pymbe.clustering import cluster_driver
 
 if TYPE_CHECKING:
-    from typing import Union, Optional, Tuple, List, Dict
+    from typing import Union, Optional, Tuple, List
     from pyscf import gto
     from matplotlib import figure
 
@@ -477,8 +479,7 @@ class MBE:
 
     def cluster_orbs(
         self,
-        max_cluster_size: int,
-        max_order: int,
+        max_cluster_size: int = 2,
         symm_eqv_sets: Optional[List[List[List[int]]]] = None,
     ) -> Optional[List[np.ndarray]]:
         """
@@ -491,10 +492,9 @@ class MBE:
 
         # sanity check
         if not isinstance(max_cluster_size, int):
-            raise TypeError("maximum cluster size (first argument) must be an integer")
-        if not isinstance(max_order, int):
             raise TypeError(
-                "maximum mbe order (second argument) for clustering must be an integer"
+                "maximum cluster size (max_cluster_size keyword argument) must be an "
+                "an integer"
             )
         if symm_eqv_sets is not None:
             if not (
@@ -524,7 +524,7 @@ class MBE:
 
         # general settings
         if self.mpi.global_master:
-            clustering_setup(self, max_cluster_size, max_order)
+            clustering_setup(self, max_cluster_size)
 
         # check if orbital pairs contributions already exist
         if not os.path.isfile(os.path.join(RST, "orb_pairs.npy")):
@@ -542,9 +542,6 @@ class MBE:
                     self.exp.rst = False
                     self.exp.restarted = False
                     self.exp.closed_form = False
-                    self.exp.screen_type = "fixed"
-                    self.exp.screen_start = max_order
-                    self.exp.screen_perc = 0.0
                 else:
                     raise NotImplementedError
 
@@ -569,14 +566,14 @@ class MBE:
             # extract pair contributions
             orb_pairs = self.exp.get_pair_contributions(self.mpi)
 
-            # save file
+            # save files
             if self.mpi.global_master and self.rst:
-                write_file(orb_pairs, "orb_pairs")
+                restart_write_clustering(max_cluster_size, symm_eqv_sets, orb_pairs)
 
         else:
-            # load file
+            # load files
             if self.mpi.global_master:
-                orb_pairs = np.load(os.path.join(RST, "orb_pairs.npy"))
+                max_cluster_size, symm_eqv_sets, orb_pairs = restart_read_clustering()
                 self.restarted = False
 
         # determine clusters

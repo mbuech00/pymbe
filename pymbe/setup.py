@@ -85,17 +85,17 @@ def general_setup(mbe: MBE):
         restart_write_system(mbe)
 
 
-def clustering_setup(mbe: MBE, max_cluster_size: int, max_order: int):
+def clustering_setup(mbe: MBE, max_cluster_size: int):
     """
     this function performs the setup for clustering
     """
     # header
-    logger.info(92 * "-" + "\n" + 92 * "|" + "\n" + 92 * "-")
+    logger.info(" " + 92 * "-" + "\n " + 92 * "|" + "\n " + 92 * "-")
     logger.info(
         f" Determining orbital clusters of maximum size {max_cluster_size} by "
-        f"considering MBE information up until\n expansion order {max_order}"
+        f"considering early-order MBE information"
     )
-    logger.info(92 * "-")
+    logger.info(" " + 92 * "-")
 
     # configure logging
     logger_config(mbe.verbose)
@@ -1052,6 +1052,34 @@ def restart_read_system(mbe: MBE) -> MBE:
             mbe.orbsym = load(f)
 
     return mbe
+
+
+def restart_write_clustering(
+    max_cluster_size: int,
+    symm_eqv_sets: Optional[List[List[List[int]]]],
+    orb_pairs: np.ndarray,
+) -> None:
+    """
+    this function writes the clustering restart files
+    """
+    # write files
+    np.save(os.path.join(RST, "orb_pairs.npy"), orb_pairs)
+    with open(os.path.join(RST, "clustering.rst"), "w") as f:
+        dump([max_cluster_size, symm_eqv_sets], f)
+
+
+def restart_read_clustering() -> (
+    Tuple[int, Optional[List[List[List[int]]]], np.ndarray]
+):
+    """
+    this function reads the clustering restart files
+    """
+    # read files
+    orb_pairs = np.load(os.path.join(RST, "orb_pairs.npy"))
+    with open(os.path.join(RST, "clustering.rst"), "r") as f:
+        max_cluster_size, symm_eqv_sets = load(f)
+
+    return max_cluster_size, symm_eqv_sets, orb_pairs
 
 
 def ref_space_update(
