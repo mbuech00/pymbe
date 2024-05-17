@@ -2067,7 +2067,7 @@ class ExpCls(
                     self.screen_func,
                     self.screen_start,
                     self.screen_perc,
-                    self.screen[-1],
+                    self.screen,
                     self.exp_clusters[-1],
                     self.exp_space[-1],
                     self.order,

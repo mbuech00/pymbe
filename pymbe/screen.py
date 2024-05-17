@@ -33,7 +33,7 @@ def fixed_screen(
     screen_func: str,
     screen_start: int,
     screen_perc: float,
-    screen: Dict[str, np.ndarray],
+    screen_lst: List[Dict[str, np.ndarray]],
     exp_clusters: List[np.ndarray],
     exp_space: np.ndarray,
     order: int,
@@ -41,6 +41,19 @@ def fixed_screen(
     """
     this function returns indices to be removed from fixed screening
     """
+    # get indices for screening list from maximum cluster size
+    screen_idx = min(order, max(cluster.size for cluster in exp_clusters[-1]))
+
+    # get screening contributions
+    screen_arr = np.vstack(
+        [screen_dict[screen_func] for screen_dict in screen_lst[-screen_idx:]]
+    )
+    screen = (
+        np.max(screen_arr, axis=0)
+        if screen_func == "max"
+        else np.sum(screen_arr, axis=0)
+    )
+
     thres = 1.0 if order < screen_start else screen_perc
     nscreen = exp_space.size - int(thres * exp_space.size)
     if screen_func == "rnd":
@@ -53,9 +66,7 @@ def fixed_screen(
             remove_idx.append(idx)
 
     else:
-        cluster_screen = [
-            np.abs(screen[screen_func][cluster[0]]) for cluster in exp_clusters
-        ]
+        cluster_screen = [np.abs(screen[cluster[0]]) for cluster in exp_clusters]
         # stable sorting algorithm is important to ensure that the same
         # clusters are screened away every time in case of equality
         cluster_significance = np.argsort(cluster_screen, kind="stable")
