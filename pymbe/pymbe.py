@@ -481,14 +481,14 @@ class MBE:
         self,
         max_cluster_size: int = 2,
         symm_eqv_sets: Optional[List[List[List[int]]]] = None,
-    ) -> Optional[List[np.ndarray]]:
+    ) -> Tuple[Optional[List[np.ndarray]], Optional[np.ndarray]]:
         """
         this function clusters the expansion space orbitals up to some given cluster
         size
         """
         # do not perform clustering if MBE has already started
         if os.path.isfile(os.path.join(RST, "mbe_rst_status")):
-            return getattr(self, "exp_space", None)
+            return getattr(self, "exp_space", None), None
 
         # sanity check
         if not isinstance(max_cluster_size, int):
@@ -592,7 +592,7 @@ class MBE:
                 symm_eqv_sets,
             )
 
-        return getattr(self, "exp_space", None)
+        return getattr(self, "exp_space", None), orb_pairs
 
     def results(self) -> str:
         """

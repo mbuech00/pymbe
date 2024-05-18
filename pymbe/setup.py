@@ -28,7 +28,7 @@ from pymbe.output import main_header, ref_space_results
 
 
 if TYPE_CHECKING:
-    from pymbe.pymbe import MBE, Tuple, List
+    from pymbe.pymbe import MBE, Tuple, List, Optional
 
 
 def general_setup(mbe: MBE):
