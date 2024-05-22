@@ -330,15 +330,21 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
     def _allocate_shared_inc(
         self, size: int, allocate: bool, comm: MPI.Comm, *args: int
-    ) -> MPI.Win:
+    ) -> Optional[MPI.Win]:
         """
         this function allocates a shared increment window
         """
-        return MPI.Win.Allocate_shared(
-            8 * size * 3 if allocate else 0, 8, comm=comm  # type: ignore
+        return (
+            MPI.Win.Allocate_shared(
+                8 * size * 3 if allocate else 0, 8, comm=comm  # type: ignore
+            )
+            if size > 0
+            else None
         )
 
-    def _open_shared_inc(self, window: MPI.Win, n_incs: int, *args: int) -> np.ndarray:
+    def _open_shared_inc(
+        self, window: Optional[MPI.Win], n_incs: int, *args: int
+    ) -> np.ndarray:
         """
         this function opens a shared increment window
         """

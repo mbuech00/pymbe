@@ -453,23 +453,35 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
         purged_hashes.append([])
         purged_incs.append([])
         for l in range(order + 1):
-            buf = exp.hashes[k][l].Shared_query(0)[0]
-            purged_hashes[-1].append(
-                np.ndarray(
-                    buffer=buf,  # type: ignore
-                    dtype=np.int64,
-                    shape=(exp.n_incs[k][l],),
+            purged_hashes_win = exp.hashes[k][l]
+            if purged_hashes_win is not None:
+                buf = purged_hashes_win.Shared_query(0)[0]
+                purged_hashes[-1].append(
+                    np.ndarray(
+                        buffer=buf,  # type: ignore
+                        dtype=np.int64,
+                        shape=(exp.n_incs[k][l],),
+                    )
                 )
-            )
+            else:
+                purged_hashes[-1].append(
+                    np.empty(shape=(exp.n_incs[k][l],), dtype=np.int64)
+                )
 
-            buf = exp.incs[k][l].Shared_query(0)[0]
-            purged_incs[-1].append(
-                np.ndarray(
-                    buffer=buf,  # type: ignore
-                    dtype=np.float64,
-                    shape=(exp.n_incs[k][l],),
+            purged_inc_win = exp.incs[k][l]
+            if purged_inc_win is not None:
+                buf = purged_inc_win.Shared_query(0)[0]
+                purged_incs[-1].append(
+                    np.ndarray(
+                        buffer=buf,  # type: ignore
+                        dtype=np.float64,
+                        shape=(exp.n_incs[k][l],),
+                    )
                 )
-            )
+            else:
+                purged_incs[-1].append(
+                    np.empty(shape=(exp.n_incs[k][l],), dtype=np.float64)
+                )
 
     assert np.array_equal(exp.n_incs[0], np.array([0, 0], dtype=np.int64))
     assert np.array_equal(exp.n_incs[1], np.array([0, 6, 0], dtype=np.int64))

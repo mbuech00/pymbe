@@ -20,7 +20,7 @@ from pyscf import lib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Tuple
+    from typing import Tuple, Optional
 
     from pymbe.pymbe import MBE
 
@@ -247,14 +247,19 @@ def mpi_allreduce(
     return recv_buff
 
 
-def open_shared_win(window: MPI.Win, dtype: type, shape: Tuple[int, ...]) -> np.ndarray:
+def open_shared_win(
+    window: Optional[MPI.Win], dtype: type, shape: Tuple[int, ...]
+) -> np.ndarray:
     """
     this function returns the numpy array to a MPI window
     """
-    shared = np.ndarray(
-        buffer=window.Shared_query(0)[0],  # type: ignore
-        dtype=dtype,
-        shape=shape,
-    )
+    if window is not None:
+        shared = np.ndarray(
+            buffer=window.Shared_query(0)[0],  # type: ignore
+            dtype=dtype,
+            shape=shape,
+        )
+    else:
+        shared = np.empty(shape=shape, dtype=dtype)
 
     return shared

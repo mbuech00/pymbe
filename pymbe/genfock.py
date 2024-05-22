@@ -687,7 +687,7 @@ class GenFockExpCls(
 
     def _allocate_shared_inc(
         self, size: int, allocate: bool, comm: MPI.Comm, tup_norb: int, tup_nocc: int
-    ) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
+    ) -> Optional[Tuple[MPI.Win, MPI.Win, MPI.Win]]:
         """
         this function allocates a shared increment window
         """
@@ -701,26 +701,34 @@ class GenFockExpCls(
         )
 
         return (
-            MPI.Win.Allocate_shared(
-                8 * size if allocate else 0,
-                8,
-                comm=comm,  # type: ignore
-            ),
-            MPI.Win.Allocate_shared(
-                8 * size * packedGenFockCls.rdm1_size[tup_norb - 1] if allocate else 0,
-                8,
-                comm=comm,  # type: ignore
-            ),
-            MPI.Win.Allocate_shared(
-                8 * size * gen_fock_norb * self.full_norb if allocate else 0,
-                8,
-                comm=comm,  # type: ignore
-            ),
+            (
+                MPI.Win.Allocate_shared(
+                    8 * size if allocate else 0,
+                    8,
+                    comm=comm,  # type: ignore
+                ),
+                MPI.Win.Allocate_shared(
+                    (
+                        8 * size * packedGenFockCls.rdm1_size[tup_norb - 1]
+                        if allocate
+                        else 0
+                    ),
+                    8,
+                    comm=comm,  # type: ignore
+                ),
+                MPI.Win.Allocate_shared(
+                    8 * size * gen_fock_norb * self.full_norb if allocate else 0,
+                    8,
+                    comm=comm,  # type: ignore
+                ),
+            )
+            if size > 0
+            else None
         )
 
     def _open_shared_inc(
         self,
-        window: Tuple[MPI.Win, MPI.Win, MPI.Win],
+        window: Optional[Tuple[MPI.Win, MPI.Win, MPI.Win]],
         n_incs: int,
         tup_norb: int,
         tup_nocc: int,
@@ -734,13 +742,27 @@ class GenFockExpCls(
         )
 
         # open shared windows
-        energy = open_shared_win(window[0], np.float64, (n_incs,))
-        rdm1 = open_shared_win(
-            window[1], np.float64, (n_incs, packedGenFockCls.rdm1_size[tup_norb - 1])
-        )
-        gen_fock = open_shared_win(
-            window[2], np.float64, (n_incs, gen_fock_norb, self.full_norb)
-        )
+        if window is not None:
+            energy = open_shared_win(window[0], np.float64, (n_incs,))
+            rdm1 = open_shared_win(
+                window[1],
+                np.float64,
+                (n_incs, packedGenFockCls.rdm1_size[tup_norb - 1]),
+            )
+            gen_fock = open_shared_win(
+                window[2],
+                np.float64,
+                (n_incs, gen_fock_norb, self.full_norb),
+            )
+        else:
+            energy = np.empty(shape=n_incs, dtype=np.float64)
+            rdm1 = np.empty(
+                shape=(n_incs, packedGenFockCls.rdm1_size[tup_norb - 1]),
+                dtype=np.float64,
+            )
+            gen_fock = np.empty(
+                shape=(n_incs, gen_fock_norb, self.full_norb), dtype=np.float64
+            )
 
         return packedGenFockCls(energy, rdm1, gen_fock, tup_norb - 1)
 

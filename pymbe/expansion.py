@@ -220,10 +220,10 @@ class ExpCls(
         self.mbe_tot_prop: List[TargetType] = []
 
         # increment windows
-        self.incs: List[List[MPIWinType]] = []
+        self.incs: List[List[Optional[MPIWinType]]] = []
 
         # hash windows
-        self.hashes: List[List[MPI.Win]] = []
+        self.hashes: List[List[Optional[MPI.Win]]] = []
 
         # timings
         self.time: Dict[str, List[float]] = {"mbe": [], "purge": []}
@@ -869,10 +869,14 @@ class ExpCls(
                     k = order - 1
                     tup_nocc = len(self.hashes[-1])
                     n_incs = self.n_incs[k][tup_nocc]
-                    hashes_mpi_win = MPI.Win.Allocate_shared(
-                        8 * n_incs if mpi.local_master else 0,
-                        8,
-                        comm=mpi.local_comm,  # type: ignore
+                    hashes_mpi_win = (
+                        MPI.Win.Allocate_shared(
+                            8 * n_incs if mpi.local_master else 0,
+                            8,
+                            comm=mpi.local_comm,  # type: ignore
+                        )
+                        if n_incs > 0
+                        else None
                     )
                     self.hashes[-1].append(hashes_mpi_win)
                     hashes = open_shared_win(self.hashes[-1][-1], np.int64, (n_incs,))
@@ -1974,8 +1978,7 @@ class ExpCls(
         # free hashes and increments
         for k in range(self.order):
             for l in range(k + 2):
-                self.hashes[k][l].Free()
-                self._free_inc(self.incs[k][l])
+                self._free_hashes_incs(self.hashes[k][l], self.incs[k][l])
 
         # reduce orbital pairs
         orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
@@ -2340,9 +2343,8 @@ class ExpCls(
                 hashes_arr = np.array(hashes_lst, dtype=np.int64)
                 inc_arr = inc[idx_lst]
 
-                # deallocate k-th order hashes and increments
-                self.hashes[k][l].Free()
-                self._free_inc(self.incs[k][l])
+                # deallocate k-th order hashes and increments)
+                self._free_hashes_incs(self.hashes[k][l], self.incs[k][l])
 
                 # number of hashes for every rank
                 recv_counts = np.array(mpi.global_comm.allgather(hashes_arr.size))
@@ -2351,10 +2353,14 @@ class ExpCls(
                 self.n_incs[k][l] = int(np.sum(recv_counts))
 
                 # init hashes for present order
-                hashes_win = MPI.Win.Allocate_shared(
-                    8 * self.n_incs[k][l] if mpi.local_master else 0,
-                    8,
-                    comm=mpi.local_comm,  # type: ignore
+                hashes_win = (
+                    MPI.Win.Allocate_shared(
+                        8 * self.n_incs[k][l] if mpi.local_master else 0,
+                        8,
+                        comm=mpi.local_comm,  # type: ignore
+                    )
+                    if self.n_incs[k][l] > 0
+                    else None
                 )
                 self.hashes[k][l] = hashes_win
                 hashes = open_shared_win(hashes_win, np.int64, (self.n_incs[k][l],))
@@ -2922,7 +2928,7 @@ class ExpCls(
 
     def _load_hashes(
         self, local_master: bool, local_comm: MPI.Comm, rst_read: bool
-    ) -> Tuple[List[List[np.ndarray]], List[MPI.Win]]:
+    ) -> Tuple[List[List[np.ndarray]], List[Optional[MPI.Win]]]:
         """
         this function loads all previous-order hashes and initializes the current-order
         hashes
@@ -2939,7 +2945,7 @@ class ExpCls(
                 )
 
         # init hashes for present order
-        hashes_win: List[MPI.Win] = []
+        hashes_win: List[Optional[MPI.Win]] = []
         hashes.append([])
         for tup_nocc in range(self.order + 1):
             l = tup_nocc
@@ -2952,6 +2958,8 @@ class ExpCls(
                         8,
                         comm=local_comm,  # type: ignore
                     )
+                    if self.n_incs[-1][l] > 0
+                    else None
                 )
             hashes[-1].append(
                 open_shared_win(hashes_win[-1], np.int64, (self.n_incs[-1][l],))
@@ -2975,7 +2983,7 @@ class ExpCls(
 
     def _load_inc(
         self, local_master: bool, local_comm: MPI.Comm, rst_read: bool
-    ) -> Tuple[List[List[IncType]], List[MPIWinType]]:
+    ) -> Tuple[List[List[IncType]], List[Optional[MPIWinType]]]:
         """
         this function loads all previous-order increments and initializes the
         current-order increments
@@ -2994,7 +3002,7 @@ class ExpCls(
                 )
 
         # init increments for present order
-        inc_win: List[MPIWinType] = []
+        inc_win: List[Optional[MPIWinType]] = []
         inc.append([])
         for tup_nocc in range(self.order + 1):
             l = tup_nocc
@@ -3021,14 +3029,14 @@ class ExpCls(
     @abstractmethod
     def _allocate_shared_inc(
         self, size: int, allocate: bool, comm: MPI.Comm, tup_norb: int, tup_nocc
-    ) -> MPIWinType:
+    ) -> Optional[MPIWinType]:
         """
         this function allocates a shared increment window
         """
 
     @abstractmethod
     def _open_shared_inc(
-        self, window: MPIWinType, n_incs: int, tup_orb: int, tup_nocc: int
+        self, window: Optional[MPIWinType], n_incs: int, tup_orb: int, tup_nocc: int
     ) -> IncType:
         """
         this function opens a shared increment window
@@ -3105,6 +3113,17 @@ class ExpCls(
             tup_sq_overlaps = {"overlap": [], "tup": []}
 
         return tup_sq_overlaps
+
+    def _free_hashes_incs(
+        self, hashes_win: Optional[MPI.Win], inc_win: Optional[MPIWinType]
+    ) -> None:
+        """
+        this function frees the supplied hashes and increment windows
+        """
+        if hashes_win is not None:
+            hashes_win.Free()
+        if inc_win is not None:
+            self._free_inc(inc_win)
 
     @staticmethod
     @abstractmethod
@@ -3431,13 +3450,15 @@ class SingleTargetExpCls(
     @abstractmethod
     def _allocate_shared_inc(
         self, size: int, allocate: bool, comm: MPI.Comm, *args: int
-    ) -> MPI.Win:
+    ) -> Optional[MPI.Win]:
         """
         this function allocates a shared increment window
         """
 
     @abstractmethod
-    def _open_shared_inc(self, window: MPI.Win, n_incs: int, *args: int) -> np.ndarray:
+    def _open_shared_inc(
+        self, window: Optional[MPI.Win], n_incs: int, *args: int
+    ) -> np.ndarray:
         """
         this function opens a shared increment window
         """

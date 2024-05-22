@@ -371,7 +371,7 @@ class RDMExpCls(
 
     def _allocate_shared_inc(
         self, size: int, allocate: bool, comm: MPI.Comm, tup_norb: int, *args: int
-    ) -> Tuple[MPI.Win, MPI.Win]:
+    ) -> Optional[Tuple[MPI.Win, MPI.Win]]:
         """
         this function allocates a shared increment window
         """
@@ -380,31 +380,47 @@ class RDMExpCls(
             packedRDMCls.get_pack_idx(self.ref_space.size + tup_norb)
 
         return (
-            MPI.Win.Allocate_shared(
-                8 * size * packedRDMCls.rdm1_size[tup_norb - 1] if allocate else 0,
-                8,
-                comm=comm,  # type: ignore
-            ),
-            MPI.Win.Allocate_shared(
-                8 * size * packedRDMCls.rdm2_size[tup_norb - 1] if allocate else 0,
-                8,
-                comm=comm,  # type: ignore
-            ),
+            (
+                MPI.Win.Allocate_shared(
+                    8 * size * packedRDMCls.rdm1_size[tup_norb - 1] if allocate else 0,
+                    8,
+                    comm=comm,  # type: ignore
+                ),
+                MPI.Win.Allocate_shared(
+                    8 * size * packedRDMCls.rdm2_size[tup_norb - 1] if allocate else 0,
+                    8,
+                    comm=comm,  # type: ignore
+                ),
+            )
+            if size > 0
+            else None
         )
 
     def _open_shared_inc(
-        self, window: Tuple[MPI.Win, MPI.Win], n_incs: int, tup_norb: int, *args: int
+        self,
+        window: Optional[Tuple[MPI.Win, MPI.Win]],
+        n_incs: int,
+        tup_norb: int,
+        *args: int,
     ) -> packedRDMCls:
         """
         this function opens a shared increment window
         """
         # open shared windows
-        rdm1 = open_shared_win(
-            window[0], np.float64, (n_incs, packedRDMCls.rdm1_size[tup_norb - 1])
-        )
-        rdm2 = open_shared_win(
-            window[1], np.float64, (n_incs, packedRDMCls.rdm2_size[tup_norb - 1])
-        )
+        if window is not None:
+            rdm1 = open_shared_win(
+                window[0], np.float64, (n_incs, packedRDMCls.rdm1_size[tup_norb - 1])
+            )
+            rdm2 = open_shared_win(
+                window[1], np.float64, (n_incs, packedRDMCls.rdm2_size[tup_norb - 1])
+            )
+        else:
+            rdm1 = np.empty(
+                shape=(n_incs, packedRDMCls.rdm1_size[tup_norb - 1]), dtype=np.float64
+            )
+            rdm2 = np.empty(
+                shape=(n_incs, packedRDMCls.rdm2_size[tup_norb - 1]), dtype=np.float64
+            )
 
         return packedRDMCls(rdm1, rdm2, tup_norb - 1)
 
