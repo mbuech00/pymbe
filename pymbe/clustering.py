@@ -44,6 +44,7 @@ MAX_ITERATIONS = 100000
 
 def cluster_driver(
     max_cluster_size: int,
+    n_single_orbs: int,
     orb_pairs: np.ndarray,
     exp_space: np.ndarray,
     nocc: int,
@@ -54,21 +55,32 @@ def cluster_driver(
     """
     this function is the driver function for orbital clustering
     """
+    # initialize expansion space clusters
+    exp_clusters = []
+
+    # get most correlated single orbitals
+    if n_single_orbs > 0:
+        single_orbs = np.argsort(
+            np.sum(np.sort(orb_pairs, axis=1)[:, :-max_cluster_size], axis=1),
+            kind="stable",
+        )[-n_single_orbs:]
+    exp_clusters += [np.array([exp_space[orb]], dtype=np.int64) for orb in single_orbs]
+
     # define expansion space subspaces within which the orbital clustering should take
     # place
     if symm_eqv_sets is None:
-        orb_spaces = [exp_space]
+        orb_spaces = [np.delete(exp_space, single_orbs)]
     else:
         orb_spaces = []
         for set_type in symm_eqv_sets:
             set_spaces = np.concatenate(
-                [np.intersect1d(orb_space, exp_space) for orb_space in set_type]
+                [
+                    np.intersect1d(orb_space, np.delete(exp_space, single_orbs))
+                    for orb_space in set_type
+                ]
             )
             if set_spaces.size > 0:
                 orb_spaces.append(set_spaces)
-
-    # initialize expansion space clusters
-    exp_clusters = []
 
     # loop over orbital spaces
     for orb_space in orb_spaces:

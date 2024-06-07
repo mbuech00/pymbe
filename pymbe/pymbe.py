@@ -37,7 +37,7 @@ from pymbe.dipole import DipoleExpCls
 from pymbe.trans import TransExpCls
 from pymbe.rdm12 import ssRDMExpCls, saRDMExpCls
 from pymbe.genfock import ssGenFockExpCls, saGenFockExpCls
-from pymbe.tools import RST, ground_state_sym, write_file
+from pymbe.tools import RST, ground_state_sym
 from pymbe.clustering import cluster_driver
 
 if TYPE_CHECKING:
@@ -480,6 +480,7 @@ class MBE:
     def cluster_orbs(
         self,
         max_cluster_size: int = 2,
+        n_single_orbs: int = 0,
         symm_eqv_sets: Optional[List[List[List[int]]]] = None,
     ) -> Tuple[Optional[List[np.ndarray]], Optional[np.ndarray]]:
         """
@@ -580,6 +581,7 @@ class MBE:
         if self.mpi.global_master:
             self.exp_space = cluster_driver(
                 max_cluster_size,
+                n_single_orbs,
                 orb_pairs,
                 np.hstack(self.exp_space),
                 max(self.nelec),
