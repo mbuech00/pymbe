@@ -497,6 +497,12 @@ class MBE:
                 "maximum cluster size (max_cluster_size keyword argument) must be an "
                 "an integer"
             )
+        if not isinstance(n_single_orbs, int):
+            raise TypeError(
+                "number of single orbitals (n_single_orbs) must be an integer"
+            )
+        if not n_single_orbs >= 0:
+            raise ValueError("number of single orbitals (n_single_orbs) must be >= 0")
         if symm_eqv_sets is not None:
             if not (
                 isinstance(symm_eqv_sets, list)

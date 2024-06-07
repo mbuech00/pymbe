@@ -67,19 +67,19 @@ def cluster_driver(
         exp_clusters += [
             np.array([exp_space[orb]], dtype=np.int64) for orb in single_orbs
         ]
+        remain_exp_space = np.delete(exp_space, single_orbs)
+    else:
+        remain_exp_space = exp_space
 
     # define expansion space subspaces within which the orbital clustering should take
     # place
     if symm_eqv_sets is None:
-        orb_spaces = [np.delete(exp_space, single_orbs)]
+        orb_spaces = [remain_exp_space]
     else:
         orb_spaces = []
         for set_type in symm_eqv_sets:
             set_spaces = np.concatenate(
-                [
-                    np.intersect1d(orb_space, np.delete(exp_space, single_orbs))
-                    for orb_space in set_type
-                ]
+                [np.intersect1d(orb_space, remain_exp_space) for orb_space in set_type]
             )
             if set_spaces.size > 0:
                 orb_spaces.append(set_spaces)
