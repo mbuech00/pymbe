@@ -64,7 +64,9 @@ def cluster_driver(
             np.sum(np.sort(orb_pairs, axis=1)[:, :-max_cluster_size], axis=1),
             kind="stable",
         )[-n_single_orbs:]
-    exp_clusters += [np.array([exp_space[orb]], dtype=np.int64) for orb in single_orbs]
+        exp_clusters += [
+            np.array([exp_space[orb]], dtype=np.int64) for orb in single_orbs
+        ]
 
     # define expansion space subspaces within which the orbital clustering should take
     # place

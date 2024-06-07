@@ -2396,8 +2396,8 @@ def is_lex_tup(
                 full_clusters = np.unique(
                     np.concatenate([*operator.itemgetter(*perm_cas)(clusters)])
                 )
-            except TypeError:
-                full_clusters = clusters[perm_cas.item()]
+            except ValueError:
+                full_clusters = np.array(clusters[perm_cas.item()], dtype=np.int64)
             if full_clusters.size > perm_cas.size:
                 continue
 
@@ -2454,8 +2454,8 @@ def get_lex_tup(
                 full_clusters = np.unique(
                     np.concatenate([*operator.itemgetter(*perm_cas)(clusters)])
                 )
-            except TypeError:
-                full_clusters = clusters[perm_cas.item()]
+            except ValueError:
+                full_clusters = np.array(clusters[perm_cas.item()], dtype=np.int64)
             if full_clusters.size > perm_cas.size:
                 continue
 
