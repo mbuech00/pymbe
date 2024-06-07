@@ -166,21 +166,31 @@ def test_mbe(
         exp._mbe(mbe.mpi)
 
         for k in range(exp.order + 1):
-            hashes[-1].append(
-                np.ndarray(
-                    buffer=exp.hashes[-1][k].Shared_query(0)[0],  # type: ignore
-                    dtype=np.int64,
-                    shape=(exp.n_incs[exp.order - 1][k],),
+            if exp.hashes[-1][k] is not None:
+                hashes[-1].append(
+                    np.ndarray(
+                        buffer=exp.hashes[-1][k].Shared_query(0)[0],  # type: ignore
+                        dtype=np.int64,
+                        shape=(exp.n_incs[exp.order - 1][k],),
+                    )
                 )
-            )
+            else:
+                hashes[-1].append(
+                    np.empty(shape=(exp.n_incs[exp.order - 1][k],), dtype=np.int64)
+                )
 
-            inc[-1].append(
-                np.ndarray(
-                    buffer=exp.incs[-1][k].Shared_query(0)[0],  # type: ignore
-                    dtype=np.float64,
-                    shape=(exp.n_incs[exp.order - 1][k], 1),
+            if exp.incs[-1][k] is not None:
+                inc[-1].append(
+                    np.ndarray(
+                        buffer=exp.incs[-1][k].Shared_query(0)[0],  # type: ignore
+                        dtype=np.float64,
+                        shape=(exp.n_incs[exp.order - 1][k], 1),
+                    )
                 )
-            )
+            else:
+                inc[-1].append(
+                    np.empty(shape=(exp.n_incs[exp.order - 1][k], 1), dtype=np.float64)
+                )
 
             exp.hashes.append(exp.hashes[-1])
 
@@ -190,8 +200,10 @@ def test_mbe(
             exp.min_inc.append(exp.min_inc[-1])
             exp.max_inc.append(exp.max_inc[-1])
 
-    assert all([isinstance(item, MPI.Win) for item in exp.hashes[-1]])
-    assert all([isinstance(item, MPI.Win) for item in exp.incs[-1]])
+    assert all(
+        [isinstance(item, MPI.Win) for item in exp.hashes[-1] if item is not None]
+    )
+    assert all([isinstance(item, MPI.Win) for item in exp.incs[-1] if item is not None])
     assert np.sum(np.concatenate(hashes[-1])) == ref_hashes_sum
     assert np.amax(np.concatenate(hashes[-1])) == ref_hashes_amax
     assert np.sum(np.concatenate(inc[-1])) == pytest.approx(ref_inc_sum)
