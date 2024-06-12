@@ -280,7 +280,7 @@ class ExpCls(
             self.vanish_exc = 1
         elif self.base_method in ["ccsd", "ccsd(t)"]:
             self.vanish_exc = 2
-        elif self.base_method == "ccsdt":
+        elif self.base_method in ["ccsdt", "ccsdt(q)"]:
             self.vanish_exc = 3
         elif self.base_method == "ccsdtq":
             self.vanish_exc = 4
@@ -775,7 +775,7 @@ class ExpCls(
             e_core, h1e_cas = e_core_h1e(self.hcore, self.vhf, core_idx, cas_idx)
 
             # perform main calc
-            if self.method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
+            if self.method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdt(q)", "ccsdtq"]:
                 ref_prop = self._cc_kernel(
                     self.method,
                     core_idx,
@@ -2478,7 +2478,7 @@ class ExpCls(
         """
         this function return the result property from a given method
         """
-        if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
+        if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdt(q)", "ccsdtq"]:
             res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
 
         elif method == "fci":

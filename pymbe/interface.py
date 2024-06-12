@@ -62,7 +62,7 @@ def mbecc_interface(
         raise ModuleNotFoundError(msg)
 
     # method keys in cfour
-    method_dict = {"ccsd": 10, "ccsd(t)": 22, "ccsdt": 18, "ccsdtq": 46}
+    method_dict = {"ccsd": 10, "ccsd(t)": 22, "ccsdt": 18, "ccsdt(q)": 54, "ccsdtq": 46}
 
     # cc module
     cc_module_dict = {"ecc": 0, "ncc": 1}

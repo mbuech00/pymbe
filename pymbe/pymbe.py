@@ -361,7 +361,10 @@ class MBE:
                 if cc_backend is None:
                     if method == "ccsdt" or base_method == "ccsdt":
                         self.cc_backend = "ecc"
-                    elif method == "ccsdtq" or base_method == "ccsdtq":
+                    elif method in ["ccsdt(q)", "ccsdtq"] or base_method in [
+                        "ccsdt(q)",
+                        "ccsdtq",
+                    ]:
                         self.cc_backend = "ncc"
                     else:
                         self.cc_backend = "pyscf"

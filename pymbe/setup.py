@@ -130,10 +130,10 @@ def sanity_check(mbe: MBE) -> None:
         raise TypeError(
             "electronic structure method (method keyword argument) must be a string"
         )
-    if mbe.method not in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq", "fci"]:
+    if mbe.method not in ["ccsd", "ccsd(t)", "ccsdt", "ccsdt(q)", "ccsdtq", "fci"]:
         raise ValueError(
             "valid electronic structure methods (method keyword argument) are: ccsd, "
-            "ccsd(t), ccsdt, ccsdtq and fci"
+            "ccsd(t), ccsdt, ccsdt(q), ccsdtq and fci"
         )
 
     # targets
@@ -485,10 +485,10 @@ def sanity_check(mbe: MBE) -> None:
             "must be a str or None"
         )
     if mbe.base_method is not None:
-        if mbe.base_method not in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
+        if mbe.base_method not in ["ccsd", "ccsd(t)", "ccsdt", "ccsdt(q)", "ccsdtq"]:
             raise ValueError(
                 "valid base model electronic structure methods (base_method keyword "
-                "argument) are currently: ccsd, ccsd(t), ccsdt and ccsdtq"
+                "argument) are currently: ccsd, ccsd(t), ccsdt, ccsdt(q) and ccsdtq"
             )
         if mbe.target not in ["energy", "dipole", "rdm12", "genfock"]:
             raise ValueError(
@@ -673,7 +673,7 @@ def sanity_check(mbe: MBE) -> None:
                 "direct_spin1, direct_spin0_symm, direct_spin1_symm"
             )
     if (
-        mbe.method in ["ccsd", "ccsd(t)" "ccsdt", "ccsdtq"]
+        mbe.method in ["ccsd", "ccsd(t)" "ccsdt", "ccsdt(q)", "ccsdtq"]
         or mbe.base_method is not None
     ):
         if not isinstance(mbe.cc_backend, str):
@@ -691,10 +691,11 @@ def sanity_check(mbe: MBE) -> None:
                 "ccsdt (method keyword argument) is not available with the pyscf "
                 "coupled-cluster backend (cc_backend keyword argument)"
             )
-        if mbe.method == "ccsdtq" and mbe.cc_backend != "ncc":
+        if mbe.method in ["ccsdt(q)", "ccsdtq"] and mbe.cc_backend != "ncc":
             raise ValueError(
-                "ccsdtq (method keyword argument) is not available with the pyscf and ecc "
-                "coupled-cluster backends (cc_backend keyword argument)"
+                "ccsdt(q) and ccsdtq (method keyword argument) are not available with "
+                "the pyscf and ecc coupled-cluster backends (cc_backend keyword "
+                "argument)"
             )
         if mbe.cc_backend in ["ecc", "ncc"] and mbe.target != "energy":
             raise ValueError(
@@ -721,10 +722,11 @@ def sanity_check(mbe: MBE) -> None:
                 "ccsdt (base_method keyword argument) is not available with pyscf "
                 "coupled-cluster backend (cc_backend keyword argument)"
             )
-        if mbe.base_method == "ccsdtq" and mbe.cc_backend != "ncc":
+        if mbe.base_method in ["ccsdt(q)", "ccsdtq"] and mbe.cc_backend != "ncc":
             raise ValueError(
-                "ccsdtq (base_method keyword argument) is not available with pyscf and "
-                "ecc coupled-cluster backends (cc_backend keyword argument)"
+                "ccsdt(q) and ccsdtq (base_method keyword argument) are not available "
+                "with the pyscf and ecc coupled-cluster backends (cc_backend keyword "
+                "argument)"
             )
 
     # hf_guess
