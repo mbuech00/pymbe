@@ -21,7 +21,6 @@ from types import GeneratorType
 
 from pymbe.tools import (
     time_str,
-    hash_2d,
     hash_1d,
     hash_lookup,
     tuples,
@@ -35,9 +34,6 @@ from pymbe.tools import (
     _cas_idx_cart,
     _coor_to_idx,
     idx_tril,
-    pi_space,
-    _e_orbs,
-    pi_prune,
     get_nelec,
     get_nhole,
     valid_tup,
@@ -98,13 +94,6 @@ test_cases_n_tuples = [
     ("no-occ", np.array([0, 0]), np.array([1, 1]), 1460752),
     ("no-virt", np.array([1, 1]), np.array([0, 0]), 2118508),
     ("empty", np.array([0, 0]), np.array([0, 0]), 1460500),
-]
-
-test_cases_pi_prune = [
-    ("3_tot_2_pi", np.array([0, 1, 2], dtype=np.int64), True),
-    ("7_tot_4_pi", np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int64), True),
-    ("4_tot_3_pi", np.array([0, 1, 2, 4], dtype=np.int64), False),
-    ("5_tot_3_pi", np.array([0, 1, 2, 5, 6], dtype=np.int64), False),
 ]
 
 test_cases_valid_tup = [
@@ -191,25 +180,6 @@ def test_time_str() -> None:
     this function tests time_str
     """
     assert time_str(3742.4) == "1h 2m 22.40s"
-
-
-def test_hash_2d() -> None:
-    """
-    this function tests hash_2d
-    """
-    ref = np.array(
-        [
-            -2930228190932741801,
-            1142744019865853604,
-            -8951855736587463849,
-            4559082070288058232,
-        ],
-        dtype=np.int64,
-    )
-
-    hash_array = hash_2d(np.arange(4 * 4, dtype=np.int64).reshape(4, 4))
-
-    assert (hash_array == ref).all()
 
 
 def test_hash_1d() -> None:
@@ -399,65 +369,6 @@ def test_idx_tril() -> None:
     ref = np.array([5, 17, 20, 38, 41, 44, 68, 71, 74, 77], dtype=np.int64)
 
     assert (idx_tril(np.arange(2, 14, 3, dtype=np.int64)) == ref).all()
-
-
-def test_pi_space() -> None:
-    """
-    this function tests pi_space
-    """
-    ref_pairs = np.array([12, 13, 7, 8, 3, 4, 0, 1, 9, 10, 15, 16], dtype=np.int64)
-    ref_hashes = np.array(
-        [
-            -8471304755370577665,
-            -7365615264797734692,
-            -3932386661120954737,
-            -3821038970866580488,
-            758718848004794914,
-            7528999078095043310,
-        ],
-        dtype=np.int64,
-    )
-
-    orbsym_dooh = np.array(
-        [14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5], dtype=np.int64
-    )
-    cas = np.arange(18, dtype=np.int64)
-
-    pi_pairs, pi_hashes = pi_space(orbsym_dooh, cas)
-
-    assert (pi_pairs == ref_pairs).all()
-    assert (pi_hashes == ref_hashes).all()
-
-
-def test_e_orbs() -> None:
-    """
-    this function tests _e_orbs
-    """
-    pi_orbs = _e_orbs(
-        np.array([1, 2, 4, 5], dtype=np.int64), np.arange(8, dtype=np.int64)
-    )
-
-    assert (pi_orbs == np.array([1, 2, 4, 5], dtype=np.int64)).all()
-
-
-@pytest.mark.parametrize(
-    argnames="tup, ref_bool",
-    argvalues=[case[1:] for case in test_cases_pi_prune],
-    ids=[case[0] for case in test_cases_pi_prune],
-)
-def test_pi_prune(tup: np.ndarray, ref_bool: bool) -> None:
-    """
-    this function tests pi_prune
-    """
-    pi_space = np.array([1, 2, 4, 5], dtype=np.int64)
-    pi_hashes = np.sort(
-        np.array([-2163557957507198923, 1937934232745943291], dtype=np.int64)
-    )
-
-    if ref_bool:
-        assert pi_prune(pi_space, pi_hashes, tup)
-    else:
-        assert not pi_prune(pi_space, pi_hashes, tup)
 
 
 @pytest.mark.parametrize(

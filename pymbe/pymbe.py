@@ -97,8 +97,6 @@ class MBE:
         cc_backend: Optional[str] = None,
         hf_guess: bool = True,
         dryrun: bool = False,
-        pi_prune: bool = False,
-        orbsym_linear: Optional[np.ndarray] = None,
         no_singles: bool = False,
         dipole_ints: Optional[np.ndarray] = None,
         full_norb: Optional[int] = None,
@@ -376,11 +374,6 @@ class MBE:
 
                 # dryrun
                 self.dryrun = dryrun
-
-                # pi-pruning
-                self.pi_prune = pi_prune
-                if orbsym_linear is not None:
-                    self.orbsym_linear = orbsym_linear
 
                 # exclude single excitations
                 self.no_singles = no_singles

@@ -40,7 +40,6 @@ from pymbe.tools import (
     GenFockCls,
     packedGenFockCls,
     TupSqOverlapType,
-    pi_space,
     natural_keys,
     n_tuples,
     n_tuples_with_nocc,
@@ -48,7 +47,6 @@ from pymbe.tools import (
     read_file,
     write_file,
     write_file_mult,
-    pi_prune,
     tuples,
     tuples_with_nocc,
     cluster_tuples_with_nocc,
@@ -298,14 +296,6 @@ class ExpCls(
         # dryrun
         self.dryrun = mbe.dryrun
 
-        # pi-pruning
-        self.pi_prune = mbe.pi_prune
-        if self.pi_prune:
-            self.orbsym_linear = mbe.orbsym_linear
-            self.pi_orbs, self.pi_hashes = pi_space(
-                self.orbsym_linear, cas(self.ref_space, self.exp_space[0])
-            )
-
         # exclude single excitations
         self.no_singles = mbe.no_singles
 
@@ -448,7 +438,7 @@ class ExpCls(
                         self.n_tuples["screen"][self.order - self.min_order],
                         self.n_tuples["van"][self.order - self.min_order],
                         np.sum(self.n_incs[self.order - self.min_order]),
-                        self.pi_prune or self.symm_eqv_orbs is not None,
+                        self.symm_eqv_orbs is not None,
                     )
                 )
 
@@ -1082,9 +1072,7 @@ class ExpCls(
                 mpi.global_comm.bcast(msg, root=0)
 
             # determine number of non-redundant increments
-            if self.pi_prune or (
-                self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None
-            ):
+            if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
                 # initialize number of tuples for each occupation
                 ntuples = np.zeros(self.order + 1, dtype=np.int64)
 
@@ -1113,12 +1101,6 @@ class ExpCls(
                         # distribute tuples
                         if tup_idx % mpi.global_size != mpi.global_rank:
                             continue
-
-                        # pi-pruning
-                        if self.pi_prune and pi_prune(
-                            self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
-                        ):
-                            ntuples[tup_nocc] += 1
 
                         # symmetry-pruning
                         elif self.eqv_inc_orbs is not None:
@@ -1431,14 +1413,6 @@ class ExpCls(
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
-                    continue
-
-                # pi-pruning
-                if self.pi_prune and not pi_prune(
-                    self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
-                ):
-                    for screen_func in self.screen[-1].keys():
-                        self.screen[-1][screen_func][tup] = SCREEN
                     continue
 
                 # symmetry-pruning
@@ -1781,13 +1755,6 @@ class ExpCls(
                         logger.info(
                             mbe_status(self.order, mbe_idx / self.n_tuples["van"][-1])
                         )
-
-                # pi-pruning
-                if self.pi_prune:
-                    if not pi_prune(
-                        self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
-                    ):
-                        continue
 
                 # symmetry-pruning
                 if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
@@ -2292,12 +2259,6 @@ class ExpCls(
                 ):
                     # distribute tuples
                     if tup_idx % mpi.global_size != mpi.global_rank:
-                        continue
-
-                    # pi-pruning
-                    if self.pi_prune and not pi_prune(
-                        self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
-                    ):
                         continue
 
                     # symmetry-pruning
@@ -3251,12 +3212,6 @@ class ExpCls(
                     if tup_idx % mpi.global_size != mpi.global_rank:
                         continue
 
-                    # pi-pruning
-                    if self.pi_prune and not pi_prune(
-                        self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup)
-                    ):
-                        continue
-
                     # symmetry-pruning
                     if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
                         # get lexicographically greatest tuple
@@ -3390,12 +3345,6 @@ class SingleTargetExpCls(
                     for tup_sub in tuples_with_nocc(
                         tup, tup_clusters, self.nocc, k, l, cached=True
                     ):
-                        # pi-pruning
-                        if self.pi_prune and not pi_prune(
-                            self.pi_orbs, self.pi_hashes, cas(self.ref_space, tup_sub)
-                        ):
-                            continue
-
                         # symmetry-pruning
                         if self.eqv_inc_orbs is not None:
                             # get lexicographically greatest tuple

@@ -3,6 +3,7 @@ import numpy as np
 from mpi4py import MPI
 from pyscf import gto, scf, symm, ao2mo, scf, symm
 from pymbe import MBE
+from pymbe.tools import E_IRREPS
 
 
 def mbe_example(rst=True):
@@ -32,11 +33,24 @@ def mbe_example(rst=True):
         # reference space
         ref_space = np.array([2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int64)
 
-        # expansion space
+        # expansion space (no partial pi pairs possible with pi-pruning)
         exp_space = np.array(
             [i for i in range(ncore, mol.nao) if i not in ref_space],
             dtype=np.int64,
         )
+
+        # orbsym of linear point group for pi-pruning
+        mol_linear = mol.copy()
+        mol_linear = mol_linear.build(0, 0, symmetry="Dooh")
+        orbsym_linear = symm.label_orb_symm(
+            mol_linear, mol_linear.irrep_id, mol_linear.symm_orb, hf.mo_coeff
+        )
+
+        # cluster pi orbitals
+        e_mask = np.in1d(orbsym_linear[exp_space], E_IRREPS)
+        exp_space = [np.array(orb, dtype=np.int64) for orb in exp_space[~e_mask]] + [
+            e_pair for e_pair in exp_space[e_mask].reshape(-1, 2)
+        ]
 
         # hcore
         hcore_ao = hf.get_hcore()
@@ -45,13 +59,6 @@ def mbe_example(rst=True):
         # eri
         eri_ao = mol.intor("int2e_sph", aosym="s8")
         eri = ao2mo.incore.full(eri_ao, hf.mo_coeff)
-
-        # orbsym of linear point group for pi-pruning
-        mol_linear = mol.copy()
-        mol_linear = mol_linear.build(0, 0, symmetry="Dooh")
-        orbsym_linear = symm.label_orb_symm(
-            mol_linear, mol_linear.irrep_id, mol_linear.symm_orb, hf.mo_coeff
-        )
 
         # create mbe object
         mbe = MBE(
@@ -62,8 +69,6 @@ def mbe_example(rst=True):
             ref_space=ref_space,
             exp_space=exp_space,
             rst=rst,
-            pi_prune=True,
-            orbsym_linear=orbsym_linear,
         )
 
     else:

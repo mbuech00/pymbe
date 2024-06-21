@@ -731,13 +731,6 @@ def time_str(time: float) -> str:
     return string
 
 
-def hash_2d(a: np.ndarray) -> np.ndarray:
-    """
-    this function converts a 2d numpy array to a 1d array of hashes
-    """
-    return np.fromiter(map(hash_1d, a), dtype=np.int64, count=a.shape[0])
-
-
 def hash_1d(a: np.ndarray) -> int:
     """
     this function converts a 1d numpy array to a hash
@@ -2188,55 +2181,6 @@ def idx_tril(cas_idx: np.ndarray) -> np.ndarray:
             count=cas_idx_cart.shape[0],
         )
     )
-
-
-def pi_space(orbsym: np.ndarray, cas: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    this function returns doubly degenerate orbitals and hashes from total expansion
-    space
-    """
-    # all doubly degenerate orbital pairs
-    e_pairs = cas[np.in1d(orbsym[cas], E_IRREPS)].reshape(-1, 2)
-
-    # get hashes of all degenerate orbital pairs
-    e_hashes = hash_2d(e_pairs)
-    e_pairs = e_pairs[np.argsort(e_hashes)]
-    e_hashes.sort()
-
-    return (e_pairs.reshape(-1), e_hashes)
-
-
-def _e_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
-    """
-    this function returns doubly degenerate orbitals from tuple of orbitals
-    """
-    return tup[np.in1d(tup, pi_space)]
-
-
-def pi_prune(e_space: np.ndarray, e_hashes: np.ndarray, tup: np.ndarray) -> bool:
-    """
-    this function returns True for a tuple of orbitals allowed under pruning wrt
-    doubly degenerate orbitals
-    """
-    # get all doubly degenerate orbitals in tup
-    tup_e_orbs = _e_orbs(e_space, tup)
-
-    if tup_e_orbs.size == 0:
-        # no doubly degenerate orbitals
-        return True
-
-    if tup_e_orbs.size % 2 > 0:
-        # always prune tuples with an odd number of doubly degenerate orbitals
-        return False
-
-    # get hashes of doubly degenerate orbital pairs
-    tup_e_hashes = hash_2d(tup_e_orbs.reshape(-1, 2))
-    tup_e_hashes.sort()
-
-    # get indices of doubly degenerate orbital pairs
-    idx = hash_lookup(e_hashes, tup_e_hashes)
-
-    return idx is not None
 
 
 def symm_eqv_tup(

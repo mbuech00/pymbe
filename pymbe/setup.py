@@ -763,42 +763,6 @@ def sanity_check(mbe: MBE) -> None:
             "Warning: Calculation is a dryrun and will skip actual CASCI calculations."
         )
 
-    # pi pruning
-    if not isinstance(mbe.pi_prune, bool):
-        raise TypeError(
-            "pruning of pi-orbitals (pi_prune keyword argument) must be a bool"
-        )
-    if mbe.pi_prune:
-        if mbe.point_group not in [
-            "Dooh",
-            "Coov",
-            "D2h",
-            "D2",
-            "C2v",
-            "C2h",
-            "Cs",
-            "Ci",
-            "C2",
-            "C1",
-        ]:
-            raise ValueError(
-                "pruning of pi-orbitals (pi_prune keyword argument) is only "
-                "implemented for linear Dooh and Coov symmetries or their Abelian "
-                "subgroups (point_group keyword argument)"
-            )
-        if not (
-            hasattr(mbe, "orbsym_linear") and isinstance(mbe.orbsym_linear, np.ndarray)
-        ):
-            raise TypeError(
-                "linear point group orbital symmetry (orbsym_linear keyword argument) "
-                "must be a np.ndarray"
-            )
-        if mbe.orbsym_linear.shape != (mbe.norb,):
-            raise ValueError(
-                "linear point group orbital symmetry (orbsym_linear keyword argument) "
-                "must have shape (norb,)"
-            )
-
     # exclude single excitations
     if mbe.target in ["rdm12", "genfock"]:
         if not isinstance(mbe.no_singles, bool):
@@ -930,7 +894,6 @@ def restart_write_kw(mbe: MBE) -> None:
         "hf_guess",
         "verbose",
         "dryrun",
-        "pi_prune",
         "no_singles",
     ]
 
@@ -973,7 +936,6 @@ def restart_write_system(mbe: MBE) -> None:
         "ref_space",
         "exp_space",
         "base_prop",
-        "orbsym_linear",
         "dipole_ints",
         "full_norb",
         "full_nocc",

@@ -105,7 +105,6 @@ def kw_dist(mbe: MBE) -> MBE:
             "hf_guess",
             "verbose",
             "dryrun",
-            "pi_prune",
             "no_singles",
         ]
 
@@ -142,7 +141,6 @@ def system_dist(mbe: MBE) -> MBE:
             "ref_space",
             "exp_space",
             "base_prop",
-            "orbsym_linear",
             "dipole_ints",
             "full_norb",
             "full_nocc",
