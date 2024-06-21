@@ -92,6 +92,11 @@ def cluster_driver(
         # get number of clusters
         ncluster = -(orb_space.size // -max_cluster_size)
 
+        # only single cluster
+        if ncluster == 1:
+            exp_clusters.append(orb_space)
+            continue
+
         # get cluster size
         cluster_size = -(orb_space.size // -ncluster)
 
