@@ -97,6 +97,16 @@ def cluster_driver(
             exp_clusters.append(orb_space)
             continue
 
+        # get indices in expansion space
+        space_idx = np.where(np.isin(exp_space, orb_space))[0]
+
+        # check if orbital pair correlation information is available
+        if not np.any(orb_pairs[np.ix_(space_idx, space_idx)]):
+            raise RuntimeError(
+                "Orbital spaces to be clustered only produce vanishing correlation "
+                "energies. Increase screen_start order for clustering."
+            )
+
         # get cluster size
         cluster_size = -(orb_space.size // -ncluster)
 
@@ -137,9 +147,6 @@ def cluster_driver(
             for size, nocc, nclusters in cluster_types
             if nclusters > 0
         )
-
-        # get indices in expansion space
-        space_idx = np.where(np.isin(exp_space, orb_space))[0]
 
         # simulated annealing to determine optimal orbital clusters
         exp_clusters += _simulated_annealing(
