@@ -2241,7 +2241,7 @@ def symm_eqv_inc(
     # initialize list of sets of tuples with the same increments
     eqv_inc_tups = []
 
-    # initialize list of lexicographically greates increment for every set
+    # initialize list of lexicographically greatest tuple for every set
     lex_tups = []
 
     # check if all tuples in set will produce the same increment
@@ -2303,6 +2303,42 @@ def symm_eqv_inc(
                         break
 
     return lex_tups, eqv_inc_tups
+
+
+def symm_eqv_inc_clusters(
+    eqv_inc_lex_tup: List[np.ndarray],
+    tup_clusters: Optional[List[np.ndarray]],
+    cluster_dict: Optional[Dict[int, Tuple[int, ...]]],
+    nocc: int,
+) -> List[Optional[List[np.ndarray]]]:
+    """
+    this function returns a list of clusters for every provided tuple from the set of
+    symmetry-equivalent increments
+    """
+    # use original clusters if only a single tuple is required
+    if len(eqv_inc_lex_tup) == 1:
+        lex_tups_clusters = [tup_clusters]
+    else:
+        # check if only single orbital clusters are included in the expansion space
+        if cluster_dict is None:
+            lex_tups_clusters = [None for _ in eqv_inc_lex_tup]
+        else:
+            lex_tups_clusters = []
+            # generate and sort clusters
+            for lex_tup in eqv_inc_lex_tup:
+
+                lex_tups_clusters.append(
+                    sorted(
+                        [
+                            np.array(lex_cluster, dtype=np.int64)
+                            for lex_cluster in set(cluster_dict[orb] for orb in lex_tup)
+                        ],
+                        key=lambda cluster: (cluster.size, (cluster >= nocc).sum())
+                        + tuple(orb for orb in cluster),
+                    )
+                )
+
+    return lex_tups_clusters
 
 
 def is_lex_tup(

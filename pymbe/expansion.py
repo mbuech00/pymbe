@@ -64,6 +64,7 @@ from pymbe.tools import (
     e_core_h1e,
     symm_eqv_tup,
     symm_eqv_inc,
+    symm_eqv_inc_clusters,
     get_lex_tup,
     is_lex_tup,
     apply_symm_op,
@@ -1004,7 +1005,7 @@ class ExpCls(
             for exp_space in self.exp_space:
                 self.symm_eqv_orbs.append(
                     reduce_symm_eqv_orbs(
-                        self.symm_eqv_orbs[-1],  #
+                        self.symm_eqv_orbs[-1],
                         cas(self.non_symm_inv_ref_space, exp_space),
                     )
                 )
@@ -1434,9 +1435,15 @@ class ExpCls(
                         self.eqv_inc_orbs[-1], eqv_tup_set, self.non_symm_inv_ref_space
                     )
 
+                    # get clusters for symmetrically equivalent increments
+                    eqv_inc_lex_tup_clusters = symm_eqv_inc_clusters(
+                        eqv_inc_lex_tup, tup_clusters, self.cluster_dict, self.nocc
+                    )
+
                 else:
                     # every tuple is unique without symmetry pruning
                     eqv_inc_lex_tup = [tup]
+                    eqv_inc_lex_tup_clusters = [tup_clusters]
                     eqv_inc_set = [[tup]]
 
                 # get core and cas indices
@@ -1466,7 +1473,9 @@ class ExpCls(
                 n_calc += 1
 
                 # loop over equivalent increment sets
-                for tup, eqv_set in zip(eqv_inc_lex_tup, eqv_inc_set):
+                for tup, tup_clusters, eqv_set in zip(
+                    eqv_inc_lex_tup, eqv_inc_lex_tup_clusters, eqv_inc_set
+                ):
                     # calculate increment
                     inc_tup = target_tup - self._sum(inc, hashes, tup, tup_clusters)
 
