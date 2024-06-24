@@ -1,0 +1,8 @@
+#
+# This file is an example to set the environment.
+# The configs will be used in interface.py
+#
+
+# Install the CFOUR interface MBECC
+# https://gitlab.com/jgreiner/mbecc
+MBECCLIB = "/path/to/mbecc/build/libmbecc.so"

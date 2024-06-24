@@ -4,3 +4,5 @@
 src/.mypy_cache
 examples/energy/*/output
 examples/dipole/*/output
+settings.py
+__pycache__/
