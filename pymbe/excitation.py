@@ -21,9 +21,8 @@ from pymbe.energy import EnergyExpCls
 from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
-
     import matplotlib
-    from typing import Tuple, Union
+    from typing import Tuple, Union, List
 
 
 class ExcExpCls(EnergyExpCls):
@@ -53,6 +52,60 @@ class ExcExpCls(EnergyExpCls):
         this function calculates the hartree-fock property
         """
         return 0.0
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        _core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        ref_guess: bool,
+    ) -> Tuple[float, List[np.ndarray]]:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
+
+        # run fci calculation
+        energy, civec, _ = self._fci_driver(
+            e_core,
+            h1e,
+            h2e,
+            cas_idx,
+            nelec,
+            spin_cas,
+            self.fci_state_sym,
+            [0, self.fci_state_root],
+            ref_guess,
+        )
+
+        return energy[-1] - energy[0], civec
+
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> float:
+        """
+        this function returns the results of a cc calculation
+        """
+        raise NotImplementedError
+
+    def _adaptive_screen(self, inc: List[List[np.ndarray]]):
+        """
+        this function wraps the adaptive screening function
+        """
+        raise NotImplementedError
 
     def _prop_summ(
         self,

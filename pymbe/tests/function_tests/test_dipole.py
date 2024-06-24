@@ -21,8 +21,7 @@ from typing import TYPE_CHECKING
 from pymbe.dipole import DipoleExpCls
 
 if TYPE_CHECKING:
-
-    from mpi4py import MPI
+    from pyscf import scf
     from typing import Tuple, Optional
 
     from pymbe.pymbe import MBE
@@ -35,6 +34,8 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, -0.02732937], dtype=np.float64),
+        1.0,
+        0.9856854425080487,
     ),
     (
         "h2o",
@@ -43,6 +44,8 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, -2.87487935e-02], dtype=np.float64),
+        1.0,
+        1.0,
     ),
     (
         "h2o",
@@ -50,7 +53,9 @@ test_cases_ref_prop = [
         "ccsd",
         "pyscf",
         0,
-        np.array([0.0, 0.0, 1.41941689e-03], dtype=np.float64),
+        np.array([0.0, 0.0, 1.41943254e-03], dtype=np.float64),
+        1.0,
+        0.9856854425080487,
     ),
     (
         "h2o",
@@ -59,6 +64,37 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, 1.47038530e-03], dtype=np.float64),
+        1.0,
+        1.0,
+    ),
+]
+
+test_cases_kernel = [
+    ("h2o", "fci", "pyscf", np.array([0.0, 0.0, -1.02539661e-03], dtype=np.float64)),
+    ("h2o", "ccsd", "pyscf", np.array([0.0, 0.0, -1.02539650e-03], dtype=np.float64)),
+]
+
+test_cases_fci_kernel = [
+    (
+        "h2o",
+        np.array([0.0, 0.0, -1.02539661e-03], dtype=np.float64),
+        1.0,
+        0.9979706719796727,
+    ),
+]
+
+test_cases_cc_kernel = [
+    (
+        "h2o",
+        "ccsd",
+        "pyscf",
+        np.array([0.0, 0.0, -1.02539650e-03], dtype=np.float64),
+    ),
+    (
+        "h2o",
+        "ccsd(t)",
+        "pyscf",
+        np.array([0.0, 0.0, -1.02539650e-03], dtype=np.float64),
     ),
 ]
 
@@ -76,7 +112,8 @@ def exp(mbe: MBE, dipole_quantities: Tuple[np.ndarray, np.ndarray]):
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, cc_backend, root, ref_res",
+    argnames="system, method, base_method, cc_backend, root, ref_res, ref_civec_sum, "
+    "ref_civec_amax",
     argvalues=test_cases_ref_prop,
     ids=[
         "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
@@ -86,13 +123,16 @@ def exp(mbe: MBE, dipole_quantities: Tuple[np.ndarray, np.ndarray]):
 def test_ref_prop(
     mbe: MBE,
     exp: DipoleExpCls,
-    ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win],
+    ints: Tuple[np.ndarray, np.ndarray],
+    vhf: np.ndarray,
     orbsym: np.ndarray,
     method: str,
     base_method: Optional[str],
     cc_backend: str,
     root: int,
     ref_res: np.ndarray,
+    ref_civec_sum: float,
+    ref_civec_amax: float,
 ) -> None:
     """
     this function tests ref_prop
@@ -101,10 +141,143 @@ def test_ref_prop(
     exp.cc_backend = cc_backend
     exp.orbsym = orbsym
     exp.fci_state_root = root
-    exp.hcore, exp.eri, exp.vhf = ints_win
+    exp.hcore, exp.eri = ints
+    exp.vhf = vhf
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
+    exp.ref_nelec = np.array(
+        [
+            np.count_nonzero(exp.occup[exp.ref_space] > 0.0),
+            np.count_nonzero(exp.occup[exp.ref_space] > 1.0),
+        ],
+    )
     exp.base_method = base_method
 
-    res = exp._ref_prop(mbe.mpi)
+    res, civec = exp._ref_prop(mbe.mpi)
+
+    assert res == pytest.approx(ref_res, abs=1e-7)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, ref_res",
+    argvalues=test_cases_kernel,
+    ids=["-".join([item for item in case[0:3] if item]) for case in test_cases_kernel],
+    indirect=["system"],
+)
+def test_kernel(
+    exp: DipoleExpCls,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    method: str,
+    cc_backend: str,
+    ref_res: np.ndarray,
+) -> None:
+    """
+    this function tests _kernel
+    """
+    exp.orbsym = orbsym
+
+    occup = hf.mo_occ
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._kernel(
+        method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, ref_guess=False
+    )
 
     assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, ref, ref_civec_sum, ref_civec_amax",
+    argvalues=test_cases_fci_kernel,
+    ids=[case[0] for case in test_cases_fci_kernel],
+    indirect=["system"],
+)
+def test_fci_kernel(
+    exp: DipoleExpCls,
+    system: str,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    ref: np.ndarray,
+    ref_civec_sum: float,
+    ref_civec_amax: float,
+) -> None:
+    """
+    this function tests _fci_kernel
+    """
+    exp.orbsym = orbsym
+
+    if system == "h2o":
+        occup = hf.mo_occ
+
+    elif system == "hubbard":
+        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res, civec = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, False)
+
+    assert res == pytest.approx(ref)
+    assert np.sum(civec[0] ** 2) == pytest.approx(ref_civec_sum)
+    assert np.amax(civec[0] ** 2) == pytest.approx(ref_civec_amax)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, ref",
+    argvalues=test_cases_cc_kernel,
+    ids=["-".join(case[0:3]) for case in test_cases_cc_kernel],
+    indirect=["system"],
+)
+def test_cc_kernel(
+    exp: DipoleExpCls,
+    hf: scf.RHF,
+    orbsym: np.ndarray,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    method: str,
+    cc_backend: str,
+    ref: np.ndarray,
+) -> None:
+    """
+    this function tests _cc_kernel
+    """
+    exp.orbsym = orbsym
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(hf.mo_occ[cas_idx] > 0.0),
+            np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._cc_kernel(method, core_idx, cas_idx, nelec, h1e_cas, h2e_cas, False)
+
+    assert res == pytest.approx(ref)

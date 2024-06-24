@@ -21,37 +21,32 @@ from types import GeneratorType
 
 from pymbe.tools import (
     time_str,
-    hash_2d,
     hash_1d,
     hash_lookup,
     tuples,
-    start_idx,
+    _start_idx,
     _comb_idx,
     _idx,
     n_tuples,
+    n_tuples_with_nocc,
     cas,
     core_cas,
     _cas_idx_cart,
     _coor_to_idx,
     idx_tril,
-    pi_space,
-    _pi_orbs,
-    pi_prune,
     get_nelec,
     get_nhole,
-    _valid_tup,
-    mat_idx,
-    near_nbrs,
+    valid_tup,
     natural_keys,
     _convert,
     intervals,
     ground_state_sym,
     get_vhf,
     get_occup,
+    e_core_h1e,
 )
 
 if TYPE_CHECKING:
-
     from typing import Union, Tuple, List, Optional
 
 
@@ -82,7 +77,7 @@ test_cases_start_idx = [
         "virt",
         None,
         np.array([6, 9, 12], dtype=np.int64),
-        (3, -1, 2),
+        (0, 0, 2),
     ),
 ]
 
@@ -99,13 +94,6 @@ test_cases_n_tuples = [
     ("no-occ", np.array([0, 0]), np.array([1, 1]), 1460752),
     ("no-virt", np.array([1, 1]), np.array([0, 0]), 2118508),
     ("empty", np.array([0, 0]), np.array([0, 0]), 1460500),
-]
-
-test_cases_pi_prune = [
-    ("3_tot_2_pi", np.array([0, 1, 2], dtype=np.int64), True),
-    ("7_tot_4_pi", np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int64), True),
-    ("4_tot_3_pi", np.array([0, 1, 2, 4], dtype=np.int64), False),
-    ("5_tot_3_pi", np.array([0, 1, 2, 5, 6], dtype=np.int64), False),
 ]
 
 test_cases_valid_tup = [
@@ -145,13 +133,6 @@ test_cases_get_nhole = [
     ("4_holes", np.array([0, 0]), np.array([3, 4], dtype=np.int64), np.array([2, 2])),
     ("2_holes", np.array([1, 1]), np.array([2, 4], dtype=np.int64), np.array([1, 1])),
     ("no_holes", np.array([2, 2]), np.array([3, 4], dtype=np.int64), np.array([0, 0])),
-]
-
-test_cases_mat_idx = [(6, 4, 4, (1, 2)), (9, 8, 2, (4, 1))]
-
-test_cases_near_nbrs = [
-    ((1, 2), 4, 4, [(0, 2), (2, 2), (1, 3), (1, 1)]),
-    ((4, 1), 8, 2, [(3, 1), (5, 1), (4, 0), (4, 0)]),
 ]
 
 test_cases_natural_keys = [
@@ -201,25 +182,6 @@ def test_time_str() -> None:
     assert time_str(3742.4) == "1h 2m 22.40s"
 
 
-def test_hash_2d() -> None:
-    """
-    this function tests hash_2d
-    """
-    ref = np.array(
-        [
-            -2930228190932741801,
-            1142744019865853604,
-            -8951855736587463849,
-            4559082070288058232,
-        ],
-        dtype=np.int64,
-    )
-
-    hash_array = hash_2d(np.arange(4 * 4, dtype=np.int64).reshape(4, 4))
-
-    assert (hash_array == ref).all()
-
-
 def test_hash_1d() -> None:
     """
     this function tests hash_1d
@@ -262,14 +224,7 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
     ref_nelec = get_nelec(occup, ref_space)
     ref_nhole = get_nhole(ref_nelec, ref_space)
 
-    gen = tuples(
-        exp_space[exp_space < nocc],
-        exp_space[nocc <= exp_space],
-        ref_nelec,
-        ref_nhole,
-        1,
-        order,
-    )
+    gen = tuples(exp_space, None, nocc, ref_nelec, ref_nhole, 1, order)
 
     assert isinstance(gen, GeneratorType)
     assert sum(1 for _ in gen) == ref_n_tuples
@@ -286,12 +241,12 @@ def test_start_idx(
     ref_start_idx: Tuple[int, int, int],
 ) -> None:
     """
-    this function tests start_idx
+    this function tests _start_idx
     """
     occ_space = np.array([0, 1, 2, 5], dtype=np.int64)
     virt_space = np.array([6, 7, 9, 12], dtype=np.int64)
 
-    assert start_idx(occ_space, virt_space, tup_occ, tup_virt) == ref_start_idx
+    assert _start_idx(occ_space, virt_space, tup_occ, tup_virt) == ref_start_idx
 
 
 @pytest.mark.parametrize(
@@ -333,13 +288,37 @@ def test_n_tuples(
     """
     this function tests n_tuples
     """
+    nocc = 10
     order = 5
-    occ_space = np.arange(10, dtype=np.int64)
-    virt_space = np.arange(10, 50, dtype=np.int64)
+    exp_space = np.arange(50, dtype=np.int64)
 
     assert (
-        n_tuples(occ_space, virt_space, ref_nelec, ref_nhole, 1, order) == ref_n_tuples
+        n_tuples(exp_space, None, nocc, ref_nelec, ref_nhole, 1, order) == ref_n_tuples
     )
+
+
+@pytest.mark.parametrize(
+    argnames="ref_nelec, ref_nhole, ref_n_tuples",
+    argvalues=[case[1:] for case in test_cases_n_tuples],
+    ids=[case[0] for case in test_cases_n_tuples],
+)
+def test_n_tuples_with_nocc(
+    ref_nelec: np.ndarray, ref_nhole: np.ndarray, ref_n_tuples: int
+) -> None:
+    """
+    this function tests n_tuples
+    """
+    nocc = 10
+    order = 5
+    exp_space = np.arange(50, dtype=np.int64)
+
+    ntuples = 0
+    for tup_nocc in range(order + 1):
+        ntuples += n_tuples_with_nocc(
+            exp_space, None, nocc, ref_nelec, ref_nhole, 1, order, tup_nocc
+        )
+
+    assert ntuples == ref_n_tuples
 
 
 def test_cas() -> None:
@@ -392,65 +371,6 @@ def test_idx_tril() -> None:
     assert (idx_tril(np.arange(2, 14, 3, dtype=np.int64)) == ref).all()
 
 
-def test_pi_space() -> None:
-    """
-    this function tests pi_space
-    """
-    ref_pairs = np.array([12, 13, 7, 8, 3, 4, 0, 1, 9, 10, 15, 16], dtype=np.int64)
-    ref_hashes = np.array(
-        [
-            -8471304755370577665,
-            -7365615264797734692,
-            -3932386661120954737,
-            -3821038970866580488,
-            758718848004794914,
-            7528999078095043310,
-        ],
-        dtype=np.int64,
-    )
-
-    orbsym_dooh = np.array(
-        [14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5], dtype=np.int64
-    )
-    exp_space = np.arange(18, dtype=np.int64)
-
-    pi_pairs, pi_hashes = pi_space("Dooh", orbsym_dooh, exp_space)
-
-    assert (pi_pairs == ref_pairs).all()
-    assert (pi_hashes == ref_hashes).all()
-
-
-def test_pi_orbs() -> None:
-    """
-    this function tests _pi_orbs
-    """
-    pi_orbs = _pi_orbs(
-        np.array([1, 2, 4, 5], dtype=np.int64), np.arange(8, dtype=np.int64)
-    )
-
-    assert (pi_orbs == np.array([1, 2, 4, 5], dtype=np.int64)).all()
-
-
-@pytest.mark.parametrize(
-    argnames="tup, ref_bool",
-    argvalues=[case[1:] for case in test_cases_pi_prune],
-    ids=[case[0] for case in test_cases_pi_prune],
-)
-def test_pi_prune(tup: np.ndarray, ref_bool: bool) -> None:
-    """
-    this function tests pi_prune
-    """
-    pi_space = np.array([1, 2, 4, 5], dtype=np.int64)
-    pi_hashes = np.sort(
-        np.array([-2163557957507198923, 1937934232745943291], dtype=np.int64)
-    )
-
-    if ref_bool:
-        assert pi_prune(pi_space, pi_hashes, tup)
-    else:
-        assert not pi_prune(pi_space, pi_hashes, tup)
-
-
 @pytest.mark.parametrize(
     argnames="ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc, ref_bool",
     argvalues=[case[1:] for case in test_cases_valid_tup],
@@ -467,7 +387,7 @@ def test_valid_tup(
     """
     this function tests _valid_tup
     """
-    assert _valid_tup(ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc) == ref_bool
+    assert valid_tup(ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc) == ref_bool
 
 
 @pytest.mark.parametrize(
@@ -496,32 +416,6 @@ def test_get_nhole(
     this function tests get_nhole
     """
     assert (get_nhole(nelec, tup) == ref_get_nhole).all()
-
-
-@pytest.mark.parametrize(
-    argnames="site_idx, nx, ny, ref_idx_tup",
-    argvalues=test_cases_mat_idx,
-    ids=[str(case[3]) for case in test_cases_mat_idx],
-)
-def test_mat_idx(site_idx: int, nx: int, ny: int, ref_idx_tup: Tuple[int, int]) -> None:
-    """
-    this function tests mat_idx
-    """
-    assert mat_idx(site_idx, nx, ny) == ref_idx_tup
-
-
-@pytest.mark.parametrize(
-    argnames="site_xy, nx, ny, ref_nbrs",
-    argvalues=test_cases_near_nbrs,
-    ids=[str(case[0]) for case in test_cases_near_nbrs],
-)
-def test_near_nbrs(
-    site_xy: Tuple[int, int], nx: int, ny: int, ref_nbrs: List[Tuple[int, int]]
-) -> None:
-    """
-    this function tests near_nbrs
-    """
-    assert near_nbrs(site_xy, nx, ny) == ref_nbrs
 
 
 @pytest.mark.parametrize(
@@ -607,3 +501,28 @@ def test_get_occup(norb: int, nelec: np.ndarray, ref_occup: np.ndarray) -> None:
     this function tests get_occup
     """
     assert (get_occup(norb, nelec) == ref_occup).all()
+
+
+def test_e_core_h1e() -> None:
+    """
+    this function tests e_core_h1e
+    """
+    np.random.seed(1234)
+    hcore = np.random.rand(6, 6)
+    np.random.seed(1234)
+    vhf = np.random.rand(3, 6, 6)
+    core_idx = np.array([0], dtype=np.int64)
+    cas_idx = np.array([2, 4, 5], dtype=np.int64)
+    e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+
+    assert e_core == pytest.approx(0.5745583511366769)
+    assert h1e_cas == pytest.approx(
+        np.array(
+            [
+                [0.74050151, 1.00616633, 0.02753690],
+                [0.79440516, 0.63367224, 1.13619731],
+                [1.60429528, 1.40852194, 1.40916262],
+            ],
+            dtype=np.float64,
+        )
+    )

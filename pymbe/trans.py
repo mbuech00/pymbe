@@ -17,15 +17,14 @@ __status__ = "Development"
 import numpy as np
 from typing import TYPE_CHECKING
 
+from pymbe.expansion import CONV_TOL
+from pymbe.output import DIVIDER as DIVIDER_OUTPUT
 from pymbe.dipole import DipoleExpCls
-from pymbe.kernel import main_kernel, dipole_kernel
-from pymbe.tools import get_nelec
-from pymbe.results import DIVIDER, results_plt
+from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
-
     import matplotlib
-    from typing import Tuple, Union
+    from typing import Tuple, Union, List
 
 
 class TransExpCls(DipoleExpCls):
@@ -33,6 +32,19 @@ class TransExpCls(DipoleExpCls):
     this class contains the pymbe expansion attributes for expansions of the transition
     dipole moment
     """
+
+    def prop(self, *args: Union[str, np.ndarray]) -> np.ndarray:
+        """
+        this function returns the final transition dipole moment
+        """
+        if len(self.mbe_tot_prop) > 0:
+            tot_trans = self.mbe_tot_prop[-1].copy()
+        else:
+            tot_trans = self._init_target_inst(0.0)
+        tot_trans += self.base_prop
+        tot_trans += self.ref_prop
+
+        return tot_trans
 
     def plot_results(
         self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -62,6 +74,23 @@ class TransExpCls(DipoleExpCls):
         """
         return np.zeros(3, dtype=np.float64)
 
+    def _ref_results(self, ref_prop: np.ndarray) -> str:
+        """
+        this function prints reference space results for a target calculation
+        """
+        header = (
+            f"reference space transition dipole moment for excitation 0 -> "
+            f"{self.fci_state_root}"
+        )
+        trans = f"(total increment = {np.linalg.norm(ref_prop):.4e})"
+
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {header:^80}\n"
+        string += f" RESULT: {trans:^80}\n"
+        string += DIVIDER_OUTPUT
+
+        return string
+
     def _inc(
         self,
         e_core: float,
@@ -69,44 +98,80 @@ class TransExpCls(DipoleExpCls):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> np.ndarray:
         """
-        this function calculates the current-order contribution to the increment associated
-        with a given tuple
+        this function calculates the current-order contribution to the increment
+        associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
-        res = main_kernel(
-            self.method,
-            self.cc_backend,
-            self.orb_type,
-            self.spin,
-            self.occup,
-            self.target,
-            self.fci_state_sym,
-            self.point_group,
-            self.orbsym,
-            self.hf_guess,
-            self.fci_state_root,
-            self.hf_prop,
+        trans = self._kernel(
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+        )
+
+        trans -= self.ref_prop
+
+        return trans
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        _core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        ref_guess: bool,
+    ) -> Tuple[np.ndarray, List[np.ndarray]]:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
+
+        # run fci calculation
+        _, civec, solver = self._fci_driver(
             e_core,
-            h1e_cas,
-            h2e_cas,
-            core_idx,
+            h1e,
+            h2e,
             cas_idx,
             nelec,
-            self.verbose,
+            spin_cas,
+            self.fci_state_sym,
+            [0, self.fci_state_root],
+            ref_guess,
+            conv_tol=CONV_TOL * 1.0e-04,
         )
 
-        res_full = dipole_kernel(
-            self.dipole_ints, self.occup, cas_idx, res["t_rdm1"], trans=True
+        # init transition rdm1
+        t_rdm1 = np.zeros([self.occup.size, self.occup.size], dtype=np.float64)
+
+        # insert correlated subblock
+        t_rdm1[cas_idx[:, None], cas_idx] = solver.trans_rdm1(
+            np.sign(civec[0][0, 0]) * civec[0],
+            np.sign(civec[1][0, 0]) * civec[1],
+            cas_idx.size,
+            nelec,
         )
 
-        res_full -= self.ref_prop
+        return np.einsum("xij,ji->x", self.dipole_ints, t_rdm1), civec
 
-        return res_full, nelec
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> np.ndarray:
+        """
+        this function returns the results of a cc calculation
+        """
+        raise NotImplementedError
 
     def _prop_summ(
         self,
@@ -127,20 +192,20 @@ class TransExpCls(DipoleExpCls):
         """
         this function returns the transition dipole moments table
         """
-        string: str = DIVIDER[:83] + "\n"
+        string: str = DIVIDER_RESULTS[:83] + "\n"
         string += (
             f"MBE trans. dipole moment (roots 0 > {self.fci_state_root})".center(87)
             + "\n"
         )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
         string += (
             f"{'':3}{'MBE order':^14}{'|':1}"
             f"{'dipole components (x,y,z)':^43}{'|':1}"
             f"{'dipole moment':^21}\n"
         )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
         tot_ref_trans: np.ndarray = self.ref_prop
         string += (
             f"{'':3}{'ref':^14s}{'|':1}"
@@ -150,7 +215,7 @@ class TransExpCls(DipoleExpCls):
             f"{np.linalg.norm(tot_ref_trans[:]):>14.6f}{'':7}\n"
         )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
         trans = self._prop_conv()
         for i, j in enumerate(range(self.min_order, self.final_order + 1)):
             string += (
@@ -161,7 +226,7 @@ class TransExpCls(DipoleExpCls):
                 f"{np.linalg.norm(trans[i, :]):>14.6f}{'':7}\n"
             )
 
-        string += DIVIDER[:83] + "\n"
+        string += DIVIDER_RESULTS[:83] + "\n"
 
         return string
 

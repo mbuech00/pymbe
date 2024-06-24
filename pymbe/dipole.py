@@ -15,44 +15,34 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import os
-import logging
 import numpy as np
 from mpi4py import MPI
+from pyscf.cc import (
+    ccsd_t_lambda_slow as ccsd_t_lambda,
+    ccsd_t_rdm_slow as ccsd_t_rdm,
+    uccsd_t_lambda,
+    uccsd_t_rdm,
+)
 from typing import TYPE_CHECKING, cast
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls
-from pymbe.kernel import main_kernel, dipole_kernel, hf_dipole_kernel
+from pymbe.expansion import SingleTargetExpCls, CONV_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec
-from pymbe.parallel import mpi_reduce, open_shared_win
+from pymbe.tools import RST, write_file, get_nhole, get_nexc
+from pymbe.parallel import mpi_reduce, open_shared_win, mpi_bcast
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
 if TYPE_CHECKING:
-
     import matplotlib
-    from typing import List, Optional, Tuple, Union
+    from typing import Optional, Tuple, Union, List
 
-    from pymbe.pymbe import MBE
-
-
-# get logger
-logger = logging.getLogger("pymbe_logger")
+    from pymbe.parallel import MPICls
 
 
-class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
+class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
     """
     this class contains the pymbe expansion attributes for expansions of the dipole
     moment
     """
-
-    def __init__(self, mbe: MBE) -> None:
-        """
-        init expansion attributes
-        """
-        # integrals
-        self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
-
-        super().__init__(mbe, cast(np.ndarray, mbe.base_prop))
 
     def prop(
         self, prop_type: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -60,12 +50,17 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         """
         this function returns the final dipole moment
         """
-        return self._prop_conv(
-            nuc_prop,
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb),
-        )[-1, :]
+        if len(self.mbe_tot_prop) > 0:
+            tot_dipole = -self.mbe_tot_prop[-1].copy()
+        else:
+            tot_dipole = self._init_target_inst(0.0)
+        tot_dipole -= self.base_prop
+        tot_dipole -= self.ref_prop
+        if prop_type in ["electronic", "total"]:
+            tot_dipole -= self.hf_prop
+        tot_dipole += nuc_prop
+
+        return tot_dipole
 
     def plot_results(
         self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -76,9 +71,11 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         # array of total MBE dipole moment
         dipole = self._prop_conv(
             nuc_prop,
-            self.hf_prop
-            if y_axis in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb),
+            (
+                self.hf_prop
+                if y_axis in ["electronic", "total"]
+                else self._init_target_inst(0.0)
+            ),
         )
         dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
         for i in range(dipole.shape[0]):
@@ -94,11 +91,75 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
             "Dipole moment (in au)",
         )
 
+    def free_ints(self) -> None:
+        """
+        this function deallocates integrals in shared memory after the calculation is
+        done
+        """
+        super().free_ints()
+
+        # free additional integrals
+        self.dipole_ints_win.Free()
+
+        return
+
+    def _int_wins(
+        self,
+        mpi: MPICls,
+        hcore: Optional[np.ndarray],
+        eri: Optional[np.ndarray],
+        dipole_ints: Optional[np.ndarray] = None,
+        **kwargs: Optional[np.ndarray],
+    ):
+        """
+        this function creates shared memory windows for integrals on every node
+        """
+        super()._int_wins(mpi, hcore, eri)
+
+        # allocate dipole integrals in shared mem
+        self.dipole_ints_win: MPI.Win = MPI.Win.Allocate_shared(
+            8 * 3 * self.norb**2 if mpi.local_master else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+
+        # open dipole integrals in shared memory
+        self.dipole_ints = open_shared_win(
+            self.dipole_ints_win, np.float64, (3, self.norb, self.norb)
+        )
+
+        # set dipole integrals on global master
+        if mpi.global_master:
+            self.dipole_ints[:] = cast(np.ndarray, dipole_ints)
+
+        # mpi_bcast dipole integrals
+        if mpi.num_masters > 1 and mpi.local_master:
+            self.dipole_ints[:] = mpi_bcast(mpi.master_comm, self.dipole_ints)
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        return
+
     def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
         """
-        this function calculates the hartree-fock property
+        this function calculates the hartree-fock electronic dipole moment
         """
-        return hf_dipole_kernel(self.occup, self.dipole_ints)
+        return np.einsum("p,xpp->x", self.occup, self.dipole_ints)
+
+    def _ref_results(self, ref_prop: np.ndarray) -> str:
+        """
+        this function prints reference space results for a target calculation
+        """
+        header = f"reference space dipole moment for root {self.fci_state_root}"
+        dipole = f"(total increment = {np.linalg.norm(ref_prop):.4e})"
+
+        string = DIVIDER_OUTPUT + "\n"
+        string += f" RESULT: {header:^80}\n"
+        string += f" RESULT: {dipole:^80}\n"
+        string += DIVIDER_OUTPUT
+
+        return string
 
     def _inc(
         self,
@@ -107,87 +168,137 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        nelec: np.ndarray,
+    ) -> np.ndarray:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # nelec
-        nelec = get_nelec(self.occup, cas_idx)
-
         # perform main calc
-        res = main_kernel(
-            self.method,
-            self.cc_backend,
-            self.orb_type,
-            self.spin,
-            self.occup,
-            self.target,
-            self.fci_state_sym,
-            self.point_group,
-            self.orbsym,
-            self.hf_guess,
-            self.fci_state_root,
-            self.hf_prop,
-            e_core,
-            h1e_cas,
-            h2e_cas,
-            core_idx,
-            cas_idx,
-            nelec,
-            self.verbose,
-        )
-
-        res_full = dipole_kernel(
-            self.dipole_ints, self.occup, cas_idx, res["rdm1"], hf_dipole=self.hf_prop
+        dipole = self._kernel(
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
         )
 
         # perform base calc
         if self.base_method is not None:
-
-            res = main_kernel(
-                self.base_method,
-                self.cc_backend,
-                self.orb_type,
-                self.spin,
-                self.occup,
-                self.target,
-                self.fci_state_sym,
-                self.point_group,
-                self.orbsym,
-                self.hf_guess,
-                self.fci_state_root,
-                self.hf_prop,
-                e_core,
-                h1e_cas,
-                h2e_cas,
-                core_idx,
-                cas_idx,
-                nelec,
-                self.verbose,
+            dipole -= self._kernel(
+                self.base_method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
             )
 
-            res_base = dipole_kernel(
-                self.dipole_ints,
-                self.occup,
-                cas_idx,
-                res["rdm1"],
-                hf_dipole=self.hf_prop,
-            )
+        dipole -= self.ref_prop
 
-            res_full -= res_base
+        return dipole
 
-        res_full -= self.ref_prop
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        _core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        ref_guess: bool,
+    ) -> Tuple[np.ndarray, List[np.ndarray]]:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        if spin_cas != self.spin:
+            raise RuntimeError(f"casci wrong spin in space: {cas_idx}")
 
-        return res_full, nelec
+        # run fci calculation
+        _, civec, solver = self._fci_driver(
+            e_core,
+            h1e,
+            h2e,
+            cas_idx,
+            nelec,
+            spin_cas,
+            self.fci_state_sym,
+            [self.fci_state_root],
+            ref_guess,
+            conv_tol=CONV_TOL * 1.0e-04,
+        )
+
+        # init rdm1
+        rdm1 = np.diag(self.occup.astype(np.float64))
+
+        # insert correlated subblock
+        rdm1[cas_idx[:, None], cas_idx] = solver.make_rdm1(
+            civec[0], cas_idx.size, nelec
+        )
+
+        # compute elec_dipole
+        elec_dipole = np.einsum("xij,ji->x", self.dipole_ints, rdm1)
+
+        return elec_dipole - self.hf_prop, civec
+
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> np.ndarray:
+        """
+        this function returns the results of a cc calculation
+        """
+        spin_cas = abs(nelec[0] - nelec[1])
+        if spin_cas != self.spin:
+            raise RuntimeError(f"cascc wrong spin in space: {cas_idx}")
+
+        # number of holes in cas space
+        nhole = get_nhole(nelec, cas_idx)
+
+        # number of possible excitations in cas space
+        nexc = get_nexc(nelec, nhole)
+
+        # run ccsd calculation
+        _, ccsd, eris = self._ccsd_driver_pyscf(
+            h1e, h2e, core_idx, cas_idx, spin_cas, converge_amps=True
+        )
+
+        # rdms
+        if method == "ccsd" or nexc <= 2:
+            ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
+            cas_rdm1 = ccsd.make_rdm1()
+        elif method == "ccsd(t)":
+            if spin_cas == 0:
+                l1, l2 = ccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
+                cas_rdm1 = ccsd_t_rdm.make_rdm1(
+                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
+                )
+            else:
+                l1, l2 = uccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
+                cas_rdm1 = uccsd_t_rdm.make_rdm1(
+                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
+                )
+
+        if spin_cas != 0:
+            cas_rdm1 = cas_rdm1[0] + cas_rdm1[1]
+
+        # init rdm1
+        rdm1 = np.diag(self.occup.astype(np.float64))
+
+        # insert correlated subblock
+        rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
+
+        # compute elec_dipole
+        elec_dipole = np.einsum("xij,ji->x", self.dipole_ints, rdm1)
+
+        return elec_dipole - self.hf_prop
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: np.ndarray, string: str) -> None:
+    def _write_target_file(prop: np.ndarray, string: str, order: int) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(order, prop, string)
+        write_file(prop, string, order=order)
 
     @staticmethod
     def _read_target_file(file: str) -> np.ndarray:
@@ -196,15 +307,13 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         """
         return np.load(os.path.join(RST, file))
 
-    @staticmethod
-    def _init_target_inst(value: float, norb: int) -> np.ndarray:
+    def _init_target_inst(self, value: float, *args: int) -> np.ndarray:
         """
         this function initializes an instance of the target type
         """
         return np.full(3, value, dtype=np.float64)
 
-    @staticmethod
-    def _zero_target_arr(length: int):
+    def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
         """
@@ -220,45 +329,44 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         return mpi_reduce(comm, values, root=0, op=op)
 
     def _allocate_shared_inc(
-        self, size: int, allocate: bool, comm: MPI.Comm
-    ) -> MPI.Win:
+        self, size: int, allocate: bool, comm: MPI.Comm, *args: int
+    ) -> Optional[MPI.Win]:
         """
         this function allocates a shared increment window
         """
-        return MPI.Win.Allocate_shared(
-            8 * size * 3 if allocate else 0, 8, comm=comm  # type: ignore
+        return (
+            MPI.Win.Allocate_shared(
+                8 * size * 3 if allocate else 0, 8, comm=comm  # type: ignore
+            )
+            if size > 0
+            else None
         )
 
-    @staticmethod
     def _open_shared_inc(
-        window: MPI.Win, n_tuples: int, idx: Optional[int] = None
+        self, window: Optional[MPI.Win], n_incs: int, *args: int
     ) -> np.ndarray:
         """
         this function opens a shared increment window
         """
-        return open_shared_win(window, np.float64, (n_tuples, 3))
+        return open_shared_win(window, np.float64, (n_incs, 3))
 
-    @staticmethod
-    def _flatten_inc(inc_lst: List[np.ndarray], order: int) -> np.ndarray:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return np.array(inc_lst, dtype=np.float64).reshape(-1)
-
-    @staticmethod
-    def _screen(
-        inc_tup: np.ndarray, screen: np.ndarray, tup: np.ndarray, screen_func: str
-    ) -> np.ndarray:
+    def _add_screen(
+        self,
+        inc_tup: np.ndarray,
+        order: int,
+        tup: np.ndarray,
+        *args: Optional[List[np.ndarray]],
+    ) -> None:
         """
         this function modifies the screening array
         """
-        if screen_func == "sum":
-            return screen[tup] + np.sum(np.abs(inc_tup))
-        else:
-            return np.maximum(screen[tup], np.max(np.abs(inc_tup)))
+        self.screen[order - 1]["max"][tup] = np.maximum(
+            self.screen[order - 1]["max"][tup], np.max(np.abs(inc_tup))
+        )
+        self.screen[order - 1]["sum_abs"][tup] += np.sum(np.abs(inc_tup))
 
     @staticmethod
-    def _total_inc(inc: np.ndarray, mean_inc: np.ndarray) -> np.ndarray:
+    def _total_inc(inc: List[np.ndarray], mean_inc: np.ndarray) -> np.ndarray:
         """
         this function calculates the total increment at a certain order
         """
@@ -284,6 +392,12 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
 
         return string
 
+    def _adaptive_screen(self, inc: List[List[np.ndarray]]):
+        """
+        this function wraps the adaptive screening function
+        """
+        raise NotImplementedError
+
     def _mbe_results(self, order: int) -> str:
         """
         this function prints mbe results statistics for a dipole or transition dipole
@@ -299,11 +413,14 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
 
         # set header
         if self.target == "dipole":
-            header = f"dipole moment for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"dipole moment for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
         elif self.target == "trans":
             header = (
-                f"transition dipole moment for excitation 0 -> {self.fci_state_root} (total increment = "
-                f"{tot_inc:.4e})"
+                f"transition dipole moment for excitation 0 -> {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
             )
 
         # set string
@@ -312,32 +429,32 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         string += f" RESULT-{order:d}:{header:^81}\n"
         string += DIVIDER_OUTPUT + "\n"
 
-        # set components
-        string += DIVIDER_OUTPUT
-        comp = ("x-component", "y-component", "z-component")
-
-        # loop over x, y, and z
-        for k in range(3):
-
+        if not self.closed_form:
             # set string
-            string += f"\n RESULT-{order:d}:{comp[k]:^81}\n"
+            string += DIVIDER_OUTPUT
+
+            # loop over x, y, and z
+            comp = ("x-component", "y-component", "z-component")
+            for k in range(3):
+                string += f"\n RESULT-{order:d}:{comp[k]:^81}\n"
+                string += DIVIDER_OUTPUT + "\n"
+                string += (
+                    f" RESULT-{order:d}:      mean increment     |      "
+                    "min. abs. increment     |     max. abs. increment\n"
+                )
+                string += DIVIDER_OUTPUT + "\n"
+                string += (
+                    f" RESULT-{order:d}:     "
+                    f"{self.mean_inc[order - self.min_order][k]:>13.4e}       |        "
+                    f"{self.min_inc[order - self.min_order][k]:>13.4e}         |       "
+                    f"{self.max_inc[order - self.min_order][k]:>13.4e}\n"
+                )
+                if k < 2:
+                    string += DIVIDER_OUTPUT
+
             string += DIVIDER_OUTPUT + "\n"
-            string += (
-                f" RESULT-{order:d}:      mean increment     |      "
-                "min. abs. increment     |     max. abs. increment\n"
-            )
-            string += DIVIDER_OUTPUT + "\n"
-            string += (
-                f" RESULT-{order:d}:     "
-                f"{self.mean_inc[order - self.min_order][k]:>13.4e}       |        "
-                f"{self.min_inc[order - self.min_order][k]:>13.4e}         |       "
-                f"{self.max_inc[order - self.min_order][k]:>13.4e}\n"
-            )
-            if k < 2:
-                string += DIVIDER_OUTPUT
 
         # set string
-        string += DIVIDER_OUTPUT + "\n"
         string += FILL_OUTPUT + "\n"
         string += DIVIDER_OUTPUT
 

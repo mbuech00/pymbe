@@ -26,7 +26,6 @@ from pymbe.parallel import MPICls
 from pymbe.interface import CCLIB_AVAILABLE
 
 if TYPE_CHECKING:
-
     from _pytest.fixtures import SubRequest
     from typing import Tuple
 
@@ -61,7 +60,6 @@ def mol(system: str) -> gto.Mole:
     this fixture constructs the mol object
     """
     if system == "h2o":
-
         mol = gto.Mole()
         mol.build(
             atom="O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943",
@@ -71,7 +69,6 @@ def mol(system: str) -> gto.Mole:
         )
 
     elif system == "c2":
-
         mol = gto.Mole()
         mol.build(
             atom="C 0. 0. 0.625; C 0. 0. -0.625",
@@ -81,13 +78,12 @@ def mol(system: str) -> gto.Mole:
         )
 
     elif system == "hcl":
-
         mol = gto.Mole()
         mol.build(atom="H 0 0 0; Cl 0 0 1.", basis="631g", symmetry="C2v", verbose=0)
 
     elif system == "hubbard":
-
         mol = gto.M()
+        mol.nao = 6
 
     return mol
 
@@ -98,12 +94,13 @@ def ncore(system: str) -> int:
     this fixture sets the number of core orbitals
     """
     if system == "h2o":
-
         ncore = 1
 
     elif system == "c2":
-
         ncore = 2
+
+    elif system == "hubbard":
+        ncore = 0
 
     return ncore
 
@@ -121,7 +118,10 @@ def norb(mol: gto.Mole) -> int:
     """
     this fixture extracts the number of orbitals from the mol object
     """
-    return mol.nao.item()
+    if isinstance(mol.nao, int):
+        return mol.nao
+    else:
+        return mol.nao.item()
 
 
 @pytest.fixture
@@ -130,7 +130,6 @@ def hf(system: str, mol: gto.Mole) -> scf.RHF:
     this fixture constructs the hf object and executes a hf calculation
     """
     if system in ["h2o", "c2"]:
-
         hf = scf.RHF(mol)
         hf.conv_tol = 1.0e-10
         with catch_warnings():
@@ -138,7 +137,6 @@ def hf(system: str, mol: gto.Mole) -> scf.RHF:
             hf.kernel()
 
     elif system == "hubbard":
-
         hf = None
 
     return hf
@@ -150,11 +148,9 @@ def mo_coeff(request: SubRequest, hf: scf.RHF, norb: int) -> np.ndarray:
     this fixture constructs mo coefficients
     """
     if request.param == "h2o":
-
         mo_coeff = hf.mo_coeff
 
     elif request.param == "rnd":
-
         np.random.seed(1234)
         mo_coeff = np.random.rand(norb, norb)
 
@@ -167,7 +163,6 @@ def indices(system: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     this fixture constructs core, cas and lower triangle cas space indices
     """
     if system == "h2o":
-
         core_idx = np.array([], dtype=np.int64)
         cas_idx = np.array([0, 1, 2, 3, 4, 9], dtype=np.int64)
         cas_idx_tril = np.array(
@@ -176,7 +171,6 @@ def indices(system: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         )
 
     elif system == "hubbard":
-
         core_idx = np.array([0], dtype=np.int64)
         cas_idx = np.arange(1, 5, dtype=np.int64)
         cas_idx_tril = np.array([2, 4, 5, 7, 8, 9, 11, 12, 13, 14], dtype=np.int64)
@@ -190,23 +184,21 @@ def ints(system: str, mol: gto.Mole, hf: scf.RHF) -> Tuple[np.ndarray, np.ndarra
     this fixture constructs hcore and eri integrals
     """
     if system == "h2o":
-
         hcore_ao = hf.get_hcore()
         hcore = np.einsum("pi,pq,qj->ij", hf.mo_coeff, hcore_ao, hf.mo_coeff)
         eri_ao = mol.intor("int2e_sph", aosym=4)
         eri = ao2mo.incore.full(eri_ao, hf.mo_coeff)
 
     elif system == "hubbard":
-
-        hcore = np.zeros([6] * 2, dtype=np.float64)
-        for i in range(5):
+        hcore = np.zeros([mol.nao] * 2, dtype=np.float64)
+        for i in range(mol.nao - 1):
             hcore[i, i + 1] = hcore[i + 1, i] = -1.0
         hcore[-1, 0] = hcore[0, -1] = -1.0
 
-        eri = np.zeros([6] * 4, dtype=np.float64)
-        for i in range(6):
+        eri = np.zeros([mol.nao] * 4, dtype=np.float64)
+        for i in range(mol.nao):
             eri[i, i, i, i] = 2.0
-        eri = ao2mo.restore(4, eri, 6)
+        eri = ao2mo.restore(4, eri, mol.nao)
 
     return hcore, eri
 
@@ -284,14 +276,12 @@ def orbsym(system: str, mol: gto.Mole, hf: scf.RHF) -> np.ndarray:
     this fixture determines orbital symmetries
     """
     if system in ["h2o", "c2"]:
-
         orbsym = np.array(
             symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff),
             dtype=np.int64,
         )
 
     elif system == "hubbard":
-
         orbsym = np.zeros(6, dtype=np.int64)
 
     return orbsym
@@ -305,13 +295,11 @@ def dipole_quantities(
     this fixture determines the hf dipole moment and dipole integrals
     """
     if system == "h2o":
-
         ao_dip = mol.intor_symmetric("int1e_r", comp=3)
         dipole_ints = np.einsum("pi,xpq,qj->xij", hf.mo_coeff, ao_dip, hf.mo_coeff)
         dipole_hf = np.einsum("xij,ji->x", ao_dip, hf.make_rdm1())
 
     elif system == "hubbard":
-
         dipole_ints = None
         dipole_hf = None
 
@@ -332,8 +320,13 @@ def mbe(
     """
     hcore, eri = ints
 
+    ref_space = np.array([i for i in range(ncore, nocc)], dtype=np.int64)
+    exp_space = np.array(
+        [i for i in range(ncore, mol.nao) if i not in ref_space],
+        dtype=np.int64,
+    )
+
     mbe = MBE(
-        ncore=ncore,
         norb=norb,
         nelec=mol.nelec,
         point_group=mol.groupname,
@@ -342,7 +335,8 @@ def mbe(
         fci_state_root=0,
         hcore=hcore,
         eri=eri,
-        ref_space=np.array([i for i in range(ncore, nocc)]),
+        ref_space=ref_space,
+        exp_space=exp_space,
         rst=False,
     )
 

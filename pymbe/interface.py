@@ -17,24 +17,25 @@ __status__ = "Development"
 import os
 import ctypes
 import numpy as np
+from math import floor, log10
 from pyscf import ao2mo
 from typing import TYPE_CHECKING
+
+from pymbe.expansion import CONV_TOL
 
 try:
     from pymbe.settings import MBECCLIB
 
     cclib = ctypes.cdll.LoadLibrary(MBECCLIB)
     CCLIB_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     CCLIB_AVAILABLE = False
 
 if TYPE_CHECKING:
-
     from typing import Tuple
 
 
 MAX_MEM = 131071906
-CONV_TOL = 10
 
 
 def mbecc_interface(
@@ -61,7 +62,7 @@ def mbecc_interface(
         raise ModuleNotFoundError(msg)
 
     # method keys in cfour
-    method_dict = {"ccsd": 10, "ccsd(t)": 22, "ccsdt": 18, "ccsdtq": 46}
+    method_dict = {"ccsd": 10, "ccsd(t)": 22, "ccsdt": 18, "ccsdt(q)": 54, "ccsdtq": 46}
 
     # cc module
     cc_module_dict = {"ecc": 0, "ncc": 1}
@@ -81,14 +82,16 @@ def mbecc_interface(
     # settings
     method_val = ctypes.c_int64(method_dict[method])
     cc_module_val = ctypes.c_int64(cc_module_dict[cc_backend])
-    point_group_val = ctypes.c_int64(point_group_dict[point_group])
+    point_group_val = ctypes.c_int64(
+        point_group_dict[point_group] if orb_type != "local" else 1
+    )
     non_canonical = ctypes.c_int64(0 if orb_type == "can" else 1)
     maxcor = ctypes.c_int64(MAX_MEM)  # max memory in integer words
-    conv = ctypes.c_int64(CONV_TOL)
+    conv = ctypes.c_int64(-int(floor(log10(abs(CONV_TOL)))))
     max_cycle = ctypes.c_int64(500)
     t3_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
     t4_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
-    verbose_val = ctypes.c_int64(1 if verbose >= 3 else 0)
+    verbose_val = ctypes.c_int64(1 if verbose >= 5 else 0)
 
     n_act = orbsym.size
     h2e = ao2mo.restore(1, h2e, n_act)
@@ -121,7 +124,6 @@ def mbecc_interface(
 
     # convergence check
     if success.value != 1:
-
         # redo calculation in debug mode if not converged
         verbose_val = ctypes.c_int64(1)
 
