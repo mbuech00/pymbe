@@ -468,7 +468,18 @@ def test_get_vhf() -> None:
     """
     this function tests get_vhf
     """
-    vhf = get_vhf(np.arange(55, dtype=np.float64), 2, 4)
+    nocc = 2
+    norb = 4
+
+    npair = norb * (norb + 1) // 2
+
+    eri_s8 = np.arange(npair * (npair + 1) // 2, dtype=np.float64)
+    eri_s4 = np.zeros((npair, npair), dtype=np.float64)
+    idx1, idx2 = np.tril_indices(norb * (norb + 1) // 2)
+    eri_s4[idx1, idx2] = eri_s8
+    eri_s4 = np.maximum(eri_s4, eri_s4.T)
+
+    vhf = get_vhf(eri_s4, nocc, norb)
 
     assert (
         vhf
