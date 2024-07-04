@@ -55,6 +55,9 @@ def cluster_driver(
     """
     this function is the driver function for orbital clustering
     """
+    # initialize random number generator
+    rng = np.random.default_rng(seed=SEED)
+
     # initialize expansion space clusters
     exp_clusters = []
 
@@ -74,89 +77,170 @@ def cluster_driver(
     # define expansion space subspaces within which the orbital clustering should take
     # place
     if symm_eqv_sets is None:
-        orb_spaces = [remain_exp_space]
+        symm_spaces = [[remain_exp_space]]
     else:
-        orb_spaces = []
-        for set_type in symm_eqv_sets:
-            set_spaces = np.concatenate(
-                [np.intersect1d(orb_space, remain_exp_space) for orb_space in set_type]
+        symm_spaces = []
+        for symm_list in symm_eqv_sets:
+            symm_spaces.append(
+                [np.intersect1d(orb_space, remain_exp_space) for orb_space in symm_list]
             )
-            if set_spaces.size > 0:
-                orb_spaces.append(set_spaces)
 
     # loop over orbital spaces
-    for orb_space in orb_spaces:
-        # number of occupied and virtual orbitals in orbital space
-        orb_space_nocc = (orb_space < nocc).sum()
+    for symm_space in symm_spaces:
+        # loop until all equivalent sets in orbital space have been clustered
+        while symm_space:
+            # orbital space
+            orb_space = np.concatenate(symm_space)
 
-        # get number of clusters
-        ncluster = -(orb_space.size // -max_cluster_size)
+            # number of occupied and virtual orbitals in orbital space
+            orb_space_nocc = (orb_space < nocc).sum()
 
-        # only single cluster
-        if ncluster == 1:
-            exp_clusters.append(orb_space)
-            continue
+            # get number of clusters
+            ncluster = -(orb_space.size // -max_cluster_size)
 
-        # get indices in expansion space
-        space_idx = np.where(np.isin(exp_space, orb_space))[0]
+            # only single cluster
+            if ncluster == 1:
+                exp_clusters.append(orb_space)
+                continue
 
-        # check if orbital pair correlation information is available
-        if not np.any(orb_pairs[np.ix_(space_idx, space_idx)]):
-            raise RuntimeError(
-                "Orbital spaces to be clustered only produce vanishing correlation "
-                "energies. Increase screen_start order for clustering."
+            # get indices in expansion space
+            space_idx = np.where(np.isin(exp_space, orb_space))[0]
+
+            # check if orbital pair correlation information is available
+            if not np.any(orb_pairs[np.ix_(space_idx, space_idx)]):
+                raise RuntimeError(
+                    "Orbital spaces to be clustered only produce vanishing correlation "
+                    "energies. Increase screen_start order for clustering."
+                )
+
+            # get cluster size
+            cluster_size = -(orb_space.size // -ncluster)
+
+            # number of larger and smaller clusters
+            ncluster_large = orb_space.size - ncluster * (cluster_size - 1)
+            ncluster_small = ncluster - ncluster_large
+
+            # maximum number of occupied orbitals per cluster
+            cluster_nocc = -(orb_space_nocc // -ncluster)
+
+            # number of clusters with occupation cluster_nocc
+            ncluster_high = orb_space_nocc - ncluster * (cluster_nocc - 1)
+
+            # clusters with cluster_size and cluster_nocc
+            ncluster_large_high = min(ncluster_large, ncluster_high)
+
+            # clusters with cluster_size and cluster_nocc - 1
+            ncluster_large_low = max(ncluster_large - ncluster_high, 0)
+
+            # clusters with cluster_size - 1 and cluster_nocc
+            if ncluster_large_low == 0:
+                ncluster_small_high = ncluster_high - ncluster_large_high
+            else:
+                ncluster_small_high = 0
+
+            # clusters with cluster_size - 1 and cluster_nocc - 1
+            ncluster_small_low = ncluster_small - ncluster_small_high
+
+            # different cluster types
+            cluster_types: Tuple[Tuple[int, int, int], ...] = (
+                (cluster_size, cluster_nocc, ncluster_large_high),
+                (cluster_size, cluster_nocc - 1, ncluster_large_low),
+                (cluster_size - 1, cluster_nocc, ncluster_small_high),
+                (cluster_size - 1, cluster_nocc - 1, ncluster_small_low),
+            )
+            cluster_types = tuple(
+                (size, nocc, nclusters)
+                for size, nocc, nclusters in cluster_types
+                if nclusters > 0
             )
 
-        # get cluster size
-        cluster_size = -(orb_space.size // -ncluster)
+            # simulated annealing to determine optimal orbital clusters
+            clusters = _simulated_annealing(
+                rng,
+                orb_pairs[space_idx.reshape(-1, 1), space_idx],
+                cluster_types,
+                ncluster,
+                orb_space_nocc,
+                orb_space.size,
+                orb_space,
+            )
 
-        # number of larger and smaller clusters
-        ncluster_large = orb_space.size - ncluster * (cluster_size - 1)
-        ncluster_small = ncluster - ncluster_large
+            # check if multiple symmetry-equivalent sets are included in orbital space
+            # and if all clusters have the same size
+            remain_symm_space = []
+            if len(symm_space) > 1 and len({cluster.size for cluster in clusters}) == 1:
+                # get array of orbital clusters
+                cluster_array = np.array(clusters, dtype=np.int64)
 
-        # maximum number of occupied orbitals per cluster
-        cluster_nocc = -(orb_space_nocc // -ncluster)
+                # get dictionary of orbitals and the index of their symmetry-equivalent
+                # set
+                eqv_set_idxs = {
+                    orb: eqv_set_idx
+                    for eqv_set_idx, eqv_set in enumerate(symm_space)
+                    for orb in eqv_set
+                }
 
-        # number of clusters with occupation cluster_nocc
-        ncluster_high = orb_space_nocc - ncluster * (cluster_nocc - 1)
+                # initialize consistent clusters
+                consistent_clusters = set()
 
-        # clusters with cluster_size and cluster_nocc
-        ncluster_large_high = min(ncluster_large, ncluster_high)
+                # loop over symmetry-equivalent sets
+                for eqv_set in symm_space:
+                    # get mask for orbitals in clusters of current symmetry-equivalent
+                    # set
+                    mask = np.isin(cluster_array, eqv_set, assume_unique=True)
+                    eqv_set_clusters = np.logical_or.reduce(mask, axis=1)
+                    other_orbs = ~mask[eqv_set_clusters]
 
-        # clusters with cluster_size and cluster_nocc - 1
-        ncluster_large_low = max(ncluster_large - ncluster_high, 0)
+                    # add orbitals of clusters involving orbitals from the same
+                    # symmetry-equivalent set
+                    other_orbs[np.count_nonzero(mask[eqv_set_clusters], axis=1) > 1] = (
+                        True
+                    )
 
-        # clusters with cluster_size - 1 and cluster_nocc
-        if ncluster_large_low == 0:
-            ncluster_small_high = ncluster_high - ncluster_large_high
-        else:
-            ncluster_small_high = 0
+                    # add symmetry-equivalent sets in clusters of all orbitals in
+                    # current symmetry-equivalent set
+                    cluster_sets = {
+                        eqv_set_idxs[orb]
+                        for orb in cluster_array[eqv_set_clusters][other_orbs].flatten()
+                    }
 
-        # clusters with cluster_size - 1 and cluster_nocc - 1
-        ncluster_small_low = ncluster_small - ncluster_small_high
+                    # add symmetry-equivalent set if number of sets in clusters exceeds
+                    # cluster size
+                    if len(cluster_sets) > cluster_array.shape[1] - 1:
+                        remain_symm_space.append(eqv_set)
+                    # clusters are consistent
+                    else:
+                        consistent_clusters.update(
+                            [
+                                tuple(cluster)
+                                for cluster in cluster_array[eqv_set_clusters]
+                            ]
+                        )
 
-        # different cluster types
-        cluster_types: Tuple[Tuple[int, int, int], ...] = (
-            (cluster_size, cluster_nocc, ncluster_large_high),
-            (cluster_size, cluster_nocc - 1, ncluster_large_low),
-            (cluster_size - 1, cluster_nocc, ncluster_small_high),
-            (cluster_size - 1, cluster_nocc - 1, ncluster_small_low),
-        )
-        cluster_types = tuple(
-            (size, nocc, nclusters)
-            for size, nocc, nclusters in cluster_types
-            if nclusters > 0
-        )
+                # inconsistent clusters exist
+                if remain_symm_space:
+                    # only add consistent clusters
+                    clusters = [
+                        np.array(cluster, dtype=np.int64)
+                        for cluster in consistent_clusters
+                    ]
 
-        # simulated annealing to determine optimal orbital clusters
-        exp_clusters += _simulated_annealing(
-            orb_pairs[space_idx.reshape(-1, 1), space_idx],
-            cluster_types,
-            ncluster,
-            orb_space_nocc,
-            orb_space.size,
-            orb_space,
-        )
+                    logger.info2(" Restarting simulated annealing for orbital sets: ")
+                    for eqv_set in remain_symm_space:
+                        logger.info2(" " + str(eqv_set))
+                    logger.info2("")
+
+            # add clusters to expansion space
+            exp_clusters += clusters
+
+            # restart annealing in remaining space
+            symm_space = remain_symm_space
+
+    # sort clusters
+    exp_clusters = sorted(
+        [np.sort(cluster) for cluster in exp_clusters],
+        key=lambda cluster: (cluster.size,) + tuple(orb for orb in cluster),
+    )
 
     # log orbital clusters
     symm_header = "Cluster symmetries"
@@ -190,6 +274,7 @@ def cluster_driver(
 
 
 def _simulated_annealing(
+    rng: Generator,
     orb_pairs: np.ndarray,
     cluster_types: Tuple[Tuple[int, int, int], ...],
     tot_ncluster: int,
@@ -200,9 +285,6 @@ def _simulated_annealing(
     """
     this function performs simulated annealing to determine the optimal cluster types
     """
-    # initialize random number generator
-    rng = np.random.default_rng(seed=SEED)
-
     # generate number of occupied and virtual orbitals for every cluster
     clusters = np.empty((2, tot_ncluster), dtype=np.int64)
     idx = 0
