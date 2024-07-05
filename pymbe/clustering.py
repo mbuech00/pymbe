@@ -101,7 +101,7 @@ def cluster_driver(
             # only single cluster
             if ncluster == 1:
                 exp_clusters.append(orb_space)
-                continue
+                break
 
             # get indices in expansion space
             space_idx = np.where(np.isin(exp_space, orb_space))[0]
