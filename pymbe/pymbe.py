@@ -20,7 +20,7 @@ import numpy as np
 from pyscf import ao2mo, symm
 from typing import TYPE_CHECKING, cast
 
-from pymbe.parallel import MPICls
+from pymbe.parallel import MPICls, mpi_reduce
 from pymbe.setup import (
     restart_read_kw,
     restart_read_system,
@@ -578,6 +578,9 @@ class MBE:
             if self.mpi.global_master:
                 max_cluster_size, symm_eqv_sets, orb_pairs = restart_read_clustering()
                 self.restarted = False
+
+        # reduce orbital pairs
+        orb_pairs = mpi_reduce(self.mpi.global_comm, orb_pairs)
 
         # determine clusters
         if self.mpi.global_master:
