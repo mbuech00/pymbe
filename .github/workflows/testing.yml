@@ -36,7 +36,7 @@ jobs:
 
     - name: Fetch MBECC library
       run: |
-        gh release download --repo eriksen-lab/mbecc -pattern libmbecc.so
+        gh release download --repo eriksen-lab/mbecc --pattern libmbecc.so
         echo "MBECCLIB = 'libmbecc.so'" > pymbe/settings.py
       env:
         GITHUB_TOKEN: ${{ secrets.MBECC_ARTIFACT_ACCESS }}
