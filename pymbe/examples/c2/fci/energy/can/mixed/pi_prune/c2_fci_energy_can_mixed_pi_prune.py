@@ -47,7 +47,7 @@ def mbe_example(rst=True):
         )
 
         # cluster pi orbitals
-        e_mask = np.in1d(orbsym_linear[exp_space], E_IRREPS)
+        e_mask = np.isin(orbsym_linear[exp_space], E_IRREPS)
         exp_space = [np.array(orb, dtype=np.int64) for orb in exp_space[~e_mask]] + [
             e_pair for e_pair in exp_space[e_mask].reshape(-1, 2)
         ]

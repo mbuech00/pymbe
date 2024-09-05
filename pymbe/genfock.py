@@ -347,7 +347,7 @@ class GenFockExpCls(
             )
 
         # get reference space indices in cas_idx
-        idx = np.where(np.in1d(cas_idx, self.ref_space))[0]
+        idx = np.where(np.isin(cas_idx, self.ref_space))[0]
         gen_fock_idx = np.concatenate(
             (np.arange(self.nocc), self.ref_space[self.nocc <= self.ref_space])
         )
