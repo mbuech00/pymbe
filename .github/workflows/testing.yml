@@ -43,12 +43,10 @@ jobs:
       shell: bash
 
     - name: Set up environment
-      run: |
-        echo "PYTHONPATH=pymbe:$PYTHONPATH" >> $GITHUB_ENV
-        echo "PYTHONHASHSEED=0" >> $GITHUB_ENV
+      run: echo "PYTHONHASHSEED=0" >> $GITHUB_ENV
 
     - name: Type checking
       run: mypy --ignore-missing-imports --warn-redundant-casts pymbe
         
     - name: Testing
-      run: pytest pymbe -x --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+      run: python3 -m pytest -x --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
