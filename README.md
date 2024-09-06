@@ -126,6 +126,10 @@ Citing PyMBE
 The following papers document the development of the PyMBE code and the theory 
 it implements:
 
+* Error Control and Automatic Detection of Reference Active Spaces in Many-Body Expanded Full Configuration Interaction\
+Greiner, J., Gauss, J., Eriksen, J. J.\
+[J. Phys. Chem. A, 128, 6806 (2024)](https://pubs.acs.org/doi/10.1021/acs.jpca.4c04056) ([arXiv:2406.11343](https://arxiv.org/abs/2406.11343))
+
 * MBE-CASSCF Approach for the Accurate Treatment of Large Active Spaces\
 Greiner, J., Gianni, I., Nottoli, T., Lipparini, F., Eriksen, J. J., Gauss, J.\
 [J. Chem. Theory Comput., 20, 4663 (2024)](https://pubs.acs.org/doi/10.1021/acs.jctc.4c00388) ([arXiv:2403.17836](https://arxiv.org/abs/2403.17836))
