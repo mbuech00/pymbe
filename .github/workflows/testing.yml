@@ -22,7 +22,7 @@ jobs:
         mpi: "openmpi"
         
     - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
         
@@ -42,11 +42,10 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.MBECC_Release_Access }}
       shell: bash
 
-    - name: Set up environment
-      run: echo "PYTHONHASHSEED=0" >> $GITHUB_ENV
-
     - name: Type checking
       run: mypy --ignore-missing-imports --warn-redundant-casts pymbe
         
     - name: Testing
-      run: python3 -m pytest -x --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+      run: |
+        export PYTHONHASHSEED=0
+        python3 -m pytest -x --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
