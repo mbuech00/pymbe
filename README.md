@@ -1,5 +1,7 @@
 ![](doc/logo/pymbe_logo.png "PyMBE")
 
+[![DOI](https://zenodo.org/badge/852764849.svg)](https://zenodo.org/doi/10.5281/zenodo.13752712)
+
 PyMBE: A Many-Body Expanded Correlation Code 
 ============================================
 
