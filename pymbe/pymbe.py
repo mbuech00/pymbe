@@ -74,6 +74,8 @@ class MBE:
         eri: Optional[np.ndarray] = None,
         ref_space: np.ndarray = np.array([], dtype=np.int64),
         exp_space: Optional[Union[np.ndarray, List[np.ndarray]]] = None,
+        M_tot: Optional[np.ndarray] = None,
+        filter_threshold: Optional[float] = None,
         ref_thres: float = 0.0,
         base_method: Optional[str] = None,
         base_prop: Optional[
@@ -123,6 +125,7 @@ class MBE:
 
         # input handling
         if self.mpi.global_master:
+        
             # check for restart folder
             if not os.path.isdir(RST):
                 # expansion model
@@ -377,6 +380,12 @@ class MBE:
 
                 # exclude single excitations
                 self.no_singles = no_singles
+
+                # For Filter: Matrix containing all Integrals over two MOs
+                self.M_tot = M_tot
+
+                # Filter Treshold
+                self.filter_threshold = filter_threshold
 
             else:
                 # read keywords

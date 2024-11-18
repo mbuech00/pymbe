@@ -21,6 +21,7 @@ from abc import ABCMeta, abstractmethod
 from itertools import combinations
 from pyscf import gto, scf, cc, fci
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union, Dict
+from pymbe.filter import filter
 
 from pymbe.logger import logger
 from pymbe.output import (
@@ -296,6 +297,11 @@ class ExpCls(
 
         # dryrun
         self.dryrun = mbe.dryrun
+
+        # Matrix containing all Integrals over two MOs
+        self.M_tot = mbe.M_tot
+
+        self.filter_threshold = mbe.filter_threshold
 
         # exclude single excitations
         self.no_singles = mbe.no_singles
@@ -1253,6 +1259,9 @@ class ExpCls(
         # perform calculation if not dryrun
         if not self.dryrun:
             # loop until no tuples left
+
+            count_filter = 0
+
             for tup_idx, (tup, tup_clusters) in enumerate(
                 tuples(
                     self.exp_space[-1],
@@ -1445,9 +1454,23 @@ class ExpCls(
                     eqv_inc_lex_tup = [tup]
                     eqv_inc_lex_tup_clusters = [tup_clusters]
                     eqv_inc_set = [[tup]]
-
+                
                 # get core and cas indices
                 core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
+
+                 # get nelec_tup
+                nelec_tup = get_nelec(self.occup, cas_idx)
+
+                # get number of occupied orbitals in tuple
+                nocc_tup = max(nelec_tup - self.ref_nelec)
+
+                # Use the filter function to calculate numerical overlap (I_1) 
+                I_1 = filter(nocc_tup, tup, self.M_tot, self.order)
+    
+                #Check if numerical overlap I_1 is below the threshold, if yes: skip calcualtion
+                if I_1 < self.filter_threshold:
+                    count_filter += 1
+                    continue  
 
                 # get h2e indices
                 cas_idx_tril = idx_tril(cas_idx)
@@ -1457,12 +1480,6 @@ class ExpCls(
 
                 # compute e_core and h1e_cas
                 e_core, h1e_cas = e_core_h1e(self.hcore, self.vhf, core_idx, cas_idx)
-
-                # get nelec_tup
-                nelec_tup = get_nelec(self.occup, cas_idx)
-
-                # get number of occupied orbitals in tuple
-                nocc_tup = max(nelec_tup - self.ref_nelec)
 
                 # calculate CASCI property
                 target_tup = self._inc(
@@ -1494,6 +1511,8 @@ class ExpCls(
                     min_inc, mean_inc, max_inc = self._update_inc_stats(
                         inc_tup, min_inc, mean_inc, max_inc, cas_idx, len(eqv_set)
                     )
+
+            print("count filtered calc",count_filter,"order", self.order)
 
         # mpi barrier (ensures all slaves are done writing to hashes and inc arrays
         # before these are reduced and zeroed)
@@ -3374,8 +3393,11 @@ class SingleTargetExpCls(
                             res[k - self.min_order] += inc[k - self.min_order][l][
                                 idx.item()
                             ]
+
                         else:
-                            raise RuntimeError("Subtuple not found:", tup_sub)
+                            #raise RuntimeError("Subtuple not found:", tup_sub)
+                            res[k - self.min_order] += 0
+                            
 
         return np.sum(res, axis=0)
 
