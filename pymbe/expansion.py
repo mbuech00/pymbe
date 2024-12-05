@@ -1467,8 +1467,9 @@ class ExpCls(
                 # Use the filter function to calculate numerical overlap (I_1) 
                 I_1 = filter(nocc_tup, tup, self.M_tot, self.order)
     
-                #Check if numerical overlap I_1 is below the threshold, if yes: skip calcualtion
-                if I_1 < self.filter_threshold:
+                # Check if numerical overlap I_1 is below the threshold, if yes: skip calcualtion
+                # if I_1 < self.filter_threshold:
+                if self.filter_threshold is not None and I_1 < self.filter_threshold:
                     count_filter += 1
                     continue  
 
@@ -1511,8 +1512,6 @@ class ExpCls(
                     min_inc, mean_inc, max_inc = self._update_inc_stats(
                         inc_tup, min_inc, mean_inc, max_inc, cas_idx, len(eqv_set)
                     )
-
-            print("count filtered calc",count_filter,"order", self.order)
 
         # mpi barrier (ensures all slaves are done writing to hashes and inc arrays
         # before these are reduced and zeroed)

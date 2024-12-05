@@ -895,6 +895,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "verbose",
         "dryrun",
         "no_singles",
+        "filter_threshold",
     ]
 
     # put keyword attributes that exist into dictionary
@@ -943,6 +944,7 @@ def restart_write_system(mbe: MBE) -> None:
         "eri_goaa",
         "eri_gaao",
         "eri_gaaa",
+        "M_tot"
     ]
 
     # deal with localized orbital symmetry

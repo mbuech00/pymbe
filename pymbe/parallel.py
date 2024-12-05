@@ -106,7 +106,8 @@ def kw_dist(mbe: MBE) -> MBE:
             "verbose",
             "dryrun",
             "no_singles",
-        ]
+            "filter_threshold",
+                            ]
 
         # put keyword attributes that exist into dictionary
         kw_dict = {}
@@ -148,6 +149,7 @@ def system_dist(mbe: MBE) -> MBE:
             "eri_goaa",
             "eri_gaao",
             "eri_gaaa",
+            "M_tot",
         ]
 
         # put keyword attributes that exist into dictionary
