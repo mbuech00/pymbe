@@ -152,7 +152,7 @@ def results_plt(
     )
 
     # set x limits
-    ax.set_xlim([0.5, final_order + 1 - 0.5])
+    ax.set_xlim((0.5, final_order + 1 - 0.5))
 
     # turn off x-grid
     ax.xaxis.grid(False)

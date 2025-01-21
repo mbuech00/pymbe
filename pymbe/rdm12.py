@@ -170,7 +170,7 @@ class RDMExpCls(
             )
 
         # get reference space indices in cas_idx
-        ind = np.where(np.in1d(cas_idx, self.ref_space))[0]
+        ind = np.where(np.isin(cas_idx, self.ref_space))[0]
 
         # subtract reference space properties
         rdm12[ind] -= self.ref_prop
