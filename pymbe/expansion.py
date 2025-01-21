@@ -2041,9 +2041,6 @@ class ExpCls(
             for l in range(k + 2):
                 self._free_hashes_incs(self.hashes[k][l], self.incs[k][l])
 
-        # reduce orbital pairs
-        orb_pairs = mpi_reduce(mpi.global_comm, orb_pairs, root=0, op=MPI.SUM)
-
         return orb_pairs
 
     def _mbe_restart(self) -> None:

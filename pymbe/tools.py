@@ -21,7 +21,7 @@ import operator
 import functools
 import numpy as np
 from math import comb
-from pyscf import symm, ao2mo, fci
+from pyscf import symm, fci
 from itertools import islice, combinations, groupby, chain, product
 from bisect import insort
 from subprocess import Popen, PIPE
@@ -2676,11 +2676,17 @@ def get_vhf(eri: np.ndarray, nocc: int, norb: int) -> np.ndarray:
     this function determines the Hartree-Fock potential from the electron repulsion
     integrals
     """
-    eri = ao2mo.restore(1, eri, norb)
-
     vhf = np.empty((nocc, norb, norb), dtype=np.float64)
     for i in range(nocc):
-        vhf[i] = 2.0 * eri[i, i, :, :] - eri[:, i, i, :]
+        ii = i * (i + 1) // 2 + i
+        for j in range(norb):
+            ij = max(i, j) * (max(i, j) + 1) // 2 + min(i, j)
+            jj = j * (j + 1) // 2 + j
+            for k in range(j):
+                ik = max(i, k) * (max(i, k) + 1) // 2 + min(i, k)
+                jk = j * (j + 1) // 2 + k
+                vhf[i, j, k] = vhf[i, k, j] = 2.0 * eri[ii, jk] - eri[ij, ik]
+            vhf[i, j, j] = 2.0 * eri[ii, jj] - eri[ij, ij]
 
     return vhf
 
