@@ -78,8 +78,8 @@ def mbe_example(rst=True):
     # perform calculation
     elec_energy = mbe.kernel()
 
-    #TEST
-    print("elec_energy",elec_energy)
+    # TEST
+    print("elec_energy", elec_energy)
     # get total energy
     tot_energy = mbe.final_prop(prop_type="total", nuc_prop=mol.energy_nuc().item())
 
@@ -89,9 +89,9 @@ def mbe_example(rst=True):
 if __name__ == "__main__":
     # call example function
     energy = mbe_example()
-     
-    #Test
-    print("Energy",energy)
+
+    # Test
+    print("Energy", energy)
 
     # finalize mpi
     MPI.Finalize()

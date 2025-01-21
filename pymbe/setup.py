@@ -583,10 +583,10 @@ def sanity_check(mbe: MBE) -> None:
         raise TypeError(
             "screening type (screen_type keyword argument) must be a string"
         )
-    if mbe.screen_type not in ["fixed", "adaptive"]:
+    if mbe.screen_type not in ["fixed", "adaptive", "adaptive_filtered"]:
         raise ValueError(
             "valid screening types (screen_type keyword argument) are: fixed and "
-            "adaptive"
+            "adaptive and adaptive_filtered"
         )
     if mbe.screen_type == "adaptive" and mbe.target != "energy":
         raise ValueError(
@@ -895,7 +895,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "verbose",
         "dryrun",
         "no_singles",
-        "filter_threshold",
+        "filter_thresh",
     ]
 
     # put keyword attributes that exist into dictionary
@@ -944,7 +944,7 @@ def restart_write_system(mbe: MBE) -> None:
         "eri_goaa",
         "eri_gaao",
         "eri_gaaa",
-        "M_tot"
+        "M_tot",
     ]
 
     # deal with localized orbital symmetry

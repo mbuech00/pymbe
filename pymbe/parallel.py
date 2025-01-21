@@ -106,8 +106,8 @@ def kw_dist(mbe: MBE) -> MBE:
             "verbose",
             "dryrun",
             "no_singles",
-            "filter_threshold",
-                            ]
+            "filter_thresh",
+        ]
 
         # put keyword attributes that exist into dictionary
         kw_dict = {}

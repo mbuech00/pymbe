@@ -21,7 +21,12 @@ from abc import ABCMeta, abstractmethod
 from itertools import combinations
 from pyscf import gto, scf, cc, fci
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union, Dict
-from pymbe.filter import filter
+from pymbe.filter import (
+    tuples_filtered,
+    tuples_filtered_with_nocc,
+    pair_contribs_results,
+    start_indices,
+)
 
 from pymbe.logger import logger
 from pymbe.output import (
@@ -83,7 +88,7 @@ from pymbe.tools import (
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
-from pymbe.screen import fixed_screen
+from pymbe.screen import fixed_screen, adaptive_filtered_bootstrap
 
 if TYPE_CHECKING:
     from pyscf import gto
@@ -301,7 +306,8 @@ class ExpCls(
         # Matrix containing all Integrals over two MOs
         self.M_tot = mbe.M_tot
 
-        self.filter_threshold = mbe.filter_threshold
+        # filter threshold for filtered tuples
+        self.filter_thresh = mbe.filter_thresh
 
         # exclude single excitations
         self.no_singles = mbe.no_singles
@@ -1119,6 +1125,63 @@ class ExpCls(
                             ):
                                 ntuples[tup_nocc] += 1
 
+            # determine number of non-redundant increments
+            elif self.filter_thresh:
+
+                # initialize number of tuples for each occupation
+                ntuples = np.zeros(self.order + 1, dtype=np.int64)
+
+                # get results for pair contributions
+                (
+                    sort_pair_occ_contribs,
+                    sort_pair_virt_contribs,
+                    exp_exp_matrix,
+                    exp_nocc,
+                ) = pair_contribs_results(
+                    self.exp_space[-1], self.nocc, self.order, self.M_tot
+                )
+
+                # determine starting indices for occupied and virtual orbitals
+                nocc_start, occ_start, virt_start = start_indices(
+                    self.exp_space[-1], self.nocc
+                )
+
+                # loop over number of occupied orbitals
+                for tup_nocc in range(self.order + 1):
+                    # check if tuple with this occupation is valid
+                    if not valid_tup(
+                        self.ref_nelec,
+                        self.ref_nhole,
+                        tup_nocc,
+                        self.order - tup_nocc,
+                        self.vanish_exc,
+                    ):
+                        continue
+
+                    # loop until no tuples left
+                    for tup_idx, tup in enumerate(
+                        tuples_filtered_with_nocc(
+                            sort_pair_occ_contribs,
+                            sort_pair_virt_contribs,
+                            exp_exp_matrix,
+                            self.order,
+                            tup_nocc,
+                            exp_nocc,
+                            self.filter_thresh,
+                            self.exp_space[-1],
+                            occ_start,
+                            virt_start,
+                        )
+                    ):
+
+                        # distribute tuples
+                        if tup_idx % mpi.global_size != mpi.global_rank:
+                            continue
+
+                        # symmetry-pruning
+                        elif self.filter_thresh:
+                            ntuples[tup_nocc] += 1
+
                 # get total number of non-redundant increments
                 self.n_incs.append(mpi.global_comm.allreduce(ntuples, op=MPI.SUM))
 
@@ -1260,19 +1323,32 @@ class ExpCls(
         if not self.dryrun:
             # loop until no tuples left
 
-            count_filter = 0
-
             for tup_idx, (tup, tup_clusters) in enumerate(
-                tuples(
-                    self.exp_space[-1],
-                    self.exp_clusters[-1] if not self.exp_single_orbs else None,
-                    self.nocc,
-                    self.ref_nelec,
-                    self.ref_nhole,
-                    self.vanish_exc,
-                    self.order,
-                    tup,
-                    tup_idx,
+                (
+                    tuples(
+                        self.exp_space[-1],
+                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
+                        self.nocc,
+                        self.ref_nelec,
+                        self.ref_nhole,
+                        self.vanish_exc,
+                        self.order,
+                        tup,
+                        tup_idx,
+                    )
+                    if self.order == 1 or self.filter_thresh is None
+                    else tuples_filtered(
+                        self.exp_space[-1],
+                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
+                        self.nocc,
+                        self.ref_nelec,
+                        self.ref_nhole,
+                        self.vanish_exc,
+                        self.order,
+                        self.filter_thresh,
+                        self.M_tot,
+                        tup,
+                    )
                 ),
                 start=tup_idx,
             ):
@@ -1454,24 +1530,15 @@ class ExpCls(
                     eqv_inc_lex_tup = [tup]
                     eqv_inc_lex_tup_clusters = [tup_clusters]
                     eqv_inc_set = [[tup]]
-                
+
                 # get core and cas indices
                 core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
 
-                 # get nelec_tup
+                # get nelec_tup
                 nelec_tup = get_nelec(self.occup, cas_idx)
 
                 # get number of occupied orbitals in tuple
                 nocc_tup = max(nelec_tup - self.ref_nelec)
-
-                # Use the filter function to calculate numerical overlap (I_1) 
-                I_1 = filter(nocc_tup, tup, self.M_tot, self.order)
-    
-                # Check if numerical overlap I_1 is below the threshold, if yes: skip calcualtion
-                # if I_1 < self.filter_threshold:
-                if self.filter_threshold is not None and I_1 < self.filter_threshold:
-                    count_filter += 1
-                    continue  
 
                 # get h2e indices
                 cas_idx_tril = idx_tril(cas_idx)
@@ -2094,6 +2161,7 @@ class ExpCls(
 
         # adaptive screening procedure
         elif self.screen_type == "adaptive":
+
             # add previous expansion space for current order
             self.exp_clusters.append(self.exp_clusters[-1])
             self.exp_space.append(self.exp_space[-1])
@@ -2188,6 +2256,62 @@ class ExpCls(
 
                     # get minimum cluster
                     min_idx = mpi.global_comm.bcast(None, root=0)
+
+        # adaptive filtered screening procedure
+        elif self.screen_type == "adaptive_filtered":
+            # start screening
+            if mpi.global_master:
+
+                # loop over number of occupied orbitals
+                incs: List[IncType] = []
+
+                for tup_nocc in range(self.order + 1):
+                    # occupation index
+                    k = self.order - 1
+                    l = tup_nocc
+
+                    # load k-th order increments
+                    incs.append(
+                        self._open_shared_inc(
+                            self.incs[k][l], self.n_incs[k][l], self.order, tup_nocc
+                        )
+                    )
+
+                # check if increments exist
+                if not incs or all(
+                    isinstance(inc, np.ndarray) and inc.size == 0 for inc in incs
+                ):
+                    logger.info(
+                        f"Expansion terminated at order {self.order}: No further increments remain."
+                    )
+                    self.exp_space.append(self.exp_space[-1])
+                else:
+                    # estimate increment using boostrap method
+                    scaled_est_inc = adaptive_filtered_bootstrap(incs, self.order)
+
+                    # termination threshold
+                    threshold = 1e-4
+
+                    # check termination criteria and update expansion space
+                    if scaled_est_inc < threshold:
+                        logger.info(
+                            f"Expansion terminated at order {self.order}: Estimated increment {scaled_est_inc:.1e} is below the threshold {threshold:.1e}."
+                        )
+                        self.exp_space.append(np.array([], dtype=np.int64))
+                    else:
+                        logger.info3(
+                            f"Expansion continues: Estimated increment {scaled_est_inc:.1e} is above the threshold {threshold:.1e}."
+                        )
+                        self.exp_space.append(self.exp_space[-1])
+
+                # bcast updated expansion space
+                mpi.global_comm.bcast(self.exp_clusters[-1], root=0)
+                mpi.global_comm.bcast(self.exp_space[-1], root=0)
+
+            else:
+                # receive updated expansion space
+                self.exp_clusters.append(mpi.global_comm.bcast(None, root=0))
+                self.exp_space.append(mpi.global_comm.bcast(None, root=0))
 
         # update symmetry-equivalent orbitals wrt screened clusters
         if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
@@ -3394,9 +3518,8 @@ class SingleTargetExpCls(
                             ]
 
                         else:
-                            #raise RuntimeError("Subtuple not found:", tup_sub)
+                            # raise RuntimeError("Subtuple not found:", tup_sub)
                             res[k - self.min_order] += 0
-                            
 
         return np.sum(res, axis=0)
 
