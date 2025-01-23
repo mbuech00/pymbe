@@ -668,7 +668,9 @@ def sanity_check(mbe: MBE) -> None:
         raise ValueError(
             "filtering threshold (filter_thres keyword argument) must be >= 0 and <= 1"
         )
-    if mbe.filter_thres > 0.0 and isinstance(mbe.exp_space, list):
+    if mbe.filter_thres > 0.0 and not all(
+        cluster.size == 1 for cluster in mbe.exp_space
+    ):
         raise ValueError(
             "filtering (filter_thres keyword argument) is not available for clustered "
             "expansion spaces"
