@@ -675,6 +675,11 @@ def sanity_check(mbe: MBE) -> None:
             "filtering (filter_thres keyword argument) is not available for clustered "
             "expansion spaces"
         )
+    if mbe.filter_thres > 0.0 and mbe.screen_type != "adaptive_truncation":
+        raise ValueError(
+            "filtering (filter_thres keyword argument) is not available with screening "
+            "other than adaptive truncation (screen_type keyword argument)"
+        )
 
     # restart
     if not isinstance(mbe.rst, bool):
