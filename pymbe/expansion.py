@@ -2250,6 +2250,15 @@ class ExpCls(
                 # check if increments exist
                 if all(
                     isinstance(inc, np.ndarray) and inc.size == 0 for inc in order_incs
+                ) and any(
+                    valid_tup(
+                        self.ref_nelec,
+                        self.ref_nhole,
+                        tup_nocc,
+                        self.order - tup_nocc,
+                        self.vanish_exc,
+                    )
+                    for tup_nocc in range(self.order + 1)
                 ):
                     logger.info(f"Expansion terminated as no further increments remain")
                     self.exp_space.append(np.array([], dtype=np.int64))
