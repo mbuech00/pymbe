@@ -118,10 +118,7 @@ def norb(mol: gto.Mole) -> int:
     """
     this fixture extracts the number of orbitals from the mol object
     """
-    if isinstance(mol.nao, int):
-        return mol.nao
-    else:
-        return mol.nao.item()
+    return mol.nao
 
 
 @pytest.fixture

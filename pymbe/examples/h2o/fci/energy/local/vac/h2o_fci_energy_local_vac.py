@@ -9,8 +9,8 @@ def mbe_example(rst=True):
     # create mol object
     mol = gto.Mole()
     mol.build(
-        verbose=3,
-        output="/Users/magda/Documents/output",
+        verbose=0,
+        output=None,
         atom="""
         O  0.00000000  0.00000000  0.10840502
         H -0.75390364  0.00000000 -0.47943227
@@ -62,7 +62,6 @@ def mbe_example(rst=True):
             eri=eri,
             exp_space=exp_space,
             rst=rst,
-            verbose=2,
         )
 
     else:
@@ -72,24 +71,15 @@ def mbe_example(rst=True):
     # perform calculation
     elec_energy = mbe.kernel()
 
-    # TEST
-    print("elec_energy", elec_energy)
-
     # get total energy
     tot_energy = mbe.final_prop(prop_type="total", nuc_prop=mol.energy_nuc().item())
 
     return tot_energy
 
-    # TEST
-    print("tot_energy", tot_energy)
-
 
 if __name__ == "__main__":
     # call example function
     energy = mbe_example()
-
-    # TEST
-    print("mbe_example", energy)
 
     # finalize mpi
     MPI.Finalize()

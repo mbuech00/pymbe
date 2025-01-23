@@ -74,8 +74,6 @@ class MBE:
         eri: Optional[np.ndarray] = None,
         ref_space: np.ndarray = np.array([], dtype=np.int64),
         exp_space: Optional[Union[np.ndarray, List[np.ndarray]]] = None,
-        M_tot: Optional[np.ndarray] = None,
-        filter_thresh: Optional[float] = None,
         ref_thres: float = 0.0,
         base_method: Optional[str] = None,
         base_prop: Optional[
@@ -91,6 +89,8 @@ class MBE:
         screen_perc: float = 0.9,
         screen_thres: float = 1.0e-2,
         screen_func: str = "max",
+        pair_importance: Optional[np.ndarray] = None,
+        filter_thres: float = 0.0,
         max_order: Optional[int] = None,
         rst: bool = True,
         rst_freq: int = int(1e6),
@@ -125,7 +125,6 @@ class MBE:
 
         # input handling
         if self.mpi.global_master:
-
             # check for restart folder
             if not os.path.isdir(RST):
                 # expansion model
@@ -333,6 +332,11 @@ class MBE:
                     # set default value for maximum expansion order
                     self.max_order = np.hstack(self.exp_space).size
 
+                # filtering
+                self.filter_thres = filter_thres
+                if pair_importance is not None:
+                    self.pair_importance = pair_importance
+
                 # restart
                 self.rst = rst
                 self.rst_freq = rst_freq
@@ -380,12 +384,6 @@ class MBE:
 
                 # exclude single excitations
                 self.no_singles = no_singles
-
-                # For Filter: Matrix containing all Integrals over two MOs
-                self.M_tot = M_tot
-
-                # tuple generator threshold (based on numerical overlap)
-                self.filter_thresh = filter_thresh
 
             else:
                 # read keywords

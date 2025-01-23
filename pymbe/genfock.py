@@ -942,9 +942,17 @@ class GenFockExpCls(
             mean_inc.gen_fock.copy(),
         )
 
-    def _adaptive_screen(self, inc: List[List[packedGenFockCls]]):
+    def _adaptive_screen(
+        self, incs: List[List[packedGenFockCls]]
+    ) -> Tuple[Optional[int], float]:
         """
         this function wraps the adaptive screening function
+        """
+        raise NotImplementedError
+
+    def _adaptive_truncation(self, incs: List[packedGenFockCls]) -> float:
+        """
+        this function wraps the adaptive truncation function
         """
         raise NotImplementedError
 

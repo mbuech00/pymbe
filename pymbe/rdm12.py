@@ -555,9 +555,17 @@ class RDMExpCls(
         """
         return mean_inc.copy()
 
-    def _adaptive_screen(self, inc: List[List[packedRDMCls]]):
+    def _adaptive_screen(
+        self, incs: List[List[packedRDMCls]]
+    ) -> Tuple[Optional[int], float]:
         """
         this function wraps the adaptive screening function
+        """
+        raise NotImplementedError
+
+    def _adaptive_truncation(self, incs: List[packedRDMCls]) -> float:
+        """
+        this function wraps the adaptive truncation function
         """
         raise NotImplementedError
 

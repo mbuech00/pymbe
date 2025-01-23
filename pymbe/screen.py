@@ -595,73 +595,31 @@ def adaptive_screen(
         return None, mbe_tot_error
 
 
-def adaptive_filtered_bootstrap(incs: np.ndarray, order: int) -> float:
+def adaptive_truncation_bootstrap(incs: List[np.ndarray]) -> float:
     """
     this function estimates the contribution of an increment
     """
-    # number of samples and iteration
-    n_sampl = 10000
-    n_iter = 100
+    # number of bootstrapping samples
+    n_iter = 1000
 
-    # mean values for each iteration
-    order_mean = []
+    # sum values for each iteration
+    iter_sums: List[float] = []
 
+    # create random number generator
+    rng = np.random.default_rng(seed=SEED)
+
+    # loop over bootstrapping iterations
     for _ in range(n_iter):
-        sampled_inc_sum = 0.0
-        total_samples = 0
-
-        # probabilities/ratios for each tuple occupation
-        weights = np.array([inc.size for inc in incs if isinstance(inc, np.ndarray)])
-        ratios = weights / weights.sum()
-
-        # sort ratios in descending order
-        sort_idx = np.argsort(-ratios)
-        ratios = ratios[sort_idx]
-
-        # descending cumulative sum of ratios
-        ratios_cumsum = np.cumsum(ratios[::-1])[::-1]
-
-        # fractions of the ratios with respect to the cumulative sum
-        fracs = np.divide(
-            ratios, ratios_cumsum, out=np.ones_like(ratios), where=(ratios_cumsum != 0)
+        # draw samples from increments with different occupations for current iteration
+        iter_sums.append(
+            sum([rng.choice(inc, size=inc.size, replace=True).sum() for inc in incs])
         )
 
-        # allocate remaining samples proportionally to fractions
-        remainder = n_sampl
-        parts = np.zeros_like(fracs, dtype=int)
-        for i, frac in enumerate(fracs):
-            parts[i] = round(remainder * frac)
-            remainder -= parts[i]
-
-        # ensure allocated parts follow original order
-        parts = parts[np.argsort(sort_idx)]
-
-        for inc, part in zip(incs, parts):
-            if inc.size == 0:
-                continue
-
-            # samples size proportional to weight
-            n_sampl_tup_nocc = part
-
-            sampled_inc = np.random.choice(inc, size=n_sampl_tup_nocc, replace=True)
-
-            # cumulative sum
-            sampled_inc_sum += sampled_inc.sum()
-            total_samples += n_sampl_tup_nocc
-
-        # mean for current iteration
-        iter_mean = sampled_inc_sum / total_samples
-        order_mean.append(iter_mean)
-
-    # compute 97.5% confidence interval upper bound
-    est_inc = np.quantile(np.array(order_mean), 0.975)
+    # compute confidence interval upper bound
+    est_inc = np.quantile(np.abs(iter_sums), 0.95).item()
     logger.info3(
-        f"Order {order}: 97.5% confidence interval upper bound for estimated mean: {est_inc:.1e}"
+        f"95% one-sided upper confidence bound for absolute sum of increment "
+        f"contributions: {est_inc:.1e}"
     )
 
-    # scale estimate by total increment length
-    incs_len = weights.sum()
-    scaled_est_inc = est_inc * incs_len
-    scaled_est_inc = np.abs(scaled_est_inc)
-
-    return scaled_est_inc
+    return est_inc

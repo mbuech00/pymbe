@@ -1,5 +1,6 @@
 *pyc
 *bak
+.DS_Store
 .mypy_cache
 src/.mypy_cache
 examples/energy/*/output

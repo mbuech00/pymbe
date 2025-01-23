@@ -85,7 +85,7 @@ def mbe_header(
     )
     if screen_type == "fixed":
         string += f"(perc: {screen_perc:.2f})"
-    elif screen_type == "adaptive":
+    elif screen_type in ["adaptive", "adaptive_truncation"]:
         string += f"(thres: {screen_thres:.0e})"
     string += "\n" + DIVIDER
 

@@ -35,7 +35,7 @@ from pymbe.tools import (
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 from pymbe.interface import mbecc_interface
-from pymbe.screen import adaptive_screen
+from pymbe.screen import adaptive_screen, adaptive_truncation_bootstrap
 
 if TYPE_CHECKING:
     import matplotlib
@@ -437,7 +437,9 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         return string
 
-    def _adaptive_screen(self, incs: List[List[np.ndarray]]):
+    def _adaptive_screen(
+        self, incs: List[List[np.ndarray]]
+    ) -> Tuple[Optional[int], float]:
         """
         this function wraps the adaptive screening function
         """
@@ -457,6 +459,12 @@ class EnergyExpCls(SingleTargetExpCls[float]):
             self.order,
             CONV_TOL,
         )
+
+    def _adaptive_truncation(self, incs: List[np.ndarray]) -> float:
+        """
+        this function wraps the adaptive truncation function
+        """
+        return adaptive_truncation_bootstrap(incs)
 
     def _prop_summ(
         self,

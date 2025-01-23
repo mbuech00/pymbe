@@ -583,12 +583,15 @@ def sanity_check(mbe: MBE) -> None:
         raise TypeError(
             "screening type (screen_type keyword argument) must be a string"
         )
-    if mbe.screen_type not in ["fixed", "adaptive", "adaptive_filtered"]:
+    if mbe.screen_type not in ["fixed", "adaptive", "adaptive_truncation"]:
         raise ValueError(
-            "valid screening types (screen_type keyword argument) are: fixed and "
-            "adaptive and adaptive_filtered"
+            "valid screening types (screen_type keyword argument) are: fixed, adaptive "
+            "and adaptive_truncation"
         )
-    if mbe.screen_type == "adaptive" and mbe.target != "energy":
+    if (
+        mbe.screen_type in ["adaptive", "adaptive_truncation"]
+        and mbe.target != "energy"
+    ):
         raise ValueError(
             "adaptive screening (screen_type keyword argument) is currently only "
             "implemented for energy expansions (target keyword argument)"
@@ -613,9 +616,9 @@ def sanity_check(mbe: MBE) -> None:
         raise TypeError(
             "screening threshold (screen_thres keyword argument) must be a float"
         )
-    if mbe.screen_thres <= 0.0:
+    if mbe.screen_thres < 0.0:
         raise ValueError(
-            "screening threshold (screen_thres keyword argument) must be > 0."
+            "screening threshold (screen_thres keyword argument) must be >= 0."
         )
     if not isinstance(mbe.screen_func, str):
         raise TypeError(
@@ -640,6 +643,35 @@ def sanity_check(mbe: MBE) -> None:
     if isinstance(mbe.max_order, int) and mbe.max_order < 1:
         raise ValueError(
             "maximum expansion order (max_order keyword argument) must be >= 1"
+        )
+
+    # filtering
+    if hasattr(mbe, "pair_importance") and not isinstance(
+        mbe.pair_importance, np.ndarray
+    ):
+        raise TypeError(
+            "pair importance criterion (pair_importance keyword argument) must be a "
+            "np.ndarray or None"
+        )
+    if hasattr(mbe, "pair_importance") and (
+        mbe.pair_importance.shape != 2 * (mbe.ref_space.size + exp_space.size,)
+    ):
+        raise ValueError(
+            "pair importance criterion (pair_importance keyword argument) must have "
+            "shape (ref_space.size + exp_space.size)"
+        )
+    if not isinstance(mbe.filter_thres, float):
+        raise TypeError(
+            "filtering threshold (filter_thres keyword argument) must be a float"
+        )
+    if 0.0 > mbe.filter_thres > 1.0:
+        raise ValueError(
+            "filtering threshold (filter_thres keyword argument) must be >= 0 and <= 1"
+        )
+    if mbe.filter_thres > 0.0 and isinstance(mbe.exp_space, list):
+        raise ValueError(
+            "filtering (filter_thres keyword argument) is not available for clustered "
+            "expansion spaces"
         )
 
     # restart
@@ -895,7 +927,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "verbose",
         "dryrun",
         "no_singles",
-        "filter_thresh",
+        "filter_thres",
     ]
 
     # put keyword attributes that exist into dictionary
@@ -944,7 +976,7 @@ def restart_write_system(mbe: MBE) -> None:
         "eri_goaa",
         "eri_gaao",
         "eri_gaaa",
-        "M_tot",
+        "pair_importance",
     ]
 
     # deal with localized orbital symmetry

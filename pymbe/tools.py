@@ -771,19 +771,8 @@ def tuples(
         virt_space = orb_space[nocc <= orb_space]
 
         # start tuples
-        start_tup_occ: Optional[np.ndarray]
-        start_tup_virt: Optional[np.ndarray]
-        if start_tup is not None:
-            start_tup_occ = start_tup[start_tup < nocc]
-            start_tup_virt = start_tup[nocc <= start_tup]
-            if start_tup_occ.size == 0:
-                start_tup_occ = None
-            if start_tup_virt.size == 0:
-                start_tup_virt = None
-        else:
-            start_tup_occ = start_tup_virt = None
-        nocc_start, occ_start, virt_start = _start_idx(
-            occ_space, virt_space, start_tup_occ, start_tup_virt
+        nocc_start, occ_start, virt_start = start_indices(
+            occ_space, virt_space, nocc, start_tup
         )
 
         # loop over number of occupied orbitals
@@ -856,30 +845,43 @@ def tuples(
             start_idx = 0
 
 
-def _start_idx(
+def start_indices(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    tup_occ: Optional[np.ndarray],
-    tup_virt: Optional[np.ndarray],
+    nocc: int,
+    start_tup: Optional[np.ndarray],
 ) -> Tuple[int, int, int]:
     """
-    this function return the start indices for a given occupied and virtual tuple
+    this function return the start indices from a given starting tuple
     """
-    if tup_occ is None and tup_virt is None:
+    start_tup_occ: Optional[np.ndarray]
+    start_tup_virt: Optional[np.ndarray]
+    if start_tup is not None:
+        start_tup_occ = start_tup[start_tup < nocc]
+        start_tup_virt = start_tup[nocc <= start_tup]
+        if start_tup_occ.size == 0:
+            start_tup_occ = None
+        if start_tup_virt.size == 0:
+            start_tup_virt = None
+    else:
+        start_tup_occ = start_tup_virt = None
+
+    if start_tup_occ is None and start_tup_virt is None:
         order_start = 0
         occ_start = virt_start = 0
-    elif tup_occ is not None and tup_virt is not None:
-        order_start = tup_occ.size
-        occ_start = _comb_idx(occ_space, tup_occ)
-        virt_start = _comb_idx(virt_space, tup_virt)
-    elif tup_occ is not None and tup_virt is None:
-        order_start = tup_occ.size
-        occ_start = _comb_idx(occ_space, tup_occ)
+    elif start_tup_occ is not None and start_tup_virt is not None:
+        order_start = start_tup_occ.size
+        occ_start = _comb_idx(occ_space, start_tup_occ)
+        virt_start = _comb_idx(virt_space, start_tup_virt)
+    elif start_tup_occ is not None and start_tup_virt is None:
+        order_start = start_tup_occ.size
+        occ_start = _comb_idx(occ_space, start_tup_occ)
         virt_start = 0
-    elif tup_occ is None and tup_virt is not None:
+    elif start_tup_occ is None and start_tup_virt is not None:
         order_start = 0
         occ_start = 0
-        virt_start = _comb_idx(virt_space, tup_virt)
+        virt_start = _comb_idx(virt_space, start_tup_virt)
+
     return order_start, occ_start, virt_start
 
 

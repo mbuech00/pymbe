@@ -24,7 +24,7 @@ from pymbe.tools import (
     hash_1d,
     hash_lookup,
     tuples,
-    _start_idx,
+    start_indices,
     _comb_idx,
     _idx,
     n_tuples,
@@ -60,25 +60,10 @@ test_cases_tuples = [
     ("ref_space", np.array([3, 4], dtype=np.int64), 20),
 ]
 
-test_cases_start_idx = [
-    (
-        "all",
-        np.array([1, 2], dtype=np.int64),
-        np.array([6, 7, 12], dtype=np.int64),
-        (2, 3, 1),
-    ),
-    (
-        "occ",
-        np.array([0, 1, 2], dtype=np.int64),
-        None,
-        (3, 0, 0),
-    ),
-    (
-        "virt",
-        None,
-        np.array([6, 9, 12], dtype=np.int64),
-        (0, 0, 2),
-    ),
+test_cases_start_indices = [
+    ("all", 6, np.array([1, 2, 6, 7, 12], dtype=np.int64), (2, 3, 1)),
+    ("occ", 6, np.array([0, 1, 2], dtype=np.int64), (3, 0, 0)),
+    ("virt", 6, np.array([6, 9, 12], dtype=np.int64), (0, 0, 2)),
 ]
 
 test_cases_comb_idx = [
@@ -231,22 +216,20 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="tup_occ, tup_virt, ref_start_idx",
-    argvalues=[case[1:] for case in test_cases_start_idx],
-    ids=[case[0] for case in test_cases_start_idx],
+    argnames="nocc, start_tup, ref_start_indices",
+    argvalues=[case[1:] for case in test_cases_start_indices],
+    ids=[case[0] for case in test_cases_start_indices],
 )
-def test_start_idx(
-    tup_occ: Optional[np.ndarray],
-    tup_virt: Optional[np.ndarray],
-    ref_start_idx: Tuple[int, int, int],
+def test_start_indices(
+    nocc: int, start_tup: np.ndarray, ref_start_indices: Tuple[int, int, int]
 ) -> None:
     """
-    this function tests _start_idx
+    this function tests start_indices
     """
     occ_space = np.array([0, 1, 2, 5], dtype=np.int64)
     virt_space = np.array([6, 7, 9, 12], dtype=np.int64)
 
-    assert _start_idx(occ_space, virt_space, tup_occ, tup_virt) == ref_start_idx
+    assert start_indices(occ_space, virt_space, nocc, start_tup) == ref_start_indices
 
 
 @pytest.mark.parametrize(

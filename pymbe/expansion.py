@@ -21,12 +21,7 @@ from abc import ABCMeta, abstractmethod
 from itertools import combinations
 from pyscf import gto, scf, cc, fci
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union, Dict
-from pymbe.filter import (
-    tuples_filtered,
-    tuples_filtered_with_nocc,
-    pair_contribs_results,
-    start_indices,
-)
+from pymbe.filter import tuples_filtered, tuples_filtered_with_nocc, norm_pair_contribs
 
 from pymbe.logger import logger
 from pymbe.output import (
@@ -88,7 +83,7 @@ from pymbe.tools import (
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, open_shared_win
 from pymbe.results import timings_prt
-from pymbe.screen import fixed_screen, adaptive_filtered_bootstrap
+from pymbe.screen import fixed_screen
 
 if TYPE_CHECKING:
     from pyscf import gto
@@ -260,6 +255,11 @@ class ExpCls(
         self.screen_tot_prop: List[TargetType] = []
         self.mbe_tot_error: List[float] = []
 
+        # filtering
+        if hasattr(mbe, "pair_importance"):
+            self.pair_importance = mbe.pair_importance
+        self.filter_thres = mbe.filter_thres
+
         # restart
         self.rst = mbe.rst
         self.rst_freq = mbe.rst_freq
@@ -302,12 +302,6 @@ class ExpCls(
 
         # dryrun
         self.dryrun = mbe.dryrun
-
-        # Matrix containing all Integrals over two MOs
-        self.M_tot = mbe.M_tot
-
-        # filter threshold for filtered tuples
-        self.filter_thresh = mbe.filter_thresh
 
         # exclude single excitations
         self.no_singles = mbe.no_singles
@@ -1111,23 +1105,17 @@ class ExpCls(
                             tup_nocc,
                         )
                     ):
-                        # distribute tuples
-                        if tup_idx % mpi.global_size != mpi.global_rank:
-                            continue
-
-                        # symmetry-pruning
-                        elif self.eqv_inc_orbs is not None:
-                            if is_lex_tup(
-                                cas(self.non_symm_inv_ref_space, tup),
-                                self.eqv_inc_orbs[-1],
-                                self.non_symm_inv_ref_space,
-                                self.cluster_dict,
-                            ):
-                                ntuples[tup_nocc] += 1
+                        # distribute and count tuples tuples
+                        if tup_idx % mpi.global_size == mpi.global_rank and is_lex_tup(
+                            cas(self.non_symm_inv_ref_space, tup),
+                            self.eqv_inc_orbs[-1],
+                            self.non_symm_inv_ref_space,
+                            self.cluster_dict,
+                        ):
+                            ntuples[tup_nocc] += 1
 
             # determine number of non-redundant increments
-            elif self.filter_thresh:
-
+            elif self.filter_thres:
                 # initialize number of tuples for each occupation
                 ntuples = np.zeros(self.order + 1, dtype=np.int64)
 
@@ -1135,15 +1123,10 @@ class ExpCls(
                 (
                     sort_pair_occ_contribs,
                     sort_pair_virt_contribs,
-                    exp_exp_matrix,
+                    exp_pair_contribs,
                     exp_nocc,
-                ) = pair_contribs_results(
-                    self.exp_space[-1], self.nocc, self.order, self.M_tot
-                )
-
-                # determine starting indices for occupied and virtual orbitals
-                nocc_start, occ_start, virt_start = start_indices(
-                    self.exp_space[-1], self.nocc
+                ) = norm_pair_contribs(
+                    self.exp_space[-1], self.nocc, self.order, self.pair_importance
                 )
 
                 # loop over number of occupied orbitals
@@ -1159,27 +1142,21 @@ class ExpCls(
                         continue
 
                     # loop until no tuples left
-                    for tup_idx, tup in enumerate(
+                    for tup_idx, _ in enumerate(
                         tuples_filtered_with_nocc(
                             sort_pair_occ_contribs,
                             sort_pair_virt_contribs,
-                            exp_exp_matrix,
+                            exp_pair_contribs,
                             self.order,
                             tup_nocc,
                             exp_nocc,
-                            self.filter_thresh,
+                            self.filter_thres,
                             self.exp_space[-1],
-                            occ_start,
-                            virt_start,
                         )
                     ):
 
-                        # distribute tuples
-                        if tup_idx % mpi.global_size != mpi.global_rank:
-                            continue
-
-                        # symmetry-pruning
-                        elif self.filter_thresh:
+                        # distribute and count tuples
+                        if tup_idx % mpi.global_size == mpi.global_rank:
                             ntuples[tup_nocc] += 1
 
                 # get total number of non-redundant increments
@@ -1319,39 +1296,37 @@ class ExpCls(
         hashes_lst: List[List[int]] = [[] for _ in range(self.order + 1)]
         inc_lst: List[List[TargetType]] = [[] for _ in range(self.order + 1)]
 
+        # decide on what generator to use
+        if not self.filter_thres or self.order == 1:
+            tuples_gen = tuples(
+                self.exp_space[-1],
+                self.exp_clusters[-1] if not self.exp_single_orbs else None,
+                self.nocc,
+                self.ref_nelec,
+                self.ref_nhole,
+                self.vanish_exc,
+                self.order,
+                tup,
+                tup_idx,
+            )
+        else:
+            tuples_gen = tuples_filtered(
+                self.exp_space[-1],
+                self.exp_clusters[-1] if not self.exp_single_orbs else None,
+                self.nocc,
+                self.ref_nelec,
+                self.ref_nhole,
+                self.vanish_exc,
+                self.order,
+                self.filter_thres,
+                self.pair_importance,
+                tup,
+            )
+
         # perform calculation if not dryrun
         if not self.dryrun:
             # loop until no tuples left
-
-            for tup_idx, (tup, tup_clusters) in enumerate(
-                (
-                    tuples(
-                        self.exp_space[-1],
-                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
-                        self.nocc,
-                        self.ref_nelec,
-                        self.ref_nhole,
-                        self.vanish_exc,
-                        self.order,
-                        tup,
-                        tup_idx,
-                    )
-                    if self.order == 1 or self.filter_thresh is None
-                    else tuples_filtered(
-                        self.exp_space[-1],
-                        self.exp_clusters[-1] if not self.exp_single_orbs else None,
-                        self.nocc,
-                        self.ref_nelec,
-                        self.ref_nhole,
-                        self.vanish_exc,
-                        self.order,
-                        self.filter_thresh,
-                        self.M_tot,
-                        tup,
-                    )
-                ),
-                start=tup_idx,
-            ):
+            for tup_idx, (tup, tup_clusters) in enumerate(tuples_gen, start=tup_idx):
                 # write restart files and re-init time
                 if rst_write and tup_idx % self.rst_freq == 0:
                     for tup_nocc in range(self.order + 1):
@@ -1534,12 +1509,6 @@ class ExpCls(
                 # get core and cas indices
                 core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
 
-                # get nelec_tup
-                nelec_tup = get_nelec(self.occup, cas_idx)
-
-                # get number of occupied orbitals in tuple
-                nocc_tup = max(nelec_tup - self.ref_nelec)
-
                 # get h2e indices
                 cas_idx_tril = idx_tril(cas_idx)
 
@@ -1548,6 +1517,12 @@ class ExpCls(
 
                 # compute e_core and h1e_cas
                 e_core, h1e_cas = e_core_h1e(self.hcore, self.vhf, core_idx, cas_idx)
+
+                # get nelec_tup
+                nelec_tup = get_nelec(self.occup, cas_idx)
+
+                # get number of occupied orbitals in tuple
+                nocc_tup = max(nelec_tup - self.ref_nelec)
 
                 # calculate CASCI property
                 target_tup = self._inc(
@@ -2158,7 +2133,6 @@ class ExpCls(
 
         # adaptive screening procedure
         elif self.screen_type == "adaptive":
-
             # add previous expansion space for current order
             self.exp_clusters.append(self.exp_clusters[-1])
             self.exp_space.append(self.exp_space[-1])
@@ -2254,13 +2228,12 @@ class ExpCls(
                     # get minimum cluster
                     min_idx = mpi.global_comm.bcast(None, root=0)
 
-        # adaptive filtered screening procedure
-        elif self.screen_type == "adaptive_filtered":
+        # adaptive truncation procedure
+        elif self.screen_type == "adaptive_truncation":
             # start screening
             if mpi.global_master:
-
                 # loop over number of occupied orbitals
-                incs: List[IncType] = []
+                order_incs: List[IncType] = []
 
                 for tup_nocc in range(self.order + 1):
                     # occupation index
@@ -2268,36 +2241,35 @@ class ExpCls(
                     l = tup_nocc
 
                     # load k-th order increments
-                    incs.append(
+                    order_incs.append(
                         self._open_shared_inc(
                             self.incs[k][l], self.n_incs[k][l], self.order, tup_nocc
                         )
                     )
 
                 # check if increments exist
-                if not incs or all(
-                    isinstance(inc, np.ndarray) and inc.size == 0 for inc in incs
+                if all(
+                    isinstance(inc, np.ndarray) and inc.size == 0 for inc in order_incs
                 ):
-                    logger.info(
-                        f"Expansion terminated at order {self.order}: No further increments remain."
-                    )
+                    logger.info(f"Expansion terminated as no further increments remain")
                     self.exp_space.append(self.exp_space[-1])
                 else:
-                    # estimate increment using boostrap method
-                    scaled_est_inc = adaptive_filtered_bootstrap(incs, self.order)
-
-                    # termination threshold
-                    threshold = 1e-4
+                    # estimate upper bound for increment using boostrap method
+                    est_inc = self._adaptive_truncation(order_incs)
 
                     # check termination criteria and update expansion space
-                    if scaled_est_inc < threshold:
+                    if est_inc < self.screen_thres:
                         logger.info(
-                            f"Expansion terminated at order {self.order}: Estimated increment {scaled_est_inc:.1e} is below the threshold {threshold:.1e}."
+                            f"Expansion terminated as estimated upper bound for "
+                            f"increment ({est_inc:.1e}) is below threshold "
+                            f"{self.screen_thres:.1e}"
                         )
                         self.exp_space.append(np.array([], dtype=np.int64))
                     else:
                         logger.info3(
-                            f"Expansion continues: Estimated increment {scaled_est_inc:.1e} is above the threshold {threshold:.1e}."
+                            f"Expansion continues as estimated upper bound for "
+                            f"increment ({est_inc:.1e}) is above threshold "
+                            f"{self.screen_thres:.1e}"
                         )
                         self.exp_space.append(self.exp_space[-1])
 
@@ -3301,9 +3273,17 @@ class ExpCls(
         """
 
     @abstractmethod
-    def _adaptive_screen(self, inc: List[List[IncType]]):
+    def _adaptive_screen(
+        self, incs: List[List[IncType]]
+    ) -> Tuple[Optional[int], float]:
         """
         this function wraps the adaptive screening function
+        """
+
+    @abstractmethod
+    def _adaptive_truncation(self, incs: List[IncType]) -> float:
+        """
+        this function wraps the adaptive truncation function
         """
 
     def _screen_remove_cluster_contrib(self, mpi: MPICls, cluster_idx: int) -> None:
@@ -3513,10 +3493,8 @@ class SingleTargetExpCls(
                             res[k - self.min_order] += inc[k - self.min_order][l][
                                 idx.item()
                             ]
-
-                        else:
-                            # raise RuntimeError("Subtuple not found:", tup_sub)
-                            res[k - self.min_order] += 0
+                        elif not self.filter_thres:
+                            raise RuntimeError("Subtuple not found:", tup_sub)
 
         return np.sum(res, axis=0)
 

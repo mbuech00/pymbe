@@ -392,9 +392,17 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         return string
 
-    def _adaptive_screen(self, inc: List[List[np.ndarray]]):
+    def _adaptive_screen(
+        self, incs: List[List[np.ndarray]]
+    ) -> Tuple[Optional[int], float]:
         """
         this function wraps the adaptive screening function
+        """
+        raise NotImplementedError
+
+    def _adaptive_truncation(self, incs: List[np.ndarray]) -> float:
+        """
+        this function wraps the adaptive truncation function
         """
         raise NotImplementedError
 

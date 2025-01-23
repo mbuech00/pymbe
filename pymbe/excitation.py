@@ -22,7 +22,7 @@ from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
     import matplotlib
-    from typing import Tuple, Union, List
+    from typing import Tuple, Union, List, Optional
 
 
 class ExcExpCls(EnergyExpCls):
@@ -101,9 +101,17 @@ class ExcExpCls(EnergyExpCls):
         """
         raise NotImplementedError
 
-    def _adaptive_screen(self, inc: List[List[np.ndarray]]):
+    def _adaptive_screen(
+        self, incs: List[List[np.ndarray]]
+    ) -> Tuple[Optional[int], float]:
         """
         this function wraps the adaptive screening function
+        """
+        raise NotImplementedError
+
+    def _adaptive_truncation(self, incs: List[np.ndarray]) -> float:
+        """
+        this function wraps the adaptive truncation function
         """
         raise NotImplementedError
 
