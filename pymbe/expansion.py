@@ -2252,7 +2252,7 @@ class ExpCls(
                     isinstance(inc, np.ndarray) and inc.size == 0 for inc in order_incs
                 ):
                     logger.info(f"Expansion terminated as no further increments remain")
-                    self.exp_space.append(self.exp_space[-1])
+                    self.exp_space.append(np.array([], dtype=np.int64))
                 else:
                     # estimate upper bound for increment using boostrap method
                     est_inc = self._adaptive_truncation(order_incs)
